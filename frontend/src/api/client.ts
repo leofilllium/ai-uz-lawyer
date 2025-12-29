@@ -295,6 +295,12 @@ export async function getValidationHistory(): Promise<ContractAnalysis[]> {
   return response.json();
 }
 
+export async function getValidationById(id: number): Promise<ContractAnalysis> {
+  const response = await fetchWithAuth(`/api/validator/${id}`);
+  if (!response.ok) throw new Error('Validation not found');
+  return response.json();
+}
+
 // Generator API
 export interface ContractCategory {
   name: string;
@@ -372,6 +378,12 @@ export async function generateContract(
 export async function getGenerationHistory(): Promise<GeneratedContract[]> {
   const response = await fetchWithAuth('/api/generator/history');
   if (!response.ok) throw new Error('Failed to fetch history');
+  return response.json();
+}
+
+export async function getGeneratedContractById(id: number): Promise<GeneratedContract> {
+  const response = await fetchWithAuth(`/api/generator/contract/${id}`);
+  if (!response.ok) throw new Error('Contract not found');
   return response.json();
 }
 

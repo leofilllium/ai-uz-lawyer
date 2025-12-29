@@ -3,9 +3,9 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
-import { getCategories, generateContract, type ContractCategory, type Source } from '../api/client';
+import { getCategories, generateContract, getGeneratedContractById, type ContractCategory, type Source } from '../api/client';
 
 export default function Generator() {
   const [categories, setCategories] = useState<ContractCategory[]>([]);
@@ -17,10 +17,36 @@ export default function Generator() {
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     loadCategories();
-  }, []);
+    
+    // Load existing contract if ID is in URL
+    const idParam = searchParams.get('id');
+    if (idParam) {
+      const id = parseInt(idParam, 10);
+      if (!isNaN(id)) {
+        loadContract(id);
+      }
+    }
+  }, [searchParams]);
+
+  const loadContract = async (id: number) => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await getGeneratedContractById(id);
+      setGeneratedText(data.generated_text);
+      setSelectedCategory(data.category);
+      setRequirements(data.requirements);
+      setSources(data.sources || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось загрузить договор');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadCategories = async () => {
     try {

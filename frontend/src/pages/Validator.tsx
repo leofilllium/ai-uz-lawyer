@@ -2,10 +2,10 @@
  * Contract Validator Page
  */
 
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
-import { analyzeContract, type ContractAnalysis as Analysis } from '../api/client';
+import { analyzeContract, getValidationById, type ContractAnalysis as Analysis } from '../api/client';
 
 export default function Validator() {
   const [contractText, setContractText] = useState('');
@@ -13,6 +13,34 @@ export default function Validator() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Load existing validation if ID is in URL
+  useEffect(() => {
+    const idParam = searchParams.get('id');
+    if (idParam) {
+      const id = parseInt(idParam, 10);
+      if (!isNaN(id)) {
+        loadValidation(id);
+      }
+    }
+  }, [searchParams]);
+
+  const loadValidation = async (id: number) => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await getValidationById(id);
+      setResult(data);
+      if (data.contract_preview) {
+        setContractText(data.contract_preview);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось загрузить анализ');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
