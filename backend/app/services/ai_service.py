@@ -78,7 +78,7 @@ SMALLTALK_PROMPT = """Вы дружелюбный AI-помощник по за�
 - Давайте короткие, практичные ответы (3-5 предложений максимум)
 - Используйте простой язык без юридического жаргона
 - При необходимости рекомендуйте обратиться к AI Юристу для детального анализа
-- Не цитируйте статьи кодексов, просто объясняйте суть
+- ВАЖНО: Если ваш ответ основан на конкретной статье или законе, упомяните это кратко в тексте ответа (например: "Согласно Трудовому кодексу..." или "По закону о защите прав потребителей...")
 - Будьте дружелюбны и поддерживающи
 
 Это режим быстрых консультаций. Для сложных вопросов направляйте пользователя в раздел "AI Юрист" (режим риск-менеджера)."""
@@ -261,8 +261,11 @@ class AIService:
         if chat_mode == 'risk-manager' and self._should_use_fallback(results):
             context = self._get_fallback_instruction() + "\n\n" + context
         
-        # Format sources for UI
-        sources = self._format_sources(results)
+        # Format sources for UI - limit for smalltalk mode for cleaner UI
+        if chat_mode == 'smalltalk':
+            sources = self._format_sources(results[:30])  # Top 5 sources for simple questions
+        else:
+            sources = self._format_sources(results)
         
         # Build messages
         messages = []
@@ -324,7 +327,7 @@ class AIService:
         
         return {
             "response": stream_response(),
-            "sources": sources if chat_mode == 'risk-manager' else [],  # Only show sources in risk-manager mode
+            "sources": sources,  # Include sources for both modes
             "context": context,
             "query": question,
         }
