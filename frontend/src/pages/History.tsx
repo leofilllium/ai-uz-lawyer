@@ -86,7 +86,7 @@ export default function History() {
         ) : items.length === 0 ? (
           <div className="empty-state">
             <p>История пуста</p>
-            <p>Начните использовать AI Юрист, и ваши действия появятся здесь</p>
+            <p>Начните использовать AI Юрист, и ваши консультации, проверки договоров и созданные документы появятся здесь</p>
           </div>
         ) : (
           <div className="history-grid">

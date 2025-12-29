@@ -202,7 +202,8 @@ export async function sendChatMessage(
   message: string, 
   sessionId?: number,
   onChunk?: (chunk: string) => void,
-  onDone?: (sessionId: number, sources: Source[]) => void
+  onDone?: (sessionId: number, sources: Source[]) => void,
+  chatMode: 'risk-manager' | 'smalltalk' = 'risk-manager'
 ): Promise<void> {
   const token = getToken();
   const headers: Record<string, string> = {
@@ -215,7 +216,7 @@ export async function sendChatMessage(
   const response = await fetch(`${API_BASE_URL}/api/lawyer/chat`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ message, session_id: sessionId }),
+    body: JSON.stringify({ message, session_id: sessionId, chat_mode: chatMode }),
   });
   
   if (!response.ok) {

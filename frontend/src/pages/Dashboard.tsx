@@ -61,11 +61,11 @@ export default function Dashboard() {
             <p>Создание договоров на основе шаблонов и требований</p>
           </Link>
 
-          <Link to="/lawyer?mode=smalltalk" className="feature-card smalltalk">
+          {/* <Link to="/lawyer?mode=smalltalk" className="feature-card smalltalk">
             <div className="feature-icon">🗣️</div>
             <h2>Просто поболтать</h2>
             <p>Неформальное общение и поддержка в любых вопросах</p>
-          </Link>
+          </Link> */}
 
           <Link to="/history" className="feature-card history">
             <div className="feature-icon">📚</div>

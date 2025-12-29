@@ -72,6 +72,17 @@ LAWYER_PROMPT = """Вы РИСК-МЕНЕДЖЕР и бизнес-консуль
 
 ВАЖНО: Это AI-консультация. По конкретным делам рекомендуется обращение к лицензированному адвокату."""
 
+SMALLTALK_PROMPT = """Вы дружелюбный AI-помощник по законодательству Узбекистана. Отвечайте кратко и понятно на простые юридические вопросы.
+
+Правила:
+- Давайте короткие, практичные ответы (3-5 предложений максимум)
+- Используйте простой язык без юридического жаргона
+- При необходимости рекомендуйте обратиться к AI Юристу для детального анализа
+- Не цитируйте статьи кодексов, просто объясняйте суть
+- Будьте дружелюбны и поддерживающи
+
+Это режим быстрых консультаций. Для сложных вопросов направляйте пользователя в раздел "AI Юрист" (режим риск-менеджера)."""
+
 VALIDATOR_PROMPT = """You are the "Uzbekistan Contract Compliance Engine" (UCCE). Your goal is to AUDIT contracts against the mandatory requirements of the Civil Code of Uzbekistan and the Law on Contractual-Legal Base of Activity of Business Entities.
 
 You have access to the legal context from:
@@ -226,14 +237,19 @@ class AIService:
         self, 
         question: str, 
         history: Optional[List[Dict[str, str]]] = None,
-        top_k: int = 60
+        top_k: int = 60,
+        chat_mode: str = 'risk-manager'
     ) -> Dict[str, Any]:
         """
         Query with RAG (for lawyer mode).
-        Uses Claude Opus with extended thinking.
+        chat_mode: 'risk-manager' or 'smalltalk'
         """
         # Ensure documents are indexed
         self.ensure_indexed()
+        
+        # For smalltalk mode, use fewer documents and simpler response
+        if chat_mode == 'smalltalk':
+            top_k = 20  # Fewer documents for simple questions
         
         # Retrieve relevant context
         results = self._retrieve_context(question, top_k=top_k)
@@ -241,8 +257,8 @@ class AIService:
         # Format context for LLM
         context = self._format_context(results)
         
-        # Check if we need fallback mode
-        if self._should_use_fallback(results):
+        # Check if we need fallback mode (only for risk-manager)
+        if chat_mode == 'risk-manager' and self._should_use_fallback(results):
             context = self._get_fallback_instruction() + "\n\n" + context
         
         # Format sources for UI
@@ -257,8 +273,16 @@ class AIService:
                     "content": msg["content"]
                 })
         
-        # Add current query with context
-        user_message = f"""ПРАВОВОЙ КОНТЕКСТ ИЗ КОДЕКСОВ УЗБЕКИСТАНА:
+        # Add current query with context - different format for each mode
+        if chat_mode == 'smalltalk':
+            user_message = f"""Контекст из законодательства (для справки):
+{context[:3000]}
+
+Вопрос: {question}
+
+Ответь кратко и дружелюбно, простым языком."""
+        else:
+            user_message = f"""ПРАВОВОЙ КОНТЕКСТ ИЗ КОДЕКСОВ УЗБЕКИСТАНА:
 {context}
 
 ВОПРОС ПОЛЬЗОВАТЕЛЯ:
@@ -268,24 +292,39 @@ class AIService:
         
         messages.append({"role": "user", "content": user_message})
         
-        # Stream response
+        # Select prompt based on mode
+        system_prompt = SMALLTALK_PROMPT if chat_mode == 'smalltalk' else LAWYER_PROMPT
+        
+        # Stream response - smalltalk doesn't need extended thinking
         def stream_response():
-            with self.client.messages.stream(
-                model=self.settings.claude_opus_model,
-                max_tokens=16000,
-                system=LAWYER_PROMPT,
-                thinking={
-                    "type": "enabled",
-                    "budget_tokens": self.settings.thinking_budget_tokens
-                },
-                messages=messages,
-            ) as stream:
-                for text in stream.text_stream:
-                    yield text
+            if chat_mode == 'smalltalk':
+                # Simpler mode without extended thinking for faster responses
+                with self.client.messages.stream(
+                    model=self.settings.claude_opus_model,
+                    max_tokens=2000,
+                    system=system_prompt,
+                    messages=messages,
+                ) as stream:
+                    for text in stream.text_stream:
+                        yield text
+            else:
+                # Full risk-manager mode with extended thinking
+                with self.client.messages.stream(
+                    model=self.settings.claude_opus_model,
+                    max_tokens=16000,
+                    system=system_prompt,
+                    thinking={
+                        "type": "enabled",
+                        "budget_tokens": self.settings.thinking_budget_tokens
+                    },
+                    messages=messages,
+                ) as stream:
+                    for text in stream.text_stream:
+                        yield text
         
         return {
             "response": stream_response(),
-            "sources": sources,
+            "sources": sources if chat_mode == 'risk-manager' else [],  # Only show sources in risk-manager mode
             "context": context,
             "query": question,
         }

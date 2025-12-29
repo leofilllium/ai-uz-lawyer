@@ -11,6 +11,7 @@ class ChatRequest(BaseModel):
     """Request model for chat message."""
     message: str = Field(..., min_length=1)
     session_id: int | None = None
+    chat_mode: str = Field(default='risk-manager', pattern='^(risk-manager|smalltalk)$')
 
 
 class ChatMessageResponse(BaseModel):

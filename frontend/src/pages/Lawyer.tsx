@@ -4,7 +4,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { sendChatMessage, getChatSessions, type ChatSession, type Source } from '../api/client';
 
@@ -21,10 +21,9 @@ export default function Lawyer() {
   const [sessionId, setSessionId] = useState<number | undefined>();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [showSidebar, setShowSidebar] = useState(true);
+  const [chatMode, setChatMode] = useState<'risk-manager' | 'smalltalk'>('risk-manager');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const isSmallTalk = searchParams.get('mode') === 'smalltalk';
 
   useEffect(() => {
     loadSessions();
@@ -82,7 +81,8 @@ export default function Lawyer() {
             return [...newMessages];
           });
           loadSessions();
-        }
+        },
+        chatMode
       );
     } catch (err) {
       setMessages((prev) => [
@@ -126,25 +126,35 @@ export default function Lawyer() {
           <button onClick={() => setShowSidebar(!showSidebar)} className="btn-toggle-sidebar">
             {showSidebar ? '◀' : '▶'}
           </button>
-          <h1>{isSmallTalk ? '🗣️ Просто поболтать' : '💬 AI Юрист'}</h1>
+          <h1>{chatMode === 'smalltalk' ? '🗣️ Простые вопросы' : '💬 AI Юрист'}</h1>
+          <div className="mode-selector">
+            <select 
+              value={chatMode} 
+              onChange={(e) => setChatMode(e.target.value as 'risk-manager' | 'smalltalk')}
+              className="mode-dropdown"
+            >
+              <option value="risk-manager">🛡️ Риск-менеджер</option>
+              <option value="smalltalk">💬 Простые вопросы</option>
+            </select>
+          </div>
         </header>
 
         <div className="messages-container">
           {messages.length === 0 && (
-            <div className={`welcome-message ${isSmallTalk ? 'smalltalk-mode' : ''}`}>
-              <h2>{isSmallTalk ? '👋 Привет! Давай поболтаем' : '⚖️ Добро пожаловать в AI Юрист'}</h2>
-              <p>{isSmallTalk ? 'Спроси о чём угодно — я здесь чтобы помочь!' : 'Задайте юридический вопрос по законодательству Узбекистана'}</p>
+            <div className={`welcome-message ${chatMode === 'smalltalk' ? 'smalltalk-mode' : ''}`}>
+              <h2>{chatMode === 'smalltalk' ? '👋 Привет! Задай простой вопрос' : '⚖️ Добро пожаловать в AI Юрист'}</h2>
+              <p>{chatMode === 'smalltalk' ? 'Быстрые ответы на простые юридические вопросы' : 'Детальный анализ рисков по законодательству Узбекистана'}</p>
               <div className="example-questions">
-                {isSmallTalk ? (
+                {chatMode === 'smalltalk' ? (
                   <>
-                    <button onClick={() => setInput('Расскажи что-нибудь интересное!')}>
-                      Расскажи интересное
+                    <button onClick={() => setInput('Можно ли работать без трудового договора?')}>
+                      Работа без договора
                     </button>
-                    <button onClick={() => setInput('Как у тебя дела?')}>
-                      Как дела?
+                    <button onClick={() => setInput('Нужна ли регистрация для продажи онлайн?')}>
+                      Продажи онлайн
                     </button>
-                    <button onClick={() => setInput('Помоги мне с идеями для подарка')}>
-                      Идеи для подарка
+                    <button onClick={() => setInput('Какие документы нужны для ИП?')}>
+                      Документы для ИП
                     </button>
                   </>
                 ) : (
