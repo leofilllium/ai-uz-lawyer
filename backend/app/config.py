@@ -34,7 +34,14 @@ class Settings(BaseSettings):
     
     # Application
     debug: bool = False
-    allowed_origins: list[str] = ["*"]
+    allowed_origins: str = "*"  # Comma-separated or "*" for all
+    
+    @property
+    def cors_origins(self) -> list[str]:
+        """Parse CORS origins from string."""
+        if self.allowed_origins == "*" or self.allowed_origins == '["*"]':
+            return ["*"]
+        return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
     
     class Config:
         env_file = ".env"
