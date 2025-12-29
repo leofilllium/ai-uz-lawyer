@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getHistory, type HistoryItem } from '../api/client';
+import { getHistory, deleteHistoryItem, type HistoryItem } from '../api/client';
 
 type FilterType = 'all' | 'chat' | 'validation' | 'generation';
 
@@ -43,6 +43,20 @@ export default function History() {
       case 'generation':
         navigate(`/generator?id=${item.id}`);
         break;
+    }
+  };
+
+  const handleDelete = async (e: React.MouseEvent, item: HistoryItem) => {
+    e.stopPropagation(); // Prevent navigation
+    
+    if (!confirm('Удалить эту запись?')) return;
+    
+    try {
+      await deleteHistoryItem(item.type, item.id);
+      setItems((prev) => prev.filter((i) => !(i.type === item.type && i.id === item.id)));
+    } catch (err) {
+      console.error('Failed to delete:', err);
+      alert('Ошибка удаления');
     }
   };
 
@@ -109,14 +123,23 @@ export default function History() {
                   <span className="card-date">
                     {item.created_at ? new Date(item.created_at).toLocaleDateString('ru-RU') : ''}
                   </span>
-                  {item.metadata.validity_score !== undefined && (
-                    <span className={`card-score score-${
-                      item.metadata.validity_score >= 80 ? 'green' : 
-                      item.metadata.validity_score >= 50 ? 'yellow' : 'red'
-                    }`}>
-                      {item.metadata.validity_score}/100
-                    </span>
-                  )}
+                  <div className="card-actions">
+                    {item.metadata.validity_score !== undefined && (
+                      <span className={`card-score score-${
+                        item.metadata.validity_score >= 80 ? 'green' : 
+                        item.metadata.validity_score >= 50 ? 'yellow' : 'red'
+                      }`}>
+                        {item.metadata.validity_score}/100
+                      </span>
+                    )}
+                    <button 
+                      className="btn-delete" 
+                      onClick={(e) => handleDelete(e, item)}
+                      title="Удалить"
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

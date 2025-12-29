@@ -369,3 +369,13 @@ export async function getHistory(type?: 'chat' | 'validation' | 'generation'): P
   if (!response.ok) throw new Error('Failed to fetch history');
   return response.json();
 }
+
+export async function deleteHistoryItem(type: 'chat' | 'validation' | 'generation', id: number): Promise<void> {
+  const response = await fetchWithAuth(`/api/history/${type}/${id}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to delete item');
+  }
+}

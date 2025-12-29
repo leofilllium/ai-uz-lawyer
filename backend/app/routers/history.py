@@ -129,3 +129,50 @@ async def get_unified_history(
     )
     
     return results[:limit]
+
+
+@router.delete("/{item_type}/{item_id}")
+async def delete_history_item(
+    item_type: str,
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user)
+):
+    """
+    Delete a history item by type and ID.
+    
+    Types: chat, validation, generation
+    """
+    from fastapi import HTTPException
+    
+    user_id = current_user.id if current_user else None
+    
+    if item_type == 'chat':
+        item = db.query(ChatSession).filter(ChatSession.id == item_id).first()
+        if not item:
+            raise HTTPException(status_code=404, detail="Item not found")
+        if user_id and item.user_id != user_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+        db.delete(item)
+        
+    elif item_type == 'validation':
+        item = db.query(ContractAnalysis).filter(ContractAnalysis.id == item_id).first()
+        if not item:
+            raise HTTPException(status_code=404, detail="Item not found")
+        if user_id and item.user_id != user_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+        db.delete(item)
+        
+    elif item_type == 'generation':
+        item = db.query(GeneratedContract).filter(GeneratedContract.id == item_id).first()
+        if not item:
+            raise HTTPException(status_code=404, detail="Item not found")
+        if user_id and item.user_id != user_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+        db.delete(item)
+        
+    else:
+        raise HTTPException(status_code=400, detail="Invalid item type")
+    
+    db.commit()
+    return {"message": "Item deleted successfully"}
