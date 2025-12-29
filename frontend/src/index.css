@@ -1255,15 +1255,12 @@ body {
   box-shadow: 0 4px 14px -4px var(--primary-glow);
 }
 
-/* Empty State - At Bottom */
+/* Empty State - Below Filter Tabs */
 .empty-state {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
   text-align: center;
   padding: 3rem 2rem;
+  max-width: 500px;
+  margin: 0 auto;
 }
 
 .empty-state::before {
