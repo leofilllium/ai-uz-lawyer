@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     
     # Application
     debug: bool = False
-    allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+    allowed_origins: list[str] = ["*"]
     
     class Config:
         env_file = ".env"
