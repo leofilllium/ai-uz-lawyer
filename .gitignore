@@ -1,0 +1,56 @@
+# Docker & Environment
+.env
+*.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Project specific
+data/chroma_db/
+*.log
+*.sqlite
+
+# Docker volumes (local)
+postgres_data/
+chroma_data/
+
+# Ignore old Streamlit app (replaced by Flask)
+# Keep the files but document they're deprecated
+
+./frontend/node_modules
+./backend/venv
+data
+

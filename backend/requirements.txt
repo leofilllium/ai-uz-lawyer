@@ -1,0 +1,37 @@
+# FastAPI Backend for AI Lawyer
+
+# Core Framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+
+# Database
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.9
+alembic>=1.13.0
+
+# Authentication
+pyjwt>=2.8.0
+bcrypt>=4.1.0
+passlib[bcrypt]>=1.7.4
+
+# AI/ML
+anthropic>=0.40.0
+openai>=1.6.0
+tiktoken>=0.5.2
+
+# Vector Database
+chromadb>=0.4.22
+
+# LangChain
+langchain>=0.1.0
+langchain-openai>=0.1.0
+langchain-community>=0.0.10
+langchain_text_splitters
+
+# Document Processing
+python-docx>=1.1.0
+
+# Utilities
+python-dotenv>=1.0.0
+tenacity>=8.2.3
+pydantic-settings>=2.0.0
