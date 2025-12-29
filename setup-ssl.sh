@@ -5,7 +5,7 @@
 set -e
 
 DOMAINS="safarworld.store api.safarworld.store"
-EMAIL="your-email@example.com"  # Replace with your email
+EMAIL="leofillium@gmail.com"  # Replace with your email
 STAGING=0  # Set to 1 for testing (avoids rate limits)
 
 # Create required directories
