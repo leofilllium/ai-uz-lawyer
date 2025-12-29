@@ -1508,19 +1508,59 @@ body {
   color: var(--text-primary);
 }
 
-/* Blockquotes - For legal formulations */
+/* Blockquotes - Beautiful callout cards for recommendations */
 .message-content blockquote {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%);
-  border-left: 4px solid var(--secondary);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  padding: 1rem 1.25rem;
-  margin: 1rem 0;
-  font-style: italic;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(139, 92, 246, 0.08) 100%);
+  border-left: 4px solid var(--primary);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 1.25rem 1.5rem;
+  margin: 1.25rem 0;
+  font-style: normal;
   color: var(--text-primary);
+  box-shadow: 0 4px 12px -4px rgba(59, 130, 246, 0.15);
 }
 
 .message-content blockquote p {
-  margin: 0;
+  margin: 0 0 0.75rem 0;
+}
+
+.message-content blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+/* Headers inside blockquotes */
+.message-content blockquote h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--primary-light);
+  font-size: 1.1rem;
+}
+
+/* Lists inside blockquotes */
+.message-content blockquote ul,
+.message-content blockquote ol {
+  margin: 0.5rem 0 0.75rem 1.25rem;
+  padding-left: 0;
+}
+
+.message-content blockquote li {
+  margin-bottom: 0.4rem;
+  line-height: 1.6;
+}
+
+/* Bold text in blockquotes (for section headers like "НЕДЕЛЯ 1") */
+.message-content blockquote strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Warning/Alert blockquotes - detect by first strong containing warning emoji */
+.message-content blockquote strong:first-child {
+  display: block;
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
 }
 
 /* Horizontal Rules - Section separators */
@@ -1531,20 +1571,76 @@ body {
   margin: 1.5rem 0;
 }
 
-/* Box Frames - ASCII art recommendation boxes */
+/* Box Frames - ASCII art recommendation boxes and calculations */
 .message-content pre:not([class*="language-"]) {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.08) 100%);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(139, 92, 246, 0.08) 100%);
   border: 1px solid var(--primary);
-  border-radius: var(--radius-sm);
-  padding: 1rem 1.25rem;
-  margin: 1rem 0;
-  font-family: 'Fira Code', 'Courier New', monospace;
-  font-size: 0.85rem;
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  margin: 1.25rem 0;
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', 'Liberation Mono', monospace;
+  font-size: 0.8rem;
   color: var(--text-primary);
-  white-space: pre-wrap;
-  word-break: break-word;
-  line-height: 1.6;
-  box-shadow: 0 4px 12px -4px var(--primary-glow);
+  white-space: pre;
+  overflow-x: auto;
+  line-height: 1.7;
+  box-shadow: 0 4px 16px -4px var(--primary-glow);
+  letter-spacing: 0;
+  tab-size: 4;
+}
+
+/* Special styling for ASCII box frames with ┌─┐ └─┘ │ characters */
+.message-content pre:not([class*="language-"]) {
+  /* Ensure box-drawing characters render properly */
+  -webkit-font-feature-settings: "liga" 0;
+  font-feature-settings: "liga" 0;
+  text-rendering: optimizeLegibility;
+}
+
+/* Code blocks inside pre (from markdown ```) */
+.message-content pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+  font-family: inherit;
+  color: inherit;
+  white-space: pre;
+  display: block;
+}
+
+/* Inline code styling */
+.message-content code:not(pre code) {
+  background: rgba(59, 130, 246, 0.15);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.85em;
+  color: var(--primary-light);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+/* Scrollbar styling for pre blocks */
+.message-content pre::-webkit-scrollbar {
+  height: 6px;
+}
+
+.message-content pre::-webkit-scrollbar-track {
+  background: var(--bg-dark);
+  border-radius: 3px;
+}
+
+.message-content pre::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 3px;
+}
+
+/* Responsive pre blocks */
+@media (max-width: 640px) {
+  .message-content pre:not([class*="language-"]) {
+    font-size: 0.7rem;
+    padding: 1rem;
+    line-height: 1.5;
+  }
 }
 
 /* Headings in messages */
