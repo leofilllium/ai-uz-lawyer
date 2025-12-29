@@ -74,10 +74,10 @@ export interface ChatMessage {
 export interface Source {
   article: string;
   source: string;
-  chapter: string;
-  title: string;
-  preview: string;
-  similarity: string;
+  chapter?: string;
+  title?: string;
+  preview?: string;
+  similarity?: string;
 }
 
 export interface ContractAnalysis {
@@ -273,7 +273,20 @@ export async function analyzeContract(contract: string): Promise<ContractAnalysi
   }
   
   const data = await response.json();
-  return data;
+  
+  // API returns { audit: {...}, sources: [...] } structure
+  // Flatten it to match ContractAnalysis interface
+  return {
+    id: data.analysis_id || 0,
+    contract_preview: contract.substring(0, 100) + '...',
+    validity_score: data.audit?.validity_score || 0,
+    score_explanation: data.audit?.score_explanation || '',
+    critical_errors: data.audit?.critical_errors || [],
+    warnings: data.audit?.warnings || [],
+    missing_clauses: data.audit?.missing_clauses || [],
+    summary: data.audit?.summary || '',
+    sources: data.sources || [],
+  };
 }
 
 export async function getValidationHistory(): Promise<ContractAnalysis[]> {

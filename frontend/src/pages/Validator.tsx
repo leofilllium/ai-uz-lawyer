@@ -134,12 +134,23 @@ export default function Validator() {
             )}
 
             {result.sources && result.sources.length > 0 && (
-              <details className="sources-expander">
+              <details className="sources-expander" open>
                 <summary>📚 Правовая основа ({result.sources.length})</summary>
-                <ul className="sources-list">
+                <ul className="sources-list detailed">
                   {result.sources.map((source, i) => (
-                    <li key={i}>
-                      <strong>Статья {source.article}</strong> — {source.source}
+                    <li key={i} className="source-item">
+                      <div className="source-header">
+                        <strong>Статья {source.article}</strong>
+                        <span className="source-file">{source.source}</span>
+                        {source.similarity && (
+                          <span className="source-similarity">{source.similarity}</span>
+                        )}
+                      </div>
+                      {source.title && <div className="source-title">{source.title}</div>}
+                      {source.chapter && <div className="source-chapter">{source.chapter}</div>}
+                      {source.preview && (
+                        <div className="source-preview">{source.preview.substring(0, 200)}...</div>
+                      )}
                     </li>
                   ))}
                 </ul>
