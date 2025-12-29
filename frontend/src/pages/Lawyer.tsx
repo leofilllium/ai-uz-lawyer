@@ -4,7 +4,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { sendChatMessage, getChatSessions, type ChatSession, type Source } from '../api/client';
 
@@ -23,6 +23,8 @@ export default function Lawyer() {
   const [showSidebar, setShowSidebar] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isSmallTalk = searchParams.get('mode') === 'smalltalk';
 
   useEffect(() => {
     loadSessions();
@@ -124,24 +126,40 @@ export default function Lawyer() {
           <button onClick={() => setShowSidebar(!showSidebar)} className="btn-toggle-sidebar">
             {showSidebar ? '◀' : '▶'}
           </button>
-          <h1>💬 AI Юрист</h1>
+          <h1>{isSmallTalk ? '🗣️ Просто поболтать' : '💬 AI Юрист'}</h1>
         </header>
 
         <div className="messages-container">
           {messages.length === 0 && (
-            <div className="welcome-message">
-              <h2>⚖️ Добро пожаловать в AI Юрист</h2>
-              <p>Задайте юридический вопрос по законодательству Узбекистана</p>
+            <div className={`welcome-message ${isSmallTalk ? 'smalltalk-mode' : ''}`}>
+              <h2>{isSmallTalk ? '👋 Привет! Давай поболтаем' : '⚖️ Добро пожаловать в AI Юрист'}</h2>
+              <p>{isSmallTalk ? 'Спроси о чём угодно — я здесь чтобы помочь!' : 'Задайте юридический вопрос по законодательству Узбекистана'}</p>
               <div className="example-questions">
-                <button onClick={() => setInput('Какие права имеет работник при увольнении?')}>
-                  Права при увольнении
-                </button>
-                <button onClick={() => setInput('Как зарегистрировать ООО в Узбекистане?')}>
-                  Регистрация ООО
-                </button>
-                <button onClick={() => setInput('Каковы сроки исковой давности по договорам?')}>
-                  Исковая давность
-                </button>
+                {isSmallTalk ? (
+                  <>
+                    <button onClick={() => setInput('Расскажи что-нибудь интересное!')}>
+                      Расскажи интересное
+                    </button>
+                    <button onClick={() => setInput('Как у тебя дела?')}>
+                      Как дела?
+                    </button>
+                    <button onClick={() => setInput('Помоги мне с идеями для подарка')}>
+                      Идеи для подарка
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={() => setInput('Какие права имеет работник при увольнении?')}>
+                      Права при увольнении
+                    </button>
+                    <button onClick={() => setInput('Как зарегистрировать ООО в Узбекистане?')}>
+                      Регистрация ООО
+                    </button>
+                    <button onClick={() => setInput('Каковы сроки исковой давности по договорам?')}>
+                      Исковая давность
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           )}
