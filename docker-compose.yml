@@ -39,7 +39,7 @@ services:
       - CHROMA_DB_PATH=/app/data/chroma_db
       - CODES_PATH=/app/codes
       - CONTRACTS_PATH=/app/contracts
-      - ALLOWED_ORIGINS=["https://safarworld.store","https://api.safarworld.store","http://localhost:3000"]
+      - ALLOWED_ORIGINS=["https://safarworld.store","https://api.safarworld.store","http://safarworld.store","http://api.safarworld.store","http://localhost:3000"]
     volumes:
       - chroma_data:/app/data/chroma_db
       - ./codes:/app/codes:ro
