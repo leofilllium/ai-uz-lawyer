@@ -41,7 +41,7 @@ services:
       - CHROMA_DB_PATH=/app/data/chroma_db
       - CODES_PATH=/app/codes
       - CONTRACTS_PATH=/app/contracts
-      - ALLOWED_ORIGINS=http://localhost,http://localhost:3000,http://frontend
+      - ALLOWED_ORIGINS=*
     volumes:
       - chroma_data:/app/data/chroma_db
       - ./codes:/app/codes:ro
