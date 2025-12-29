@@ -1458,6 +1458,254 @@ body {
   transform: scale(1.1);
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   LEGAL DESIGN - Rich Markdown Formatting for AI Responses
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Tables - Premium Glassmorphism Style */
+.message-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  background: var(--glass-bg);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  font-size: 0.9rem;
+}
+
+.message-content thead {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(139, 92, 246, 0.1) 100%);
+}
+
+.message-content th {
+  padding: 0.875rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--primary);
+  white-space: nowrap;
+}
+
+.message-content td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-secondary);
+  vertical-align: top;
+}
+
+.message-content tr:last-child td {
+  border-bottom: none;
+}
+
+.message-content tr:hover td {
+  background: rgba(59, 130, 246, 0.05);
+}
+
+/* Risk Matrix Table - Special coloring */
+.message-content td:first-child {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* Blockquotes - For legal formulations */
+.message-content blockquote {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%);
+  border-left: 4px solid var(--secondary);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+  font-style: italic;
+  color: var(--text-primary);
+}
+
+.message-content blockquote p {
+  margin: 0;
+}
+
+/* Horizontal Rules - Section separators */
+.message-content hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border), var(--border), transparent);
+  margin: 1.5rem 0;
+}
+
+/* Box Frames - ASCII art recommendation boxes */
+.message-content pre:not([class*="language-"]) {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.08) 100%);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-sm);
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+  font-family: 'Fira Code', 'Courier New', monospace;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+  box-shadow: 0 4px 12px -4px var(--primary-glow);
+}
+
+/* Headings in messages */
+.message-content h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--border-light);
+  color: var(--text-primary);
+}
+
+.message-content h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-top: 1.25rem;
+  margin-bottom: 0.75rem;
+  color: var(--primary-light);
+}
+
+.message-content h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+}
+
+/* Strong/Bold text emphasis */
+.message-content strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Lists with better spacing */
+.message-content ul,
+.message-content ol {
+  margin: 0.75rem 0 0.75rem 1.5rem;
+  padding-left: 0;
+}
+
+.message-content li {
+  margin-bottom: 0.4rem;
+  line-height: 1.5;
+}
+
+.message-content li::marker {
+  color: var(--primary-light);
+}
+
+/* Nested lists */
+.message-content ul ul,
+.message-content ol ol,
+.message-content ul ol,
+.message-content ol ul {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+/* Emoji indicators - make them larger */
+.message-content p > span[role="img"],
+.message-content li > span[role="img"] {
+  font-size: 1.1em;
+}
+
+/* Risk level styling via text content detection */
+.message-content p:has(strong:first-child),
+.message-content li:has(strong:first-child) {
+  line-height: 1.6;
+}
+
+/* Special styling for verdict headers */
+.message-content h3 + p {
+  margin-top: 0;
+}
+
+/* Contract content and generated results - Table styling */
+.contract-content table,
+.generated-result table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  background: var(--glass-bg);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+}
+
+.contract-content th,
+.generated-result th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: rgba(59, 130, 246, 0.1);
+  border-bottom: 2px solid var(--primary);
+}
+
+.contract-content td,
+.generated-result td {
+  padding: 0.625rem 1rem;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-secondary);
+}
+
+.contract-content tr:hover td,
+.generated-result tr:hover td {
+  background: rgba(59, 130, 246, 0.05);
+}
+
+/* Analysis result sections - Table support */
+.analysis-result table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  font-size: 0.875rem;
+}
+
+.analysis-result th,
+.analysis-result td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.analysis-result th {
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg-input);
+}
+
+/* Executive Summary Box */
+.message-content > p:first-of-type {
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+/* Code within tables */
+.message-content table code {
+  background: var(--bg-dark);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+/* Responsive tables */
+@media (max-width: 640px) {
+  .message-content table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .message-content th,
+  .message-content td {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.825rem;
+  }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .chat-sidebar {
