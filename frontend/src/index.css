@@ -941,6 +941,10 @@ body {
   cursor: pointer;
 }
 
+.generator-form button{
+  background: var(--bg-dark);
+}
+
 .validator-form button:disabled,
 .btn-generate:disabled {
   opacity: 0.5;
