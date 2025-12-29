@@ -29,7 +29,7 @@
   
   /* Neutrals */
   --bg-dark: #0a0f1a;
-  --bg-darker: #060912;
+  --bg-darker: #00071b;
   --bg-card: rgba(30, 41, 59, 0.7);
   --bg-card-solid: #1e293b;
   --bg-input: rgba(51, 65, 85, 0.6);
@@ -1066,31 +1066,31 @@ body {
 
 /* Different colors for variety */
 .category-btn:nth-child(4n+1)::before {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.8) 0%, rgba(37, 99, 235, 0.7) 100%);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(37, 99, 235, 0.1) 100%);
 }
 .category-btn:nth-child(4n+1):hover {
   box-shadow: 0 12px 24px -8px rgba(59, 130, 246, 0.4);
 }
 
 .category-btn:nth-child(4n+2)::before {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.8) 0%, rgba(5, 150, 105, 0.7) 100%);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.1) 100%);
 }
 .category-btn:nth-child(4n+2):hover {
   box-shadow: 0 12px 24px -8px rgba(16, 185, 129, 0.4);
 }
 
 .category-btn:nth-child(4n+3)::before {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.8) 0%, rgba(139, 92, 246, 0.7) 100%);
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.2) 0%, rgba(139, 92, 246, 0.1) 100%);
 }
 .category-btn:nth-child(4n+3):hover {
   box-shadow: 0 12px 24px -8px rgba(168, 85, 247, 0.4);
 }
 
 .category-btn:nth-child(4n)::before {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.8) 0%, rgba(217, 119, 6, 0.7) 100%);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(217, 119, 6, 0.1) 100%);
 }
 .category-btn:nth-child(4n):hover {
-  box-shadow: 0 12px 24px -8px rgba(245, 158, 11, 1);
+  box-shadow: 0 12px 24px -8px rgba(245, 158, 11, 0.4);
 }
 
 .category-btn.selected {
