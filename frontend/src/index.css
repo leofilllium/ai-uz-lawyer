@@ -1025,15 +1025,13 @@ body {
 /* Generator categories - Premium Design */
 .category-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
 
 .category-btn {
-  background: var(--glass-bg);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: var(--bg-darker);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   padding: 1.25rem;
@@ -1158,17 +1156,28 @@ body {
 }
 
 /* History Page - Redesigned */
+.history-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
 .history-page .page-header {
   background: var(--glass-bg);
   backdrop-filter: var(--backdrop-blur);
   -webkit-backdrop-filter: var(--backdrop-blur);
 }
 
+.history-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 .filter-tabs {
   display: flex;
   gap: 0.75rem;
   margin-bottom: 2rem;
-  justify-content: center;
   flex-wrap: wrap;
 }
 
@@ -1199,12 +1208,15 @@ body {
   box-shadow: 0 4px 14px -4px var(--primary-glow);
 }
 
-/* Empty State - Beautiful Centered Design */
+/* Empty State - At Bottom */
 .empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
   text-align: center;
-  padding: 5rem 2rem;
-  max-width: 500px;
-  margin: 0 auto;
+  padding: 3rem 2rem;
 }
 
 .empty-state::before {
@@ -1226,6 +1238,7 @@ body {
   color: var(--text-secondary);
   font-size: 1rem;
   line-height: 1.6;
+  max-width: 400px;
 }
 
 .history-grid {
