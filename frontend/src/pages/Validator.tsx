@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { analyzeContract, getValidationById, type ContractAnalysis as Analysis } from '../api/client';
 
 export default function Validator() {
@@ -108,7 +109,7 @@ export default function Validator() {
 
             {result.score_explanation && (
               <div className="score-explanation">
-                <ReactMarkdown>{result.score_explanation}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.score_explanation}</ReactMarkdown>
               </div>
             )}
 
@@ -157,7 +158,7 @@ export default function Validator() {
             {result.summary && (
               <section className="summary-section">
                 <h2>📌 Заключение</h2>
-                <ReactMarkdown>{result.summary}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.summary}</ReactMarkdown>
               </section>
             )}
 

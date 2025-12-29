@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { getCategories, generateContract, getGeneratedContractById, type ContractCategory, type Source } from '../api/client';
 
 export default function Generator() {
@@ -153,7 +154,7 @@ export default function Generator() {
               </button>
             </div>
             <div className="contract-content">
-              <ReactMarkdown>{generatedText}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{generatedText}</ReactMarkdown>
             </div>
 
             {sources.length > 0 && (

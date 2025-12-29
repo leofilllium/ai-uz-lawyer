@@ -6,6 +6,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { sendChatMessage, getChatSessions, getChatSession, deleteHistoryItem, type ChatSession, type Source } from '../api/client';
 
 interface Message {
@@ -217,7 +218,7 @@ export default function Lawyer() {
             <div key={idx} className={`message ${msg.role}`}>
               <div className="message-avatar">{msg.role === 'user' ? '👤' : '⚖️'}</div>
               <div className="message-content">
-                <ReactMarkdown>{msg.content}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                 {msg.sources && msg.sources.length > 0 && (
                   <details className="sources-expander">
                     <summary>📚 Источники ({msg.sources.length})</summary>
