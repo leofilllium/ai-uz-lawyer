@@ -4,14 +4,15 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getHistory, type HistoryItem } from '../api/client';
+import { getHistory, deleteHistoryItem, type HistoryItem } from '../api/client';
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadHistory();
@@ -25,6 +26,32 @@ export default function Dashboard() {
       console.error('Failed to load history:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleItemClick = (item: HistoryItem) => {
+    switch (item.type) {
+      case 'chat':
+        navigate(`/lawyer?session=${item.id}`);
+        break;
+      case 'validation':
+        navigate(`/validator?id=${item.id}`);
+        break;
+      case 'generation':
+        navigate(`/generator?id=${item.id}`);
+        break;
+    }
+  };
+
+  const handleDelete = async (e: React.MouseEvent, item: HistoryItem) => {
+    e.stopPropagation();
+    if (!confirm('Удалить эту запись?')) return;
+    
+    try {
+      await deleteHistoryItem(item.type, item.id);
+      setHistory((prev) => prev.filter((i) => !(i.type === item.type && i.id === item.id)));
+    } catch (err) {
+      console.error('Failed to delete:', err);
     }
   };
 
@@ -85,7 +112,11 @@ export default function Dashboard() {
           ) : (
             <ul className="history-list">
               {history.map((item) => (
-                <li key={`${item.type}-${item.id}`} className="history-item">
+                <li 
+                  key={`${item.type}-${item.id}`} 
+                  className="history-item clickable"
+                  onClick={() => handleItemClick(item)}
+                >
                   <span className="history-icon">{item.icon}</span>
                   <div className="history-content">
                     <span className="history-title">{item.title}</span>
@@ -93,6 +124,13 @@ export default function Dashboard() {
                       {new Date(item.created_at || '').toLocaleDateString('ru-RU')}
                     </span>
                   </div>
+                  <button 
+                    className="btn-delete-small" 
+                    onClick={(e) => handleDelete(e, item)}
+                    title="Удалить"
+                  >
+                    🗑️
+                  </button>
                 </li>
               ))}
             </ul>

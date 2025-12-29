@@ -590,17 +590,60 @@ body {
   color: white;
 }
 
+.session-info {
+  flex: 1;
+  min-width: 0;
+}
+
 .session-title {
   font-size: 0.875rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  flex: 1;
+  display: block;
 }
 
 .session-count {
   font-size: 0.75rem;
   color: var(--text-muted);
+}
+
+.session-item.active .session-count {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Small delete button for sidebar and dashboard */
+.btn-delete-small {
+  background: transparent;
+  border: none;
+  font-size: 0.875rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s ease;
+  padding: 0.25rem;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.session-item:hover .btn-delete-small,
+.history-item:hover .btn-delete-small {
+  opacity: 0.6;
+}
+
+.btn-delete-small:hover {
+  opacity: 1 !important;
+  background: rgba(239, 68, 68, 0.2);
+}
+
+/* Clickable history items in dashboard */
+.history-item.clickable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.history-item.clickable:hover {
+  background: var(--bg-input);
+  transform: translateX(4px);
 }
 
 .chat-main {

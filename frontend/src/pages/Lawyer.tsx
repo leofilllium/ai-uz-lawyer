@@ -6,7 +6,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
-import { sendChatMessage, getChatSessions, type ChatSession, type Source } from '../api/client';
+import { sendChatMessage, getChatSessions, getChatSession, deleteHistoryItem, type ChatSession, type Source } from '../api/client';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -39,6 +39,36 @@ export default function Lawyer() {
       setSessions(data);
     } catch (err) {
       console.error('Failed to load sessions:', err);
+    }
+  };
+
+  const handleSessionClick = async (session: ChatSession) => {
+    setSessionId(session.id);
+    try {
+      const data = await getChatSession(session.id);
+      setMessages(data.messages.map((m) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+        sources: m.sources || undefined,
+      })));
+    } catch (err) {
+      console.error('Failed to load session:', err);
+    }
+  };
+
+  const handleDeleteSession = async (e: React.MouseEvent, session: ChatSession) => {
+    e.stopPropagation();
+    if (!confirm('Удалить этот чат?')) return;
+    
+    try {
+      await deleteHistoryItem('chat', session.id);
+      setSessions((prev) => prev.filter((s) => s.id !== session.id));
+      if (sessionId === session.id) {
+        setMessages([]);
+        setSessionId(undefined);
+      }
+    } catch (err) {
+      console.error('Failed to delete session:', err);
     }
   };
 
@@ -111,10 +141,19 @@ export default function Lawyer() {
               <div
                 key={session.id}
                 className={`session-item ${session.id === sessionId ? 'active' : ''}`}
-                onClick={() => setSessionId(session.id)}
+                onClick={() => handleSessionClick(session)}
               >
-                <span className="session-title">{session.title}</span>
-                <span className="session-count">{session.message_count} сообщ.</span>
+                <div className="session-info">
+                  <span className="session-title">{session.title}</span>
+                  <span className="session-count">{session.message_count} сообщ.</span>
+                </div>
+                <button 
+                  className="btn-delete-small" 
+                  onClick={(e) => handleDeleteSession(e, session)}
+                  title="Удалить"
+                >
+                  🗑️
+                </button>
               </div>
             ))}
           </div>
