@@ -49,7 +49,7 @@ export default function Generator() {
         (chunk) => {
           setGeneratedText((prev) => prev + chunk);
         },
-        (contractId, newSources) => {
+        (_contractId, newSources) => {
           setSources(newSources);
         }
       );

@@ -21,7 +21,6 @@ export default function Lawyer() {
   const [sessionId, setSessionId] = useState<number | undefined>();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [showSidebar, setShowSidebar] = useState(true);
-  const [currentSources, setCurrentSources] = useState<Source[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -72,7 +71,6 @@ export default function Lawyer() {
         },
         (newSessionId, sources) => {
           setSessionId(newSessionId);
-          setCurrentSources(sources);
           setMessages((prev) => {
             const newMessages = [...prev];
             const lastMessage = newMessages[newMessages.length - 1];
@@ -97,7 +95,6 @@ export default function Lawyer() {
   const startNewChat = () => {
     setMessages([]);
     setSessionId(undefined);
-    setCurrentSources([]);
   };
 
   return (

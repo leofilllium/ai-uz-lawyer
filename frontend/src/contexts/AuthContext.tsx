@@ -3,9 +3,9 @@
  * Provides authentication state and methods throughout the app.
  */
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { 
-  User, 
+  type User, 
   login as apiLogin, 
   register as apiRegister, 
   logout as apiLogout,
