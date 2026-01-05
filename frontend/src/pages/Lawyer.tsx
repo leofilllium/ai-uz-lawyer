@@ -22,7 +22,7 @@ export default function Lawyer() {
   const [sessionId, setSessionId] = useState<number | undefined>();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [showSidebar, setShowSidebar] = useState(true);
-  const [chatMode, setChatMode] = useState<'risk-manager' | 'smalltalk'>('risk-manager');
+  const [chatMode, setChatMode] = useState<'risk-manager' | 'smalltalk' | 'consultant' | 'practitioner' | 'litigator' | 'legal-audit' | 'compliance' | 'tax' | 'corporate' | 'negotiator' | 'startup' | 'procedural' | 'deadlines' | 'hr' | 'worker-protection' | 'analyst' | 'skeptic' | 'judge-questions' | 'odds' | 'strategist' | 'what-if'>('risk-manager');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -170,11 +170,44 @@ export default function Lawyer() {
           <div className="mode-selector">
             <select 
               value={chatMode} 
-              onChange={(e) => setChatMode(e.target.value as 'risk-manager' | 'smalltalk')}
+              onChange={(e) => setChatMode(e.target.value as typeof chatMode)}
               className="mode-dropdown"
             >
-              <option value="risk-manager">🛡️ Риск-менеджер</option>
-              <option value="smalltalk">💬 Простые вопросы</option>
+              <optgroup label="📚 Консультации">
+                <option value="risk-manager">🛡️ Риск-менеджер</option>
+                <option value="smalltalk">💬 Простые вопросы</option>
+                <option value="consultant">📚 Юрист-консультант</option>
+                <option value="practitioner">⚖️ Юрист-практик</option>
+                <option value="litigator">🏛 Судебный юрист</option>
+              </optgroup>
+              <optgroup label="🧯 Риски и комплаенс">
+                <option value="legal-audit">🚨 Юридический аудит</option>
+                <option value="compliance">🛡 Комплаенс-офицер</option>
+                <option value="tax">🧾 Налоговый юрист</option>
+              </optgroup>
+              <optgroup label="👔 Бизнес и корпоратив">
+                <option value="corporate">🏢 Корпоративный юрист</option>
+                <option value="negotiator">🤝 Юрист по переговорам</option>
+                <option value="startup">📈 Юрист для стартапов</option>
+              </optgroup>
+              <optgroup label="🧑‍⚖️ Суды и процесс">
+                <option value="procedural">📝 Процессуальный юрист</option>
+                <option value="deadlines">⏳ Сроки и давность</option>
+              </optgroup>
+              <optgroup label="🧑‍💼 Трудовое право">
+                <option value="hr">👷 HR-юрист</option>
+                <option value="worker-protection">🧑‍🤝‍🧑 Защита работника</option>
+              </optgroup>
+              <optgroup label="🧠 Умные режимы">
+                <option value="analyst">🧩 Юрист-аналитик</option>
+                <option value="skeptic">🔍 Юрист-скептик</option>
+                <option value="judge-questions">🧠 Вопросы судьи</option>
+                <option value="odds">📊 Оценка шансов</option>
+              </optgroup>
+              <optgroup label="🚀 Продвинутые">
+                <option value="strategist">🤖 Юрист-стратег</option>
+                <option value="what-if">🧪 Что если...</option>
+              </optgroup>
             </select>
           </div>
         </header>
