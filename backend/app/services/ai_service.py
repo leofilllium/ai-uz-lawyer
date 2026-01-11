@@ -5,11 +5,16 @@ Migrated to work with FastAPI.
 """
 
 import json
+import logging
 import re
+import traceback
 from typing import List, Dict, Any, Generator, Optional
 import anthropic
 
 from app.config import get_settings
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 # System Prompts
@@ -1358,18 +1363,29 @@ class AIService:
         Query with RAG (for lawyer mode).
         chat_mode: supports all modes defined in CHAT_MODE_PROMPTS
         """
+        logger.info(f"=== AI SERVICE: query_with_rag ===")
+        logger.info(f"Question: {question[:100]}...")
+        logger.info(f"Chat mode: {chat_mode}")
+        logger.info(f"History messages: {len(history) if history else 0}")
+        
         # Ensure documents are indexed
+        logger.info("Checking document indexing...")
         await self.ensure_indexed()
+        logger.info("Document indexing check complete")
         
         # For simple modes, use fewer documents
         if chat_mode in SIMPLE_MODES:
             top_k = 30  # Fewer documents for simple questions
+            logger.info(f"Simple mode detected, using top_k={top_k}")
         
         # Retrieve relevant context
+        logger.info(f"Retrieving context with top_k={top_k}...")
         results = await self._retrieve_context(question, top_k=top_k)
+        logger.info(f"Retrieved {len(results)} documents")
         
         # Format context for LLM
         context = self._format_context(results)
+        logger.info(f"Context formatted, length: {len(context)} chars")
         
         # Check if we need fallback mode (only for risk-manager)
         if chat_mode == 'risk-manager' and self._should_use_fallback(results):
@@ -1412,32 +1428,58 @@ class AIService:
         # Select prompt based on mode from the mapping
         system_prompt = CHAT_MODE_PROMPTS.get(chat_mode, LAWYER_PROMPT)
         
+        logger.info(f"Using model: {self.settings.claude_opus_model}")
+        logger.info(f"System prompt length: {len(system_prompt)} chars")
+        logger.info(f"Total messages in context: {len(messages)}")
+        
         # Stream response - simple modes don't need extended thinking
         async def stream_response():
-            if chat_mode in SIMPLE_MODES:
-                # Simpler mode without extended thinking for faster responses
-                async with self.client.messages.stream(
-                    model=self.settings.claude_opus_model,
-                    max_tokens=8000,
-                    system=system_prompt,
-                    messages=messages,
-                ) as stream:
-                    async for text in stream.text_stream:
-                        yield text
-            else:
-                # Full mode with extended thinking
-                async with self.client.messages.stream(
-                    model=self.settings.claude_opus_model,
-                    max_tokens=8000,
-                    system=system_prompt,
-                    thinking={
-                        "type": "enabled",
-                        "budget_tokens": self.settings.thinking_budget_tokens
-                    },
-                    messages=messages,
-                ) as stream:
-                    async for text in stream.text_stream:
-                        yield text
+            try:
+                logger.info(f"=== CLAUDE API CALL STARTING ===")
+                if chat_mode in SIMPLE_MODES:
+                    # Simpler mode without extended thinking for faster responses
+                    logger.info("Using simple mode (no extended thinking)")
+                    async with self.client.messages.stream(
+                        model=self.settings.claude_opus_model,
+                        max_tokens=8000,
+                        system=system_prompt,
+                        messages=messages,
+                    ) as stream:
+                        logger.info("Stream connection established")
+                        chunk_count = 0
+                        async for text in stream.text_stream:
+                            chunk_count += 1
+                            if chunk_count == 1:
+                                logger.info("First chunk received from Claude")
+                            yield text
+                        logger.info(f"Stream complete, total chunks: {chunk_count}")
+                else:
+                    # Full mode with extended thinking
+                    logger.info(f"Using extended thinking mode, budget: {self.settings.thinking_budget_tokens}")
+                    async with self.client.messages.stream(
+                        model=self.settings.claude_opus_model,
+                        max_tokens=8000,
+                        system=system_prompt,
+                        thinking={
+                            "type": "enabled",
+                            "budget_tokens": self.settings.thinking_budget_tokens
+                        },
+                        messages=messages,
+                    ) as stream:
+                        logger.info("Stream connection established (with thinking)")
+                        chunk_count = 0
+                        async for text in stream.text_stream:
+                            chunk_count += 1
+                            if chunk_count == 1:
+                                logger.info("First chunk received from Claude")
+                            yield text
+                        logger.info(f"Stream complete, total chunks: {chunk_count}")
+            except Exception as e:
+                logger.error(f"=== CLAUDE API ERROR ===")
+                logger.error(f"Error type: {type(e).__name__}")
+                logger.error(f"Error: {str(e)}")
+                logger.error(f"Traceback:\n{traceback.format_exc()}")
+                raise
         
         return {
             "response": stream_response(),
