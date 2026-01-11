@@ -25,8 +25,8 @@ class Settings(BaseSettings):
     # Claude Models
     claude_haiku_model: str = "claude-haiku-4-5-20251001"
     claude_opus_model: str = "claude-opus-4-5-20251101"
-    thinking_budget_tokens: int = 6000
-    max_output_tokens: int = 8000
+    thinking_budget_tokens: int = 8000
+    max_output_tokens: int = 16000
     
     # Paths
     codes_path: str = "codes"
