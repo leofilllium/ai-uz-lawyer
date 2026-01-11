@@ -7,6 +7,7 @@ Migrated to work with FastAPI.
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
+from starlette.concurrency import run_in_threadpool
 import chromadb
 from chromadb.config import Settings
 from langchain_openai import OpenAIEmbeddings
@@ -152,3 +153,20 @@ class VectorStore:
     def is_indexed(self) -> bool:
         """Check if documents have been indexed."""
         return self.get_document_count() > 0
+
+    async def aadd_documents(self, chunks: List[Dict[str, Any]], batch_size: int = 100) -> int:
+        """Async version of add_documents."""
+        return await run_in_threadpool(self.add_documents, chunks, batch_size)
+
+    async def asearch(
+        self,
+        query: str,
+        top_k: int = 60,
+        filter_metadata: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, Any]]:
+        """Async version of search."""
+        return await run_in_threadpool(self.search, query, top_k, filter_metadata)
+
+    async def ais_indexed(self) -> bool:
+        """Async version of is_indexed."""
+        return await run_in_threadpool(self.is_indexed)

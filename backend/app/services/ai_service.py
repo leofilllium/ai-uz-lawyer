@@ -1320,7 +1320,7 @@ class AIService:
         if not self.settings.anthropic_api_key:
             raise ValueError("ANTHROPIC_API_KEY is required")
         
-        self.client = anthropic.Anthropic(api_key=self.settings.anthropic_api_key)
+        self.client = anthropic.AsyncAnthropic(api_key=self.settings.anthropic_api_key)
         
         # Initialize RAG components
         self._init_rag_engine()
@@ -1333,19 +1333,21 @@ class AIService:
         self.vector_store = VectorStore()
         self.document_processor = DocumentProcessor()
     
-    def ensure_indexed(self) -> bool:
+    async def ensure_indexed(self) -> bool:
         """Ensure documents are indexed in the vector store."""
         if not hasattr(self, 'vector_store'):
             return False
         
-        if self.vector_store.is_indexed():
+        if await self.vector_store.ais_indexed():
             return False
         
-        chunks = self.document_processor.process_documents()
-        self.vector_store.add_documents(chunks)
+        # Processing might still be heavy, consider offloading if needed
+        from starlette.concurrency import run_in_threadpool
+        chunks = await run_in_threadpool(self.document_processor.process_documents)
+        await self.vector_store.aadd_documents(chunks)
         return True
     
-    def query_with_rag(
+    async def query_with_rag(
         self, 
         question: str, 
         history: Optional[List[Dict[str, str]]] = None,
@@ -1357,14 +1359,14 @@ class AIService:
         chat_mode: supports all modes defined in CHAT_MODE_PROMPTS
         """
         # Ensure documents are indexed
-        self.ensure_indexed()
+        await self.ensure_indexed()
         
         # For simple modes, use fewer documents
         if chat_mode in SIMPLE_MODES:
             top_k = 30  # Fewer documents for simple questions
         
         # Retrieve relevant context
-        results = self._retrieve_context(question, top_k=top_k)
+        results = await self._retrieve_context(question, top_k=top_k)
         
         # Format context for LLM
         context = self._format_context(results)
@@ -1411,20 +1413,20 @@ class AIService:
         system_prompt = CHAT_MODE_PROMPTS.get(chat_mode, LAWYER_PROMPT)
         
         # Stream response - simple modes don't need extended thinking
-        def stream_response():
+        async def stream_response():
             if chat_mode in SIMPLE_MODES:
                 # Simpler mode without extended thinking for faster responses
-                with self.client.messages.stream(
+                async with self.client.messages.stream(
                     model=self.settings.claude_opus_model,
                     max_tokens=8000,
                     system=system_prompt,
                     messages=messages,
                 ) as stream:
-                    for text in stream.text_stream:
+                    async for text in stream.text_stream:
                         yield text
             else:
                 # Full mode with extended thinking
-                with self.client.messages.stream(
+                async with self.client.messages.stream(
                     model=self.settings.claude_opus_model,
                     max_tokens=8000,
                     system=system_prompt,
@@ -1434,7 +1436,7 @@ class AIService:
                     },
                     messages=messages,
                 ) as stream:
-                    for text in stream.text_stream:
+                    async for text in stream.text_stream:
                         yield text
         
         return {
@@ -1444,7 +1446,7 @@ class AIService:
             "query": question,
         }
     
-    def analyze_contract(self, contract_text: str, top_k: int = 40) -> Dict[str, Any]:
+    async def analyze_contract(self, contract_text: str, top_k: int = 40) -> Dict[str, Any]:
         """
         Analyze a contract for legal compliance.
         Returns structured audit result with validity score.
@@ -1454,7 +1456,7 @@ class AIService:
         
         try:
             # Ensure documents are indexed
-            self.ensure_indexed()
+            await self.ensure_indexed()
             
             # Extract key contract terms for targeted retrieval
             search_queries = self._extract_contract_topics(contract_text)
@@ -1464,7 +1466,7 @@ class AIService:
             seen_articles = set()
             
             for search_query in search_queries:
-                results = self.vector_store.search(search_query, top_k=top_k // len(search_queries) + 5)
+                results = await self.vector_store.asearch(search_query, top_k=top_k // len(search_queries) + 5)
                 for result in results:
                     article_key = f"{result.get('metadata', {}).get('source')}_{result.get('metadata', {}).get('article_display')}"
                     if article_key not in seen_articles:
@@ -1481,7 +1483,7 @@ class AIService:
             ]
             
             for broad_query in broad_searches:
-                results = self.vector_store.search(broad_query, top_k=5)
+                results = await self.vector_store.asearch(broad_query, top_k=5)
                 for result in results:
                     article_key = f"{result.get('metadata', {}).get('source')}_{result.get('metadata', {}).get('article_display')}"
                     if article_key not in seen_articles:
@@ -1504,7 +1506,7 @@ class AIService:
                 contract_text=contract_text
             )
             
-            response = self.client.messages.create(
+            response = await self.client.messages.create(
                 model=self.settings.claude_opus_model,
                 max_tokens=16000,
                 system=VALIDATOR_PROMPT,
@@ -1550,7 +1552,7 @@ class AIService:
                 "raw_response": f"Error: {str(e)}",
             }
     
-    def generate_contract(
+    async def generate_contract(
         self,
         category: str,
         requirements: str,
@@ -1563,7 +1565,7 @@ class AIService:
         Returns streaming response and sources.
         """
         # Ensure documents are indexed
-        self.ensure_indexed()
+        await self.ensure_indexed()
         
         # Build search queries based on category and requirements
         search_queries = self._build_contract_search_queries(category, requirements)
@@ -1573,7 +1575,7 @@ class AIService:
         seen_articles = set()
         
         for search_query in search_queries:
-            results = self.vector_store.search(search_query, top_k=top_k // len(search_queries) + 5)
+            results = await self.vector_store.asearch(search_query, top_k=top_k // len(search_queries) + 5)
             for result in results:
                 article_key = f"{result.get('metadata', {}).get('source')}_{result.get('metadata', {}).get('article_display')}"
                 if article_key not in seen_articles:
@@ -1606,8 +1608,8 @@ class AIService:
 Убедитесь, что договор соответствует всем требованиям Гражданского кодекса Узбекистана."""
         
         # Stream response using Opus with extended thinking
-        def stream_response():
-            with self.client.messages.stream(
+        async def stream_response():
+            async with self.client.messages.stream(
                 model=self.settings.claude_opus_model,
                 max_tokens=24000,
                 system=GENERATOR_PROMPT,
@@ -1617,7 +1619,7 @@ class AIService:
                 },
                 messages=[{"role": "user", "content": generation_prompt}],
             ) as stream:
-                for text in stream.text_stream:
+                async for text in stream.text_stream:
                     yield text
         
         return {
@@ -1627,9 +1629,9 @@ class AIService:
             "requirements": requirements,
         }
     
-    def _retrieve_context(self, query: str, top_k: int = 60) -> List[Dict[str, Any]]:
+    async def _retrieve_context(self, query: str, top_k: int = 60) -> List[Dict[str, Any]]:
         """Retrieve relevant legal context for a query."""
-        return self.vector_store.search(query, top_k=top_k)
+        return await self.vector_store.asearch(query, top_k=top_k)
     
     def _format_context(self, results: List[Dict[str, Any]]) -> str:
         """Format retrieved documents into a context string for the LLM."""

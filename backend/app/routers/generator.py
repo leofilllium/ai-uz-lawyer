@@ -76,7 +76,7 @@ async def generate_contract(
         
         # Generate contract using AI service
         ai_service = AIService(mode='generator')
-        result = ai_service.generate_contract(
+        result = await ai_service.generate_contract(
             category=category,
             requirements=requirements,
             template_context=template_context
@@ -87,7 +87,7 @@ async def generate_contract(
             sources = result.get('sources', [])
             
             try:
-                for chunk in result['response']:
+                async for chunk in result['response']:
                     full_response += chunk
                     yield f"data: {json.dumps({'chunk': chunk})}\n\n"
             except Exception as stream_error:

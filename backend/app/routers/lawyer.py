@@ -81,10 +81,10 @@ async def chat(
         
         try:
             ai_service = AIService(mode='lawyer')
-            result = ai_service.query_with_rag(user_message, history, chat_mode=request.chat_mode)
+            result = await ai_service.query_with_rag(user_message, history, chat_mode=request.chat_mode)
             
             # Stream the response
-            for chunk in result['response']:
+            async for chunk in result['response']:
                 full_response += chunk
                 yield f"data: {json.dumps({'chunk': chunk})}\n\n"
             
