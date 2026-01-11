@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     thinking_budget_tokens: int = 8000
     max_output_tokens: int = 16000
     
+    # OpenAI Models
+    openai_embedding_model: str = "text-embedding-3-large"
+    
     # Paths
     codes_path: str = "codes"
     contracts_path: str = "contracts"

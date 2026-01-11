@@ -37,7 +37,7 @@ class VectorStore:
         
         # Initialize OpenAI embeddings
         self.embeddings = OpenAIEmbeddings(
-            model="text-embedding-3-large",
+            model=settings.openai_embedding_model,
             openai_api_key=settings.openai_api_key,
         )
         
@@ -49,6 +49,22 @@ class VectorStore:
                 "hnsw:space": "cosine"
             }
         )
+        
+        # Check for dimension mismatch (migration from 1536 -> 3072)
+        try:
+            # Peek at one item to check dimensionality
+            existing_items = self.collection.peek(limit=1)
+            if existing_items and existing_items['embeddings'] and len(existing_items['embeddings']) > 0:
+                current_dim = len(existing_items['embeddings'][0])
+                target_dim = 3072 if "3-large" in settings.openai_embedding_model else 1536
+                
+                if current_dim != target_dim:
+                    print(f"⚠️ DETECTED DIMENSION MISMATCH: DB={current_dim}, Model={target_dim}")
+                    print("⚠️ CLEARING COLLECTION FOR RE-INDEXING...")
+                    self.clear_collection()
+                    print("✅ Collection cleared and ready for new embeddings")
+        except Exception as e:
+            print(f"⚠️ Warning during dimension check: {e}")
     
     def add_documents(self, chunks: List[Dict[str, Any]], batch_size: int = 100) -> int:
         """Add document chunks to the vector store."""
