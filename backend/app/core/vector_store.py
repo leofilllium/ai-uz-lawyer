@@ -36,8 +36,10 @@ class VectorStore:
         )
         
         # Initialize OpenAI embeddings
+        # Using dimensions=1536 to match existing ChromaDB collection
         self.embeddings = OpenAIEmbeddings(
             model="text-embedding-3-large",
+            dimensions=1536,
             openai_api_key=settings.openai_api_key,
         )
         

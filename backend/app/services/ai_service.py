@@ -1458,7 +1458,7 @@ class AIService:
                     logger.info(f"Using extended thinking mode, budget: {self.settings.thinking_budget_tokens}")
                     async with self.client.messages.stream(
                         model=self.settings.claude_opus_model,
-                        max_tokens=8000,
+                        max_tokens=16000,
                         system=system_prompt,
                         thinking={
                             "type": "enabled",
