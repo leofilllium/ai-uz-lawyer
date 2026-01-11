@@ -16,16 +16,17 @@ class Settings(BaseSettings):
     # Security
     secret_key: str = "super-secret-key-change-in-production"
     jwt_algorithm: str = "HS256"
-    jwt_expiry_days: int = 7
+    jwt_expiry_days: int = 365
     
     # AI APIs
     anthropic_api_key: str = ""
     openai_api_key: str = ""
     
     # Claude Models
-    claude_haiku_model: str = "claude-3-5-haiku-20241022"
+    claude_haiku_model: str = "claude-haiku-4-5-20251001"
     claude_opus_model: str = "claude-opus-4-5-20251101"
-    thinking_budget_tokens: int = 8000
+    thinking_budget_tokens: int = 6000
+    max_output_tokens: int = 8000
     
     # Paths
     codes_path: str = "codes"

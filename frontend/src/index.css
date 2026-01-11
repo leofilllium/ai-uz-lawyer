@@ -791,12 +791,26 @@ body {
 .message {
   display: flex;
   gap: 1rem;
-  max-width: 85%;
+  max-width: 100%;
+  width: 100%;
 }
 
+/* User messages - chat bubble style aligned right */
 .message.user {
+  max-width: 75%;
   margin-left: auto;
   flex-direction: row-reverse;
+}
+
+/* Assistant messages - full width like ChatGPT */
+.message.assistant {
+  max-width: 100%;
+  padding: 1.5rem 0;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.message.assistant:last-of-type {
+  border-bottom: none;
 }
 
 .message-avatar {
@@ -815,16 +829,33 @@ body {
   background: var(--primary);
 }
 
+.message.assistant .message-avatar {
+  background: linear-gradient(135deg, var(--secondary) 0%, var(--primary) 100%);
+}
+
+/* User message content - bubble style */
+.message.user .message-content {
+  background: var(--primary);
+  border-color: var(--primary);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+}
+
+/* Assistant message content - clean document style */
+.message.assistant .message-content {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0 0.5rem;
+  flex: 1;
+  max-width: calc(100% - 52px);
+}
+
 .message-content {
   background: var(--bg-card);
   border-radius: var(--radius);
   padding: 1rem 1.25rem;
   border: 1px solid var(--border);
-}
-
-.message.user .message-content {
-  background: var(--primary);
-  border-color: var(--primary);
 }
 
 .message-content h1, .message-content h2, .message-content h3 {
