@@ -6,6 +6,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { jsPDF } from 'jspdf';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
+import { saveAs } from 'file-saver';
 import { getCategories, generateContract, getGeneratedContractById, type ContractCategory, type Source } from '../api/client';
 
 export default function Generator() {
@@ -92,6 +95,109 @@ export default function Generator() {
     alert('Договор скопирован в буфер обмена');
   };
 
+  const downloadAsPDF = () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 15;
+    const maxWidth = pageWidth - margin * 2;
+    let yPosition = 20;
+    const lineHeight = 7;
+
+    // Title
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Contract / Договор', pageWidth / 2, yPosition, { align: 'center' });
+    yPosition += 15;
+
+    // Content
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+
+    // Split text into lines that fit within the page width
+    const lines = doc.splitTextToSize(generatedText, maxWidth);
+
+    lines.forEach((line: string) => {
+      if (yPosition > doc.internal.pageSize.getHeight() - 20) {
+        doc.addPage();
+        yPosition = 20;
+      }
+      doc.text(line, margin, yPosition);
+      yPosition += lineHeight;
+    });
+
+    const fileName = `contract_${selectedCategory.replace(/[^a-zA-Zа-яА-Я0-9]/g, '_')}_${Date.now()}.pdf`;
+    doc.save(fileName);
+  };
+
+  const downloadAsDocx = async () => {
+    // Parse markdown-like content into paragraphs
+    const paragraphs = generatedText.split('\n').filter(line => line.trim()).map(line => {
+      // Check if it's a heading
+      if (line.startsWith('# ')) {
+        return new Paragraph({
+          children: [new TextRun({ text: line.replace('# ', ''), bold: true, size: 32 })],
+          heading: HeadingLevel.HEADING_1,
+          spacing: { after: 200 },
+        });
+      }
+      if (line.startsWith('## ')) {
+        return new Paragraph({
+          children: [new TextRun({ text: line.replace('## ', ''), bold: true, size: 28 })],
+          heading: HeadingLevel.HEADING_2,
+          spacing: { after: 150 },
+        });
+      }
+      if (line.startsWith('### ')) {
+        return new Paragraph({
+          children: [new TextRun({ text: line.replace('### ', ''), bold: true, size: 24 })],
+          heading: HeadingLevel.HEADING_3,
+          spacing: { after: 100 },
+        });
+      }
+      // Check if it's a list item
+      if (line.startsWith('- ') || line.startsWith('* ')) {
+        return new Paragraph({
+          children: [new TextRun({ text: '• ' + line.substring(2), size: 22 })],
+          spacing: { after: 80 },
+        });
+      }
+      // Check if it's bold text (wrapped in **)
+      const boldRegex = /\*\*(.*?)\*\*/g;
+      if (boldRegex.test(line)) {
+        const parts: TextRun[] = [];
+        let lastIndex = 0;
+        line.replace(boldRegex, (match, text, index) => {
+          if (index > lastIndex) {
+            parts.push(new TextRun({ text: line.substring(lastIndex, index), size: 22 }));
+          }
+          parts.push(new TextRun({ text, bold: true, size: 22 }));
+          lastIndex = index + match.length;
+          return match;
+        });
+        if (lastIndex < line.length) {
+          parts.push(new TextRun({ text: line.substring(lastIndex), size: 22 }));
+        }
+        return new Paragraph({ children: parts, spacing: { after: 100 } });
+      }
+      // Regular paragraph
+      return new Paragraph({
+        children: [new TextRun({ text: line, size: 22 })],
+        spacing: { after: 100 },
+      });
+    });
+
+    const doc = new Document({
+      sections: [{
+        properties: {},
+        children: paragraphs,
+      }],
+    });
+
+    const blob = await Packer.toBlob(doc);
+    const fileName = `contract_${selectedCategory.replace(/[^a-zA-Zа-яА-Я0-9]/g, '_')}_${Date.now()}.docx`;
+    saveAs(blob, fileName);
+  };
+
   return (
     <div className="generator-page">
       <header className="page-header">
@@ -149,9 +255,17 @@ export default function Generator() {
           <div className="generated-result">
             <div className="result-header">
               <h2>📄 Сгенерированный договор</h2>
-              <button onClick={copyToClipboard} className="btn-copy">
-                📋 Копировать
-              </button>
+              <div className="result-actions">
+                <button onClick={copyToClipboard} className="btn-action">
+                  📋 Копировать
+                </button>
+                <button onClick={downloadAsPDF} className="btn-action btn-pdf">
+                  📥 Скачать PDF
+                </button>
+                <button onClick={downloadAsDocx} className="btn-action btn-docx">
+                  📥 Скачать DOCX
+                </button>
+              </div>
             </div>
             <div className="contract-content">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{generatedText}</ReactMarkdown>

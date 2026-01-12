@@ -203,7 +203,7 @@ export async function sendChatMessage(
   sessionId?: number,
   onChunk?: (chunk: string) => void,
   onDone?: (sessionId: number, sources: Source[]) => void,
-  chatMode: 'risk-manager' | 'smalltalk' | 'consultant' | 'practitioner' | 'litigator' | 'legal-audit' | 'compliance' | 'tax' | 'corporate' | 'commercial' | 'negotiator' | 'startup' | 'procedural' | 'deadlines' | 'hr' | 'worker-protection' | 'analyst' | 'skeptic' | 'judge-questions' | 'odds' | 'strategist' | 'what-if' = 'risk-manager'
+  chatMode: 'risk-manager' | 'smalltalk' | 'consultant' | 'practitioner' | 'litigator' | 'legal-audit' | 'compliance' | 'tax' | 'corporate' | 'commercial' | 'negotiator' | 'startup' | 'procedural' | 'deadlines' | 'hr' | 'worker-protection' | 'analyst' | 'skeptic' | 'judge-questions' | 'odds' | 'strategist' | 'what-if' | 'interview-practice' = 'risk-manager'
 ): Promise<void> {
   const token = getToken();
   const headers: Record<string, string> = {
