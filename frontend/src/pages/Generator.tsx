@@ -2,12 +2,10 @@
  * Contract Generator Page
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, BorderStyle } from 'docx';
 import { saveAs } from 'file-saver';
 import { getCategories, generateContract, getGeneratedContractById, type ContractCategory, type Source } from '../api/client';
@@ -96,53 +94,7 @@ export default function Generator() {
     alert('Договор скопирован в буфер обмена');
   };
 
-  const contractContentRef = useRef<HTMLDivElement>(null);
 
-  const downloadAsPDF = async () => {
-    if (!contractContentRef.current) return;
-
-    try {
-      // Render the HTML content to canvas (preserves Cyrillic and formatting)
-      const canvas = await html2canvas(contractContentRef.current, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-      });
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-      const imgX = (pdfWidth - imgWidth * ratio) / 2;
-      
-      // Handle multi-page PDFs
-      const pageHeight = pdfHeight * imgWidth / pdfWidth;
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      // First page
-      pdf.addImage(imgData, 'PNG', imgX, 0, imgWidth * ratio, imgHeight * ratio);
-      heightLeft -= pageHeight;
-
-      // Additional pages if needed
-      while (heightLeft > 0) {
-        position -= pageHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', imgX, position * ratio, imgWidth * ratio, imgHeight * ratio);
-        heightLeft -= pageHeight;
-      }
-
-      const fileName = `contract_${selectedCategory.replace(/[^a-zA-Zа-яА-Я0-9]/g, '_')}_${Date.now()}.pdf`;
-      pdf.save(fileName);
-    } catch (err) {
-      console.error('PDF generation error:', err);
-      alert('Ошибка при создании PDF');
-    }
-  };
 
   // Parse markdown table into 2D array
   const parseMarkdownTable = (lines: string[]): string[][] | null => {
@@ -163,7 +115,7 @@ export default function Generator() {
     return rows.length > 0 ? rows : null;
   };
 
-  // Create DOCX table from parsed data
+  // Create DOCX table from parsed data with enhanced spacing
   const createDocxTable = (tableData: string[][]) => {
     const borderStyle = {
       style: BorderStyle.SINGLE,
@@ -183,7 +135,14 @@ export default function Generator() {
                   size: 20,
                   bold: rowIndex === 0  // Bold header row
                 })],
+                spacing: { before: 120, after: 120 },  // Add vertical padding inside cells
               })],
+              margins: {
+                top: 100,
+                bottom: 100,
+                left: 100,
+                right: 100,
+              },
               borders: {
                 top: borderStyle,
                 bottom: borderStyle,
@@ -214,8 +173,11 @@ export default function Generator() {
         }
         const tableData = parseMarkdownTable(tableLines);
         if (tableData && tableData.length > 0) {
+          // Add space before table
+          children.push(new Paragraph({ children: [], spacing: { after: 300 } }));
           children.push(createDocxTable(tableData));
-          children.push(new Paragraph({ children: [], spacing: { after: 200 } })); // Space after table
+          // Add more space after table
+          children.push(new Paragraph({ children: [], spacing: { after: 400 } }));
         }
         continue;
       }
@@ -356,15 +318,12 @@ export default function Generator() {
                 <button onClick={copyToClipboard} className="btn-action">
                   📋 Копировать
                 </button>
-                <button onClick={downloadAsPDF} className="btn-action btn-pdf">
-                  📥 Скачать PDF
-                </button>
                 <button onClick={downloadAsDocx} className="btn-action btn-docx">
                   📥 Скачать DOCX
                 </button>
               </div>
             </div>
-            <div className="contract-content" ref={contractContentRef}>
+            <div className="contract-content">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{generatedText}</ReactMarkdown>
             </div>
 
