@@ -2,12 +2,13 @@
  * Contract Generator Page
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { jsPDF } from 'jspdf';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
+import html2canvas from 'html2canvas';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, BorderStyle } from 'docx';
 import { saveAs } from 'file-saver';
 import { getCategories, generateContract, getGeneratedContractById, type ContractCategory, type Source } from '../api/client';
 
@@ -95,101 +96,197 @@ export default function Generator() {
     alert('Договор скопирован в буфер обмена');
   };
 
-  const downloadAsPDF = () => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 15;
-    const maxWidth = pageWidth - margin * 2;
-    let yPosition = 20;
-    const lineHeight = 7;
+  const contractContentRef = useRef<HTMLDivElement>(null);
 
-    // Title
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Contract / Договор', pageWidth / 2, yPosition, { align: 'center' });
-    yPosition += 15;
+  const downloadAsPDF = async () => {
+    if (!contractContentRef.current) return;
 
-    // Content
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'normal');
+    try {
+      // Render the HTML content to canvas (preserves Cyrillic and formatting)
+      const canvas = await html2canvas(contractContentRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+      });
 
-    // Split text into lines that fit within the page width
-    const lines = doc.splitTextToSize(generatedText, maxWidth);
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      const imgX = (pdfWidth - imgWidth * ratio) / 2;
+      
+      // Handle multi-page PDFs
+      const pageHeight = pdfHeight * imgWidth / pdfWidth;
+      let heightLeft = imgHeight;
+      let position = 0;
 
-    lines.forEach((line: string) => {
-      if (yPosition > doc.internal.pageSize.getHeight() - 20) {
-        doc.addPage();
-        yPosition = 20;
+      // First page
+      pdf.addImage(imgData, 'PNG', imgX, 0, imgWidth * ratio, imgHeight * ratio);
+      heightLeft -= pageHeight;
+
+      // Additional pages if needed
+      while (heightLeft > 0) {
+        position -= pageHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', imgX, position * ratio, imgWidth * ratio, imgHeight * ratio);
+        heightLeft -= pageHeight;
       }
-      doc.text(line, margin, yPosition);
-      yPosition += lineHeight;
-    });
 
-    const fileName = `contract_${selectedCategory.replace(/[^a-zA-Zа-яА-Я0-9]/g, '_')}_${Date.now()}.pdf`;
-    doc.save(fileName);
+      const fileName = `contract_${selectedCategory.replace(/[^a-zA-Zа-яА-Я0-9]/g, '_')}_${Date.now()}.pdf`;
+      pdf.save(fileName);
+    } catch (err) {
+      console.error('PDF generation error:', err);
+      alert('Ошибка при создании PDF');
+    }
+  };
+
+  // Parse markdown table into 2D array
+  const parseMarkdownTable = (lines: string[]): string[][] | null => {
+    if (lines.length < 2) return null;
+    
+    const rows: string[][] = [];
+    for (const line of lines) {
+      if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+        // Skip separator rows (|---|---|)
+        if (/^\|[\s\-:|]+\|$/.test(line.trim())) continue;
+        
+        const cells = line.split('|')
+          .slice(1, -1)  // Remove first and last empty elements
+          .map(cell => cell.trim());
+        rows.push(cells);
+      }
+    }
+    return rows.length > 0 ? rows : null;
+  };
+
+  // Create DOCX table from parsed data
+  const createDocxTable = (tableData: string[][]) => {
+    const borderStyle = {
+      style: BorderStyle.SINGLE,
+      size: 1,
+      color: '000000',
+    };
+    
+    return new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: tableData.map((row, rowIndex) => 
+        new TableRow({
+          children: row.map(cell => 
+            new TableCell({
+              children: [new Paragraph({
+                children: [new TextRun({ 
+                  text: cell, 
+                  size: 20,
+                  bold: rowIndex === 0  // Bold header row
+                })],
+              })],
+              borders: {
+                top: borderStyle,
+                bottom: borderStyle,
+                left: borderStyle,
+                right: borderStyle,
+              },
+            })
+          ),
+        })
+      ),
+    });
   };
 
   const downloadAsDocx = async () => {
-    // Parse markdown-like content into paragraphs
-    const paragraphs = generatedText.split('\n').filter(line => line.trim()).map(line => {
+    const lines = generatedText.split('\n');
+    const children: (Paragraph | Table)[] = [];
+    let i = 0;
+
+    while (i < lines.length) {
+      const line = lines[i];
+      
+      // Check if this is the start of a table
+      if (line.trim().startsWith('|') && line.includes('|')) {
+        const tableLines: string[] = [];
+        while (i < lines.length && lines[i].trim().startsWith('|')) {
+          tableLines.push(lines[i]);
+          i++;
+        }
+        const tableData = parseMarkdownTable(tableLines);
+        if (tableData && tableData.length > 0) {
+          children.push(createDocxTable(tableData));
+          children.push(new Paragraph({ children: [], spacing: { after: 200 } })); // Space after table
+        }
+        continue;
+      }
+
+      // Skip empty lines
+      if (!line.trim()) {
+        i++;
+        continue;
+      }
+
       // Check if it's a heading
       if (line.startsWith('# ')) {
-        return new Paragraph({
+        children.push(new Paragraph({
           children: [new TextRun({ text: line.replace('# ', ''), bold: true, size: 32 })],
           heading: HeadingLevel.HEADING_1,
           spacing: { after: 200 },
-        });
-      }
-      if (line.startsWith('## ')) {
-        return new Paragraph({
+        }));
+      } else if (line.startsWith('## ')) {
+        children.push(new Paragraph({
           children: [new TextRun({ text: line.replace('## ', ''), bold: true, size: 28 })],
           heading: HeadingLevel.HEADING_2,
           spacing: { after: 150 },
-        });
-      }
-      if (line.startsWith('### ')) {
-        return new Paragraph({
+        }));
+      } else if (line.startsWith('### ')) {
+        children.push(new Paragraph({
           children: [new TextRun({ text: line.replace('### ', ''), bold: true, size: 24 })],
           heading: HeadingLevel.HEADING_3,
           spacing: { after: 100 },
-        });
-      }
-      // Check if it's a list item
-      if (line.startsWith('- ') || line.startsWith('* ')) {
-        return new Paragraph({
+        }));
+      } else if (line.startsWith('- ') || line.startsWith('* ')) {
+        // List item
+        children.push(new Paragraph({
           children: [new TextRun({ text: '• ' + line.substring(2), size: 22 })],
           spacing: { after: 80 },
-        });
-      }
-      // Check if it's bold text (wrapped in **)
-      const boldRegex = /\*\*(.*?)\*\*/g;
-      if (boldRegex.test(line)) {
-        const parts: TextRun[] = [];
-        let lastIndex = 0;
-        line.replace(boldRegex, (match, text, index) => {
-          if (index > lastIndex) {
-            parts.push(new TextRun({ text: line.substring(lastIndex, index), size: 22 }));
+        }));
+      } else if (line.startsWith('---') || line.startsWith('***')) {
+        // Horizontal rule - add some spacing
+        children.push(new Paragraph({ children: [], spacing: { after: 200 } }));
+      } else {
+        // Regular paragraph with bold text handling
+        const boldRegex = /\*\*(.*?)\*\*/g;
+        if (boldRegex.test(line)) {
+          const parts: TextRun[] = [];
+          let lastIndex = 0;
+          const lineForParsing = line;
+          lineForParsing.replace(/\*\*(.*?)\*\*/g, (match, text, index) => {
+            if (index > lastIndex) {
+              parts.push(new TextRun({ text: lineForParsing.substring(lastIndex, index), size: 22 }));
+            }
+            parts.push(new TextRun({ text, bold: true, size: 22 }));
+            lastIndex = index + match.length;
+            return match;
+          });
+          if (lastIndex < lineForParsing.length) {
+            parts.push(new TextRun({ text: lineForParsing.substring(lastIndex), size: 22 }));
           }
-          parts.push(new TextRun({ text, bold: true, size: 22 }));
-          lastIndex = index + match.length;
-          return match;
-        });
-        if (lastIndex < line.length) {
-          parts.push(new TextRun({ text: line.substring(lastIndex), size: 22 }));
+          children.push(new Paragraph({ children: parts, spacing: { after: 100 } }));
+        } else {
+          children.push(new Paragraph({
+            children: [new TextRun({ text: line, size: 22 })],
+            spacing: { after: 100 },
+          }));
         }
-        return new Paragraph({ children: parts, spacing: { after: 100 } });
       }
-      // Regular paragraph
-      return new Paragraph({
-        children: [new TextRun({ text: line, size: 22 })],
-        spacing: { after: 100 },
-      });
-    });
+      i++;
+    }
 
     const doc = new Document({
       sections: [{
         properties: {},
-        children: paragraphs,
+        children: children,
       }],
     });
 
@@ -267,7 +364,7 @@ export default function Generator() {
                 </button>
               </div>
             </div>
-            <div className="contract-content">
+            <div className="contract-content" ref={contractContentRef}>
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{generatedText}</ReactMarkdown>
             </div>
 
