@@ -100,11 +100,11 @@ export default function Dashboard() {
             <p>Все ваши консультации, проверки и договоры</p>
           </Link>
 
-          <Link to="/admin" className="feature-card admin">
+          {/* <Link to="/admin" className="feature-card admin">
             <div className="feature-icon">⚙️</div>
             <h2>Админ панель</h2>
             <p>Управление базой законов и документов</p>
-          </Link>
+          </Link> */}
         </section>
 
         <section className="recent-history">
