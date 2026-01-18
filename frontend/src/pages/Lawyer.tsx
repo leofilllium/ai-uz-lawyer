@@ -4,7 +4,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { sendChatMessage, getChatSessions, getChatSession, deleteHistoryItem, type ChatSession, type Source } from '../api/client';
@@ -25,6 +25,30 @@ export default function Lawyer() {
   const [chatMode, setChatMode] = useState<'risk-manager' | 'smalltalk' | 'consultant' | 'practitioner' | 'litigator' | 'legal-audit' | 'compliance' | 'tax' | 'corporate' | 'commercial' | 'negotiator' | 'startup' | 'procedural' | 'deadlines' | 'hr' | 'worker-protection' | 'analyst' | 'skeptic' | 'judge-questions' | 'odds' | 'strategist' | 'what-if' | 'interview-practice'>('consultant');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Load session from URL parameter on mount
+  useEffect(() => {
+    const sessionParam = searchParams.get('session');
+    if (sessionParam) {
+      const sessionIdFromUrl = parseInt(sessionParam, 10);
+      if (!isNaN(sessionIdFromUrl)) {
+        // Load the session
+        getChatSession(sessionIdFromUrl)
+          .then((data) => {
+            setSessionId(sessionIdFromUrl);
+            setMessages(data.messages.map((m) => ({
+              role: m.role as 'user' | 'assistant',
+              content: m.content,
+              sources: m.sources || undefined,
+            })));
+          })
+          .catch((err) => {
+            console.error('Failed to load session from URL:', err);
+          });
+      }
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     loadSessions();
