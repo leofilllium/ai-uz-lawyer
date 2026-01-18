@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.database import create_tables
-from app.routers import auth, lawyer, validator, generator, history
+from app.routers import auth, lawyer, validator, generator, history, admin
 
 
 @asynccontextmanager
@@ -45,6 +45,7 @@ app.include_router(lawyer.router, prefix="/api/lawyer", tags=["Lawyer Chat"])
 app.include_router(validator.router, prefix="/api/validator", tags=["Contract Validator"])
 app.include_router(generator.router, prefix="/api/generator", tags=["Contract Generator"])
 app.include_router(history.router, prefix="/api/history", tags=["History"])
+app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 
 
 @app.get("/health")

@@ -99,6 +99,12 @@ export default function Dashboard() {
             <h2>История</h2>
             <p>Все ваши консультации, проверки и договоры</p>
           </Link>
+
+          <Link to="/admin" className="feature-card admin">
+            <div className="feature-icon">⚙️</div>
+            <h2>Админ панель</h2>
+            <p>Управление базой законов и документов</p>
+          </Link>
         </section>
 
         <section className="recent-history">

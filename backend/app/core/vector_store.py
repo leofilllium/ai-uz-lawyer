@@ -169,6 +169,53 @@ class VectorStore:
     def is_indexed(self) -> bool:
         """Check if documents have been indexed."""
         return self.get_document_count() > 0
+    
+    def get_indexed_documents(self) -> List[Dict[str, Any]]:
+        """Get list of all indexed source documents with their chunk counts."""
+        # Get all documents from collection
+        all_docs = self.collection.get(include=["metadatas"])
+        
+        if not all_docs or not all_docs["metadatas"]:
+            return []
+        
+        # Aggregate by source
+        source_stats: Dict[str, Dict[str, Any]] = {}
+        
+        for metadata in all_docs["metadatas"]:
+            source = metadata.get("source", "unknown")
+            if source not in source_stats:
+                source_stats[source] = {
+                    "source_name": source,
+                    "chunk_count": 0,
+                    "doc_type": metadata.get("doc_type", "unknown"),
+                }
+            source_stats[source]["chunk_count"] += 1
+        
+        return list(source_stats.values())
+    
+    def is_document_indexed(self, source_name: str) -> bool:
+        """Check if a specific document is already indexed."""
+        results = self.collection.get(
+            where={"source": source_name},
+            limit=1,
+        )
+        return bool(results and results["ids"])
+    
+    def remove_document(self, source_name: str) -> int:
+        """Remove all chunks from a specific source document."""
+        # Get IDs of all chunks from this source
+        results = self.collection.get(
+            where={"source": source_name},
+        )
+        
+        if not results or not results["ids"]:
+            return 0
+        
+        ids_to_delete = results["ids"]
+        self.collection.delete(ids=ids_to_delete)
+        
+        print(f"Removed {len(ids_to_delete)} chunks from source: {source_name}")
+        return len(ids_to_delete)
 
     async def aadd_documents(self, chunks: List[Dict[str, Any]], batch_size: int = 100) -> int:
         """Async version of add_documents."""
@@ -186,3 +233,16 @@ class VectorStore:
     async def ais_indexed(self) -> bool:
         """Async version of is_indexed."""
         return await run_in_threadpool(self.is_indexed)
+    
+    async def aget_indexed_documents(self) -> List[Dict[str, Any]]:
+        """Async version of get_indexed_documents."""
+        return await run_in_threadpool(self.get_indexed_documents)
+    
+    async def ais_document_indexed(self, source_name: str) -> bool:
+        """Async version of is_document_indexed."""
+        return await run_in_threadpool(self.is_document_indexed, source_name)
+    
+    async def aremove_document(self, source_name: str) -> int:
+        """Async version of remove_document."""
+        return await run_in_threadpool(self.remove_document, source_name)
+
