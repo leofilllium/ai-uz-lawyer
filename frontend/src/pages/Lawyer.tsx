@@ -174,9 +174,8 @@ export default function Lawyer() {
   };
 
   return (
-    <div className="lawyer-page">
-      {showSidebar && (
-        <aside className="chat-sidebar">
+    <div className={`lawyer-page ${!showSidebar ? 'sidebar-collapsed' : ''}`}>
+      <aside className={`chat-sidebar ${!showSidebar ? 'collapsed' : ''}`}>
           <button onClick={() => navigate('/')} className="btn-back">← Назад</button>
           <button onClick={startNewChat} className="btn-new-chat">+ Новый чат</button>
           <div className="sessions-list">
@@ -211,7 +210,6 @@ export default function Lawyer() {
             )}
           </div>
         </aside>
-      )}
 
       <main className="chat-main">
         <header className="chat-header">

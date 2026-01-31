@@ -628,6 +628,13 @@ body {
   height: 100vh;
   overflow-y: auto;
   z-index: 100;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+}
+
+.chat-sidebar.collapsed {
+  transform: translateX(-100%);
+  opacity: 0;
+  pointer-events: none;
 }
 
 .btn-new-chat {
@@ -707,6 +714,11 @@ body {
   flex-direction: column;
   margin-left: var(--sidebar-width);
   min-height: 100vh;
+  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-collapsed .chat-main {
+  margin-left: 0;
 }
 
 .chat-header {
@@ -762,12 +774,25 @@ body {
 }
 
 .btn-toggle-sidebar {
-  background: transparent;
-  border: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
   cursor: pointer;
-  font-size: 1rem;
-  padding: 8px;
+  font-size: 14px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+}
+
+.btn-toggle-sidebar:hover {
+  background: white;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
 }
 
 .messages-container {
@@ -1321,8 +1346,8 @@ body {
 }
 
 .category-btn {
-  background: var(--color-background);
-  border: 1px solid var(--color-border);
+  background: #ffffff;
+  border: 1px solid #d1d5da;
   border-radius: var(--radius-lg);
   padding: var(--space-lg);
   cursor: pointer;
@@ -1346,6 +1371,7 @@ body {
   border-color: var(--color-primary);
   background: var(--color-primary);
   box-shadow: 0 0 0 2px rgba(196,30,58,0.2);
+  color: #ffffff;
 }
 
 .category-btn.selected .category-name {
