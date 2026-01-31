@@ -1367,7 +1367,7 @@ body {
 
 .dropdown-toggle.has-selection {
   border-color: var(--color-primary);
-  background: var(--color-primary-light);
+  background: var(--color-surface-alt);
 }
 
 .toggle-content {
@@ -1462,7 +1462,7 @@ body {
 }
 
 .dropdown-item.active {
-  background: var(--color-primary-light);
+  background: var(--color-surface-alt);
 }
 
 .item-icon {
@@ -1517,7 +1517,7 @@ body.dark .dropdown-item:hover {
 }
 
 body.dark .dropdown-item.active {
-  background: rgba(230, 57, 80, 0.1);
+  background: var(--color-surface-alt);
 }
 
 /* Generated result */
