@@ -155,6 +155,8 @@ async def chat(
 
 @router.get("/sessions", response_model=list[ChatSessionResponse])
 async def list_sessions(
+    skip: int = 0,
+    limit: int = 20,
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_current_user)
 ):
@@ -167,7 +169,7 @@ async def list_sessions(
         # Only show sessions without user_id for anonymous users
         query = query.filter(ChatSession.user_id.is_(None))
     
-    sessions = query.order_by(ChatSession.updated_at.desc()).limit(20).all()
+    sessions = query.order_by(ChatSession.updated_at.desc()).offset(skip).limit(limit).all()
     
     return [ChatSessionResponse.model_validate(s.to_dict()) for s in sessions]
 

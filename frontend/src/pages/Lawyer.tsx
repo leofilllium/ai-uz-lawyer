@@ -22,7 +22,10 @@ export default function Lawyer() {
   const [sessionId, setSessionId] = useState<number | undefined>();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [showSidebar, setShowSidebar] = useState(true);
-  const [chatMode, setChatMode] = useState<'risk-manager' | 'smalltalk' | 'consultant' | 'practitioner' | 'litigator' | 'legal-audit' | 'compliance' | 'tax' | 'corporate' | 'commercial' | 'negotiator' | 'startup' | 'procedural' | 'deadlines' | 'hr' | 'worker-protection' | 'analyst' | 'skeptic' | 'judge-questions' | 'odds' | 'strategist' | 'what-if' | 'interview-practice'>('consultant');
+  const [chatMode, setChatMode] = useState<'risk-manager' | 'smalltalk' | 'consultant' | 'practitioner' | 'litigator' | 'legal-audit' | 'compliance' | 'tax' | 'corporate' | 'commercial' | 'negotiator' | 'startup' | 'procedural' | 'deadlines' | 'hr' | 'worker-protection' | 'analyst' | 'skeptic' | 'judge-questions' | 'odds' | 'strategist' | 'what-if' | 'interview-practice' | 'family' | 'real-estate' | 'notary' | 'ip' | 'criminal-defense' | 'criminal-prosecution' | 'admin-defense' | 'admin-procedure' | 'customs' | 'procurement' | 'enforcement' | 'arbitration' | 'constitutional' | 'consumer-protection' | 'housing' | 'land-disputes' | 'digital-law' | 'environmental' | 'antitrust' | 'insurance' | 'banking' | 'securities' | 'investor-protection' | 'mediation' | 'doc-review' | 'legal-letter' | 'compliance-hr' | 'debt-collection' | 'bankruptcy' | 'merger-acquisition' | 'licensing' | 'regulatory' | 'cross-border' | 'forensic-legal' | 'quick-answer'>('consultant');
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const LIMIT = 20;
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -58,13 +61,27 @@ export default function Lawyer() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const loadSessions = async () => {
+  const loadSessions = async (reset = true) => {
     try {
-      const data = await getChatSessions();
-      setSessions(data);
+      const currentOffset = reset ? 0 : offset;
+      const data = await getChatSessions(currentOffset, LIMIT);
+      
+      if (reset) {
+        setSessions(data);
+        setOffset(LIMIT);
+      } else {
+        setSessions(prev => [...prev, ...data]);
+        setOffset(prev => prev + LIMIT);
+      }
+      
+      setHasMore(data.length === LIMIT);
     } catch (err) {
       console.error('Failed to load sessions:', err);
     }
+  };
+
+  const handleLoadMore = () => {
+    loadSessions(false);
   };
 
   const handleSessionClick = async (session: ChatSession) => {
@@ -139,6 +156,8 @@ export default function Lawyer() {
         },
         chatMode
       );
+      // Refresh list to update message count/title, resetting the list
+      loadSessions(true);
     } catch (err) {
       setMessages((prev) => [
         ...prev,
@@ -181,6 +200,15 @@ export default function Lawyer() {
                 </button>
               </div>
             ))}
+            {hasMore && sessions.length > 0 && (
+              <button 
+                className="btn-load-more" 
+                onClick={handleLoadMore}
+                style={{ width: '100%', padding: '10px', marginTop: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-primary)' }}
+              >
+                Еще...
+              </button>
+            )}
           </div>
         </aside>
       )}
@@ -197,44 +225,98 @@ export default function Lawyer() {
               onChange={(e) => setChatMode(e.target.value as typeof chatMode)}
               className="mode-dropdown"
             >
-              <optgroup label="📚 Консультации">
-                <option value="risk-manager">🛡️ Риск-менеджер</option>
-                <option value="smalltalk">💬 Простые вопросы</option>
+              <optgroup label="📚 Базовые режимы">
                 <option value="consultant">📚 Юрист-консультант</option>
+                <option value="risk-manager">🛡️ Риск-менеджер</option>
                 <option value="practitioner">⚖️ Юрист-практик</option>
-                <option value="litigator">🏛 Судебный юрист</option>
+                <option value="smalltalk">💬 Простые вопросы</option>
+                <option value="quick-answer">⚡ Быстрый ответ</option>
               </optgroup>
-              <optgroup label="🧯 Риски и комплаенс">
-                <option value="legal-audit">🚨 Юридический аудит</option>
-                <option value="compliance">🛡 Комплаенс-офицер</option>
-                <option value="tax">🧾 Налоговый юрист</option>
+              
+              <optgroup label="⚖️ Уголовное право">
+                <option value="criminal-defense">�️ Адвокат (Защита)</option>
+                <option value="criminal-prosecution">⚔️ Прокурор (Обвинение)</option>
               </optgroup>
-              <optgroup label="👔 Бизнес и корпоратив">
+
+              <optgroup label="🏛️ Административное право">
+                <option value="admin-defense">🛡️ Адм. защита (Штрафы)</option>
+                <option value="admin-procedure">📋 Адм. процедуры</option>
+              </optgroup>
+
+              <optgroup label="💼 Бизнес и Корпоратив">
                 <option value="corporate">🏢 Корпоративный юрист</option>
                 <option value="commercial">📜 Коммерческий юрист</option>
-                <option value="negotiator">🤝 Юрист по переговорам</option>
-                <option value="startup">📈 Юрист для стартапов</option>
+                <option value="startup">� Юрист для стартапов</option>
+                <option value="merger-acquisition">🤝 Слияния (M&A)</option>
+                <option value="antitrust">� Антимонопольный юрист</option>
+                <option value="bankruptcy">🏚️ Банкротство</option>
+                <option value="procurement">🏛️ Госзакупки</option>
+                <option value="licensing">📋 Лицензирование</option>
+                <option value="regulatory">🌐 Регуляторный комплаенс</option>
               </optgroup>
-              <optgroup label="🧑‍⚖️ Суды и процесс">
-                <option value="procedural">📝 Процессуальный юрист</option>
+
+              <optgroup label="� Финансы и Налоги">
+                <option value="tax">🧾 Налоговый юрист</option>
+                <option value="banking">🏦 Банковский юрист</option>
+                <option value="securities">📈 Ценные бумаги и IPO</option>
+                <option value="insurance">🛡️ Страховой юрист</option>
+                <option value="debt-collection">💸 Взыскание долгов</option>
+                <option value="investor-protection">� Защита инвесторов</option>
+                <option value="cross-border">🌍 Трансграничные сделки</option>
+                <option value="customs">🚢 Таможенный юрист</option>
+              </optgroup>
+
+              <optgroup label="🏠 Недвижимость и Быт">
+                <option value="real-estate">🏠 Недвижимость</option>
+                <option value="housing">🏘️ Жилищное право (ЖКХ)</option>
+                <option value="land-disputes">🌾 Земельные споры</option>
+                <option value="family">�‍👩‍👧 Семейный юрист</option>
+                <option value="consumer-protection">🛒 Защита прав потребителей</option>
+                <option value="notary">📜 Нотариус</option>
+              </optgroup>
+
+              <optgroup label="� Трудовое право">
+                <option value="hr">� HR-юрист</option>
+                <option value="worker-protection">👷 Защита прав работника</option>
+                <option value="compliance-hr">👥 HR-комплаенс</option>
+              </optgroup>
+
+              <optgroup label="⚖️ Суды и Споры">
+                <option value="litigator">🏛️ Судебный юрист</option>
+                <option value="procedural">📝 Процессуалист</option>
+                <option value="arbitration">🤝 Арбитраж</option>
+                <option value="mediation">🕊️ Медиация</option>
+                <option value="enforcement">� Исполнение решений</option>
                 <option value="deadlines">⏳ Сроки и давность</option>
+                <option value="forensic-legal">� Судебная экспертиза</option>
+                <option value="constitutional">🏛️ Конституционное право</option>
               </optgroup>
-              <optgroup label="🧑‍💼 Трудовое право">
-                <option value="hr">👷 HR-юрист</option>
-                <option value="worker-protection">🧑‍🤝‍🧑 Защита работника</option>
+
+              <optgroup label="� IT и Интеллектуальная собственность">
+                <option value="ip">💡 IP-юрист (Авторское право)</option>
+                <option value="digital-law">💻 Цифровое право (IT)</option>
               </optgroup>
-              <optgroup label="🧠 Умные режимы">
-                <option value="analyst">🧩 Юрист-аналитик</option>
-                <option value="skeptic">🔍 Юрист-скептик</option>
-                <option value="judge-questions">🧠 Вопросы судьи</option>
-                <option value="odds">📊 Оценка шансов</option>
+
+              <optgroup label="🧯 Риски и Проверки">
+                <option value="legal-audit">🚨 Юридический аудит</option>
+                <option value="compliance">🛡️ Общий комплаенс</option>
+                <option value="environmental">� Экологическое право</option>
+                <option value="doc-review">📄 Проверка документа</option>
               </optgroup>
-              <optgroup label="🚀 Продвинутые">
-                <option value="strategist">🤖 Юрист-стратег</option>
+              
+              <optgroup label="🛠️ Инструменты">
+                <option value="legal-letter">✉️ Написать претензию</option>
+                <option value="negotiator">🤝 Переговорщик</option>
+                <option value="interview-practice">🎤 Интервьюер</option>
+              </optgroup>
+
+              <optgroup label="🧠 Аналитика">
+                <option value="analyst">🧩 Аналитик</option>
+                <option value="skeptic">🔍 Скептик</option>
+                <option value="strategist">🤖 Стратег</option>
+                <option value="judge-questions">⚖️ Вопросы судьи</option>
+                <option value="odds">� Шансы на успех</option>
                 <option value="what-if">🧪 Что если...</option>
-              </optgroup>
-              <optgroup label="🎓 Подготовка">
-                <option value="interview-practice">🎤 Практика собеседования</option>
               </optgroup>
             </select>
           </div>
@@ -256,6 +338,54 @@ export default function Lawyer() {
                     </button>
                     <button onClick={() => setInput('Какие документы нужны для ИП?')}>
                       Документы для ИП
+                    </button>
+                  </>
+                ) : chatMode === 'family' ? (
+                  <>
+                    <button onClick={() => setInput('Как подать на алименты без развода?')}>
+                      Алименты без развода
+                    </button>
+                    <button onClick={() => setInput('Как делится имущество при разводе?')}>
+                      Раздел имущества
+                    </button>
+                    <button onClick={() => setInput('Как определить порядок общения с ребенком?')}>
+                      Общение с ребенком
+                    </button>
+                  </>
+                ) : chatMode === 'real-estate' ? (
+                  <>
+                    <button onClick={() => setInput('Как проверить квартиру перед покупкой?')}>
+                      Проверка квартиры
+                    </button>
+                    <button onClick={() => setInput('Как оформить кадастр на новый дом?')}>
+                      Оформление кадастра
+                    </button>
+                    <button onClick={() => setInput('Права собственника при сносе (снос)?')}>
+                      Компенсация за снос
+                    </button>
+                  </>
+                ) : chatMode === 'notary' ? (
+                  <>
+                    <button onClick={() => setInput('Какие документы нужны для доверенности?')}>
+                      Доверенность на авто
+                    </button>
+                    <button onClick={() => setInput('Как вступить в наследство?')}>
+                      Оформление наследства
+                    </button>
+                    <button onClick={() => setInput('Сколько стоит согласие на выезд ребенка?')}>
+                      Согласие на выезд
+                    </button>
+                  </>
+                ) : chatMode === 'ip' ? (
+                  <>
+                    <button onClick={() => setInput('Как зарегистрировать товарный знак?')}>
+                      Регистрация бренда
+                    </button>
+                    <button onClick={() => setInput('Как защитить авторские права на код?')}>
+                      Защита кода
+                    </button>
+                    <button onClick={() => setInput('Что делать, если украли контент?')}>
+                      Кража контента
                     </button>
                   </>
                 ) : (

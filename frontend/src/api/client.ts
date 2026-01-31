@@ -186,8 +186,8 @@ export function logout(): void {
 }
 
 // Lawyer Chat API
-export async function getChatSessions(): Promise<ChatSession[]> {
-  const response = await fetchWithAuth('/api/lawyer/sessions');
+export async function getChatSessions(skip: number = 0, limit: number = 20): Promise<ChatSession[]> {
+  const response = await fetchWithAuth(`/api/lawyer/sessions?skip=${skip}&limit=${limit}`);
   if (!response.ok) throw new Error('Failed to fetch sessions');
   return response.json();
 }
@@ -203,7 +203,7 @@ export async function sendChatMessage(
   sessionId?: number,
   onChunk?: (chunk: string) => void,
   onDone?: (sessionId: number, sources: Source[]) => void,
-  chatMode: 'risk-manager' | 'smalltalk' | 'consultant' | 'practitioner' | 'litigator' | 'legal-audit' | 'compliance' | 'tax' | 'corporate' | 'commercial' | 'negotiator' | 'startup' | 'procedural' | 'deadlines' | 'hr' | 'worker-protection' | 'analyst' | 'skeptic' | 'judge-questions' | 'odds' | 'strategist' | 'what-if' | 'interview-practice' = 'risk-manager'
+  chatMode: 'risk-manager' | 'smalltalk' | 'consultant' | 'practitioner' | 'litigator' | 'legal-audit' | 'compliance' | 'tax' | 'corporate' | 'commercial' | 'negotiator' | 'startup' | 'procedural' | 'deadlines' | 'hr' | 'worker-protection' | 'analyst' | 'skeptic' | 'judge-questions' | 'odds' | 'strategist' | 'what-if' | 'interview-practice' | 'family' | 'real-estate' | 'notary' | 'ip' | 'criminal-defense' | 'criminal-prosecution' | 'admin-defense' | 'admin-procedure' | 'customs' | 'procurement' | 'enforcement' | 'arbitration' | 'constitutional' | 'consumer-protection' | 'housing' | 'land-disputes' | 'digital-law' | 'environmental' | 'antitrust' | 'insurance' | 'banking' | 'securities' | 'investor-protection' | 'mediation' | 'doc-review' | 'legal-letter' | 'compliance-hr' | 'debt-collection' | 'bankruptcy' | 'merger-acquisition' | 'licensing' | 'regulatory' | 'cross-border' | 'forensic-legal' | 'quick-answer' = 'risk-manager'
 ): Promise<void> {
   const token = getToken();
   const headers: Record<string, string> = {
@@ -388,9 +388,13 @@ export async function getGeneratedContractById(id: number): Promise<GeneratedCon
 }
 
 // Unified History API
-export async function getHistory(type?: 'chat' | 'validation' | 'generation'): Promise<HistoryItem[]> {
-  const params = type ? `?type=${type}` : '';
-  const response = await fetchWithAuth(`/api/history${params}`);
+export async function getHistory(type?: 'chat' | 'validation' | 'generation', skip: number = 0, limit: number = 50): Promise<HistoryItem[]> {
+  const params = new URLSearchParams();
+  if (type) params.append('type', type);
+  params.append('skip', skip.toString());
+  params.append('limit', limit.toString());
+  
+  const response = await fetchWithAuth(`/api/history?${params.toString()}`);
   if (!response.ok) throw new Error('Failed to fetch history');
   return response.json();
 }

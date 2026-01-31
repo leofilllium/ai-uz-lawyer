@@ -13,23 +13,42 @@ export default function History() {
   const [items, setItems] = useState<HistoryItem[]>([]);
   const [filter, setFilter] = useState<FilterType>('all');
   const [loading, setLoading] = useState(true);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const LIMIT = 50;
   const navigate = useNavigate();
 
   useEffect(() => {
     loadHistory();
   }, [filter]);
 
-  const loadHistory = async () => {
-    setLoading(true);
+  const loadHistory = async (reset = true) => {
+    if (reset) setLoading(true);
+    
     try {
       const filterParam = filter === 'all' ? undefined : filter;
-      const data = await getHistory(filterParam);
-      setItems(data);
+      const currentOffset = reset ? 0 : offset;
+      
+      const data = await getHistory(filterParam, currentOffset, LIMIT);
+      
+      if (reset) {
+        setItems(data);
+        setOffset(LIMIT);
+      } else {
+        setItems((prev) => [...prev, ...data]);
+        setOffset((prev) => prev + LIMIT);
+      }
+      
+      setHasMore(data.length === LIMIT);
     } catch (err) {
       console.error('Failed to load history:', err);
     } finally {
-      setLoading(false);
+      if (reset) setLoading(false);
     }
+  };
+
+  const handleLoadMore = () => {
+    loadHistory(false);
   };
 
   const handleItemClick = (item: HistoryItem) => {
@@ -67,7 +86,7 @@ export default function History() {
         <h1>📚 История</h1>
       </header>
 
-      <main className="history-content">
+      <main className="history-page-content">
         <div className="filter-tabs">
           <button 
             className={filter === 'all' ? 'active' : ''} 
@@ -143,6 +162,18 @@ export default function History() {
                 </div>
               </div>
             ))}
+            
+            {hasMore && !loading && items.length > 0 && (
+              <div style={{ gridColumn: '1 / -1', textAlign: 'center', marginTop: '20px' }}>
+                <button 
+                  onClick={handleLoadMore}
+                  className="btn-primary"
+                  style={{ minWidth: '200px' }}
+                >
+                  Загрузить еще
+                </button>
+              </div>
+            )}
           </div>
         )}
       </main>

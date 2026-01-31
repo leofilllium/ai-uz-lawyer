@@ -1163,7 +1163,7 @@ body {
 
 .validator-content,
 .generator-content,
-.history-content {
+.history-page-content {
   flex: 1;
   padding: var(--space-xl);
   max-width: 900px;
@@ -1328,6 +1328,12 @@ body {
   cursor: pointer;
   text-align: center;
   transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 140px;
 }
 
 .category-btn:hover {
@@ -1343,17 +1349,34 @@ body {
 }
 
 .category-icon {
-  font-size: 2rem;
-  display: block;
+  font-size: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-bottom: var(--space-md);
+  width: 64px;
+  height: 64px;
+  background: var(--color-surface);
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.category-btn:hover .category-icon {
+  background: var(--color-surface-alt);
+  transform: scale(1.1);
+}
+
+.category-btn.selected .category-icon {
+  background: white;
 }
 
 .category-name {
   display: block;
   font-weight: 600;
   color: var(--color-text-primary);
-  font-size: 14px;
-  margin-bottom: 4px;
+  font-size: 15px;
+  margin-bottom: 6px;
+  line-height: 1.4;
 }
 
 .category-count {

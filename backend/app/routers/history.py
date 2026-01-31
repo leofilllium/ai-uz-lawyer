@@ -22,23 +22,35 @@ router = APIRouter()
 async def get_unified_history(
     type: str | None = Query(None, description="Filter by type: chat, validation, generation"),
     limit: int = Query(50, ge=1, le=100),
+    skip: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_current_user)
 ):
     """
     Get unified history of all user activities.
-    
-    Returns combined history of:
-    - Chat sessions (lawyer)
-    - Contract validations
-    - Contract generations
-    
-    All filtered by current user for privacy.
     """
     user_id = current_user.id if current_user else None
     results = []
     
-    # Chat sessions (lawyer mode)
+    # Logic:
+    # If filtered by type: use SQL limit/offset
+    # If unified ('all'): fetch (skip + limit) from each table, merge, sort, then slice [skip : skip + limit]
+    
+    fetch_limit = limit
+    fetch_offset = skip
+    
+    # If unified view, we must fetch skip+limit to ensure correct sorting across tables
+    # (naive but robust approach for < 1000 items)
+    if not type:
+        fetch_limit = skip + limit
+        fetch_offset = 0 # reset offset for DB query, we will slice later
+    
+    # Results containers
+    chat_results = []
+    validation_results = []
+    generation_results = []
+    
+    # 1. Chat sessions
     if not type or type == 'chat':
         query = db.query(ChatSession).filter(ChatSession.session_type == 'lawyer')
         if user_id:
@@ -46,10 +58,10 @@ async def get_unified_history(
         else:
             query = query.filter(ChatSession.user_id.is_(None))
         
-        sessions = query.order_by(ChatSession.updated_at.desc()).limit(limit).all()
+        sessions = query.order_by(ChatSession.updated_at.desc()).offset(fetch_offset).limit(fetch_limit).all()
         
         for session in sessions:
-            results.append({
+            chat_results.append({
                 'id': session.id,
                 'type': 'chat',
                 'title': session.title,
@@ -62,8 +74,8 @@ async def get_unified_history(
                     'message_count': session.messages.count() if session.messages else 0
                 }
             })
-    
-    # Contract validations
+            
+    # 2. Contract validations
     if not type or type == 'validation':
         query = db.query(ContractAnalysis)
         if user_id:
@@ -71,18 +83,13 @@ async def get_unified_history(
         else:
             query = query.filter(ContractAnalysis.user_id.is_(None))
         
-        analyses = query.order_by(ContractAnalysis.created_at.desc()).limit(limit).all()
+        analyses = query.order_by(ContractAnalysis.created_at.desc()).offset(fetch_offset).limit(fetch_limit).all()
         
         for analysis in analyses:
             score = analysis.validity_score
-            if score >= 80:
-                icon = "🟢"
-            elif score >= 50:
-                icon = "🟡"
-            else:
-                icon = "🔴"
+            icon = "🟢" if score >= 80 else "🟡" if score >= 50 else "🔴"
             
-            results.append({
+            validation_results.append({
                 'id': analysis.id,
                 'type': 'validation',
                 'title': f'Проверка договора ({score}/100)',
@@ -96,8 +103,8 @@ async def get_unified_history(
                     'warnings_count': len(analysis.warnings or [])
                 }
             })
-    
-    # Contract generations
+            
+    # 3. Contract generations
     if not type or type == 'generation':
         query = db.query(GeneratedContract)
         if user_id:
@@ -105,10 +112,10 @@ async def get_unified_history(
         else:
             query = query.filter(GeneratedContract.user_id.is_(None))
         
-        contracts = query.order_by(GeneratedContract.created_at.desc()).limit(limit).all()
+        contracts = query.order_by(GeneratedContract.created_at.desc()).offset(fetch_offset).limit(fetch_limit).all()
         
         for contract in contracts:
-            results.append({
+            generation_results.append({
                 'id': contract.id,
                 'type': 'generation',
                 'title': f'Договор: {contract.category}',
@@ -121,14 +128,22 @@ async def get_unified_history(
                     'template_count': len(contract.template_names or [])
                 }
             })
+            
+    # Combine results
+    results = chat_results + validation_results + generation_results
     
-    # Sort by created_at descending
-    results.sort(
-        key=lambda x: x.get('created_at') or '',
-        reverse=True
-    )
+    # If using unified view, we must sort and slice MANUALLY now
+    if not type:
+        # Sort by created_at descending
+        results.sort(
+            key=lambda x: x.get('created_at') or '',
+            reverse=True
+        )
+        # Apply the final slice
+        return results[skip : skip + limit]
     
-    return results[:limit]
+    # If filtered by type, the DB already did the work
+    return results
 
 
 @router.delete("/{item_type}/{item_id}")
