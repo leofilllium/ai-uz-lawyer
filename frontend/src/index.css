@@ -1541,21 +1541,27 @@ body {
 }
 
 /* Dark mode adjustments for dropdown */
-body.dark .selected-icon,
-body.dark .item-icon {
-  background: var(--color-surface-alt);
+body.dark .dropdown-toggle,
+body.dark .dropdown-toggle:hover,
+body.dark .dropdown-menu,
+body.dark .dropdown-item {
+  background: #ffffff;
+  color: #1A1A1A;
 }
 
-body.dark .dropdown-toggle:hover {
-  background: var(--color-surface-alt);
+body.dark .selected-icon,
+body.dark .item-icon {
+  background: #F0F2F5;
+  color: #1A1A1A;
 }
 
 body.dark .dropdown-item:hover {
-  background: var(--color-surface-alt);
+  background: #F0F2F5;
 }
 
-body.dark .dropdown-item.active {
-  background: var(--color-surface-alt);
+body.dark .selected-name,
+body.dark .item-name {
+  color: #1A1A1A;
 }
 
 /* Generated result */
