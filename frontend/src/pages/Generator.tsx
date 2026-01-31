@@ -2,7 +2,7 @@
  * Contract Generator Page
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -18,11 +18,21 @@ export default function Generator() {
   const [sources, setSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(true);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const [searchQuery, setSearchQuery] = useState('');
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     loadCategories();
@@ -36,10 +46,6 @@ export default function Generator() {
       }
     }
   }, [searchParams]);
-
-  const filteredCategories = categories.filter(cat => 
-    cat.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   const loadContract = async (id: number) => {
     setLoading(true);
@@ -273,39 +279,57 @@ export default function Generator() {
       <main className="generator-content">
         <form onSubmit={handleSubmit} className="generator-form">
           <div className="form-group">
-            <div className="category-header">
-              <label>Категория договора</label>
-              {!loadingCategories && (
-                <div className="search-wrapper">
-                  <input 
-                    type="text" 
-                    placeholder="Поиск категорий..." 
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="category-search"
-                  />
-                  <span className="search-icon">🔍</span>
-                </div>
-              )}
-            </div>
+            <label>Категория договора</label>
             {loadingCategories ? (
               <p>Загрузка категорий...</p>
             ) : (
-              <div className="category-grid">
-                {filteredCategories.map((cat) => (
-                  <button
-                    key={cat.name}
-                    type="button"
-                    className={`category-btn ${selectedCategory === cat.name ? 'selected' : ''}`}
-                    onClick={() => setSelectedCategory(cat.name)}
-                  >
-                    <span className="category-icon">{cat.description}</span>
-                    <span className="category-name">{cat.name}</span>
-                    <span className="category-count">{cat.count} шаблонов</span>
-                  </button>
-                ))}
-                {filteredCategories.length === 0 && (
-                  <div className="no-results">Категории не найдены</div>
+              <div className="category-dropdown" ref={dropdownRef}>
+                <button 
+                  type="button" 
+                  className={`dropdown-toggle ${selectedCategory ? 'has-selection' : ''}`}
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                >
+                  <div className="toggle-content">
+                    {selectedCategory ? (
+                      <>
+                        <span className="selected-icon">
+                          {categories.find(c => c.name === selectedCategory)?.description}
+                        </span>
+                        <div className="selected-text">
+                          <span className="selected-name">{selectedCategory}</span>
+                          <span className="selected-meta">
+                            {categories.find(c => c.name === selectedCategory)?.count} шаблонов
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <span className="placeholder">Выберите категорию договора...</span>
+                    )}
+                  </div>
+                  <span className={`chevron ${isDropdownOpen ? 'up' : 'down'}`}>▼</span>
+                </button>
+
+                {isDropdownOpen && (
+                  <div className="dropdown-menu">
+                    {categories.map((cat) => (
+                      <button
+                        key={cat.name}
+                        type="button"
+                        className={`dropdown-item ${selectedCategory === cat.name ? 'active' : ''}`}
+                        onClick={() => {
+                          setSelectedCategory(cat.name);
+                          setIsDropdownOpen(false);
+                        }}
+                      >
+                        <span className="item-icon">{cat.description}</span>
+                        <div className="item-info">
+                          <span className="item-name">{cat.name}</span>
+                          <span className="item-count">{cat.count} шаблонов</span>
+                        </div>
+                        {selectedCategory === cat.name && <span className="check">✓</span>}
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
             )}
