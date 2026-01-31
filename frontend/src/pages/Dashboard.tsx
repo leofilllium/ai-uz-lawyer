@@ -6,10 +6,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { getHistory, deleteHistoryItem, type HistoryItem } from '../api/client';
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -63,6 +65,9 @@ export default function Dashboard() {
           <span className="subtitle">Правовой помощник Узбекистана</span>
         </div>
         <div className="header-right">
+          <button onClick={toggleTheme} className="btn-theme-toggle" title={isDark ? 'Светлая тема' : 'Тёмная тема'}>
+            {isDark ? '☀️' : '🌙'}
+          </button>
           <span className="user-name">👤 {user?.name}</span>
           <button onClick={logout} className="btn-logout">Выход</button>
         </div>
