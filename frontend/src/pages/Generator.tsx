@@ -22,6 +22,8 @@ export default function Generator() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
+  const [searchQuery, setSearchQuery] = useState('');
+
   useEffect(() => {
     loadCategories();
     
@@ -34,6 +36,10 @@ export default function Generator() {
       }
     }
   }, [searchParams]);
+
+  const filteredCategories = categories.filter(cat => 
+    cat.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const loadContract = async (id: number) => {
     setLoading(true);
@@ -267,12 +273,26 @@ export default function Generator() {
       <main className="generator-content">
         <form onSubmit={handleSubmit} className="generator-form">
           <div className="form-group">
-            <label>Категория договора</label>
+            <div className="category-header">
+              <label>Категория договора</label>
+              {!loadingCategories && (
+                <div className="search-wrapper">
+                  <input 
+                    type="text" 
+                    placeholder="Поиск категорий..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="category-search"
+                  />
+                  <span className="search-icon">🔍</span>
+                </div>
+              )}
+            </div>
             {loadingCategories ? (
               <p>Загрузка категорий...</p>
             ) : (
               <div className="category-grid">
-                {categories.map((cat) => (
+                {filteredCategories.map((cat) => (
                   <button
                     key={cat.name}
                     type="button"
@@ -284,6 +304,9 @@ export default function Generator() {
                     <span className="category-count">{cat.count} шаблонов</span>
                   </button>
                 ))}
+                {filteredCategories.length === 0 && (
+                  <div className="no-results">Категории не найдены</div>
+                )}
               </div>
             )}
           </div>
