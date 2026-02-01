@@ -1355,7 +1355,6 @@ body {
   border: 1px solid var(--color-border);
 }
 
-/* Generator categories */
 /* Category Dropdown */
 .category-dropdown {
   position: relative;
@@ -1368,7 +1367,7 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: var(--space-md) var(--space-lg);
-  background: var(--color-background);
+  background: var(--color-background); /* Always neutral background (light in light mode, dark in dark mode) */
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-lg);
   cursor: pointer;
@@ -1377,17 +1376,20 @@ body {
   min-height: 72px;
 }
 
+/* Hover state – completely neutral, no red accent */
 .dropdown-toggle:hover {
   border-color: var(--color-border-hover);
   background: var(--color-surface);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
 }
 
+/* Selected state – subtle neutral indication only, no red */
 .dropdown-toggle.has-selection {
   border-color: var(--color-border-hover);
-  background: var(--color-surface-alt);
+  background: var(--color-surface);
 }
 
+/* Content inside toggle */
 .toggle-content {
   display: flex;
   align-items: center;
@@ -1439,7 +1441,7 @@ body {
   transform: rotate(180deg);
 }
 
-/* Dropdown Menu */
+/* Dropdown Menu – neutral only */
 .dropdown-menu {
   position: absolute;
   top: calc(100% + 8px);
@@ -1475,12 +1477,15 @@ body {
   text-align: left;
 }
 
+/* Hover on item – neutral */
 .dropdown-item:hover {
   background: var(--color-surface);
 }
 
+/* Active/selected item – subtle neutral background only */
 .dropdown-item.active {
-  background: var(--color-surface-alt);
+  background: var(--color-surface);
+  font-weight: 600;
 }
 
 .item-icon {
@@ -1495,7 +1500,7 @@ body {
 }
 
 .dropdown-item:hover .item-icon {
-  background: white;
+  background: var(--color-background);
 }
 
 .item-info {
@@ -1515,12 +1520,14 @@ body {
   color: var(--color-text-tertiary);
 }
 
+/* Checkmark – neutral green (not red) */
 .check {
   color: var(--color-success);
   font-weight: bold;
+  font-size: 1.2em;
 }
-/* Dark mode adjustments for dropdown */
-/* Dark mode adjustments for dropdown */
+
+/* Dark mode – keep everything neutral/dark, no red */
 body.dark .selected-icon,
 body.dark .item-icon {
   background: var(--color-surface-alt);
