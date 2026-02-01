@@ -1355,49 +1355,54 @@ body {
   border: 1px solid var(--color-border);
 }
 
-/* Category Dropdown */
-.category-dropdown {
-  position: relative;
-  width: 100%;
-}
-
-.dropdown-toggle {
+.category-dropdown .dropdown-toggle {
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: var(--space-md) var(--space-lg);
-  background: var(--color-background); /* Always neutral background (light in light mode, dark in dark mode) */
+  background: var(--color-background) !important; /* Force neutral background */
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-lg);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: left;
   min-height: 72px;
+  color: var(--color-text-primary);
 }
 
-/* Hover state – completely neutral, no red accent */
-.dropdown-toggle:hover {
+/* Hover - neutral only */
+.category-dropdown .dropdown-toggle:hover {
   border-color: var(--color-border-hover);
-  background: var(--color-surface);
+  background: var(--color-surface) !important;
   box-shadow: var(--shadow-sm);
 }
 
-/* Selected state – subtle neutral indication only, no red */
-.dropdown-toggle.has-selection {
+/* Selected state - subtle neutral only, no red */
+.category-dropdown .dropdown-toggle.has-selection {
   border-color: var(--color-border-hover);
-  background: var(--color-surface);
+  background: var(--color-surface) !important;
 }
 
-/* Content inside toggle */
-.toggle-content {
+/* Ensure no inherited button styles leak in */
+.category-dropdown .dropdown-toggle,
+.category-dropdown .dropdown-toggle:hover,
+.category-dropdown .dropdown-toggle.has-selection {
+  height: auto;
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-lg);
+  font-weight: normal;
+}
+
+/* Rest of the dropdown (menu & items) - unchanged but prefixed for safety */
+.category-dropdown .toggle-content {
   display: flex;
   align-items: center;
   gap: var(--space-md);
   flex: 1;
 }
 
-.selected-icon {
+.category-dropdown .selected-icon {
   font-size: 2rem;
   width: 48px;
   height: 48px;
@@ -1409,40 +1414,39 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
-.selected-text {
+.category-dropdown .selected-text {
   display: flex;
   flex-direction: column;
 }
 
-.selected-name {
+.category-dropdown .selected-name {
   font-weight: 600;
   font-size: 15px;
   color: var(--color-text-primary);
 }
 
-.selected-meta {
+.category-dropdown .selected-meta {
   font-size: 12px;
   color: var(--color-text-secondary);
 }
 
-.placeholder {
+.category-dropdown .placeholder {
   color: var(--color-text-tertiary);
   font-size: 15px;
 }
 
-.chevron {
+.category-dropdown .chevron {
   font-size: 10px;
   color: var(--color-text-tertiary);
   transition: transform 0.2s;
   margin-left: 12px;
 }
 
-.chevron.up {
+.category-dropdown .chevron.up {
   transform: rotate(180deg);
 }
 
-/* Dropdown Menu – neutral only */
-.dropdown-menu {
+.category-dropdown .dropdown-menu {
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
@@ -1458,12 +1462,7 @@ body {
   animation: slideDown 0.2s ease-out;
 }
 
-@keyframes slideDown {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.dropdown-item {
+.category-dropdown .dropdown-item {
   width: 100%;
   display: flex;
   align-items: center;
@@ -1477,18 +1476,16 @@ body {
   text-align: left;
 }
 
-/* Hover on item – neutral */
-.dropdown-item:hover {
+.category-dropdown .dropdown-item:hover {
   background: var(--color-surface);
 }
 
-/* Active/selected item – subtle neutral background only */
-.dropdown-item.active {
+.category-dropdown .dropdown-item.active {
   background: var(--color-surface);
   font-weight: 600;
 }
 
-.item-icon {
+.category-dropdown .item-icon {
   font-size: 1.5rem;
   width: 40px;
   height: 40px;
@@ -1499,53 +1496,35 @@ body {
   border-radius: 50%;
 }
 
-.dropdown-item:hover .item-icon {
+.category-dropdown .dropdown-item:hover .item-icon {
   background: var(--color-background);
 }
 
-.item-info {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
-.item-name {
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--color-text-primary);
-}
-
-.item-count {
-  font-size: 11px;
-  color: var(--color-text-tertiary);
-}
-
-/* Checkmark – neutral green (not red) */
-.check {
+.category-dropdown .check {
   color: var(--color-success);
   font-weight: bold;
   font-size: 1.2em;
 }
 
-/* Dark mode – keep everything neutral/dark, no red */
-body.dark .selected-icon,
-body.dark .item-icon {
+/* Dark mode adjustments */
+body.dark .category-dropdown .selected-icon,
+body.dark .category-dropdown .item-icon {
   background: var(--color-surface-alt);
 }
 
-body.dark .dropdown-toggle:hover {
+body.dark .category-dropdown .dropdown-toggle:hover {
+  background: var(--color-surface-alt) !important;
+}
+
+body.dark .category-dropdown .dropdown-item:hover {
   background: var(--color-surface-alt);
 }
 
-body.dark .dropdown-item:hover {
+body.dark .category-dropdown .dropdown-item.active {
   background: var(--color-surface-alt);
 }
 
-body.dark .dropdown-item.active {
-  background: var(--color-surface-alt);
-}
-
-body.dark .dropdown-item:hover .item-icon {
+body.dark .category-dropdown .dropdown-item:hover .item-icon {
   background: var(--color-surface);
 }
 
