@@ -3881,25 +3881,67 @@ class AIService:
         
         return "\n\n".join(context_parts)
     
+    # Mapping from document filenames to proper Uzbek code names
+    DOCUMENT_NAME_MAPPING = {
+        # Criminal codes
+        "CRIMINAL-CODE.docx": "Уголовный кодекс",
+        "CRIMINAL-PROCEDURE.docx": "Уголовно-процессуальный кодекс",
+        "CRIMINAL-EXECUTIVE.docx": "Уголовно-исполнительный кодекс",
+        
+        # Civil codes
+        "CIVIL-CODE-PART-1.docx": "Гражданский кодекс (Часть I)",
+        "CIVIL-CODE-PART-2.docx": "Гражданский кодекс (Часть II)",
+        "CIVIL-PROCEDURE.docx": "Гражданский процессуальный кодекс",
+        
+        # Administrative codes
+        "ADMINISTRATIVE-RESPONSIBILITY.docx": "Кодекс об административной ответственности",
+        "ADMINISTRATIVE-PROCEDURE.docx": "Административное судопроизводство",
+        
+        # Economic and business
+        "ECONOMIC-PROCEDURE.docx": "Экономический процессуальный кодекс",
+        "TAX-CODE.docx": "Налоговый кодекс",
+        "CUSTOMS-CODE.docx": "Таможенный кодекс",
+        "BUDGET-CODE.docx": "Бюджетный кодекс",
+        
+        # Social codes
+        "LABOR-CODE.docx": "Трудовой кодекс",
+        "FAMILY-CODE.docx": "Семейный кодекс",
+        "HOUSING-CODE.docx": "Жилищный кодекс",
+        "LAND-CODE.docx": "Земельный кодекс",
+        
+        # Constitution and laws
+        "CONSTITUTION.docx": "Конституция Республики Узбекистан",
+        "CONSUMER-PROTECTION.docx": "Закон о защите прав потребителей",
+        "PUBLIC-PROCUREMENT.docx": "Закон о государственных закупках",
+        "ENTREPRENEURSHIP.docx": "Закон о предпринимательстве",
+        "DIGITAL-SIGNATURE.docx": "Закон об электронной цифровой подписи",
+    }
+    
     def _format_sources(self, results: List[Dict[str, Any]]) -> List[Dict[str, str]]:
-        """Format sources for display in the UI."""
+        """Format sources for display in the UI with proper code names."""
         sources = []
         seen = set()
         
-        for result in results:
+        for idx, result in enumerate(results):
             metadata = result.get("metadata", {})
             article = metadata.get("article_display", metadata.get("article_number", "Unknown"))
-            source = metadata.get("source", "Unknown")
+            source_filename = metadata.get("source", "Unknown")
+            
+            # Map filename to proper code name
+            code_name = self.DOCUMENT_NAME_MAPPING.get(source_filename, source_filename)
+            
             chapter = metadata.get("chapter", "")[:80]
             title = metadata.get("title", "")[:100]
             content = result.get("content", "")[:300]
             
-            key = f"{source}_{article}"
+            key = f"{source_filename}_{article}"
             if key not in seen:
                 seen.add(key)
                 sources.append({
+                    "id": f"source-{idx}",  # Unique ID for interactive citations
                     "article": article,
-                    "source": source,
+                    "source": code_name,  # Use proper code name instead of filename
+                    "source_filename": source_filename,  # Keep original for reference
                     "chapter": chapter,
                     "title": title,
                     "preview": content + "..." if len(result.get("content", "")) > 300 else content,

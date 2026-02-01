@@ -375,8 +375,14 @@ export default function Generator() {
                 <summary>📚 Правовая основа ({sources.length})</summary>
                 <ul className="sources-list">
                   {sources.map((source, i) => (
-                    <li key={i}>
-                      <strong>Статья {source.article}</strong> — {source.source}
+                    <li key={i} id={`generator-source-${i}`} className="source-item-entry">
+                      <div className="source-header-info">
+                        <strong>{source.source}</strong>
+                        <span className="source-article-badge">Статья {source.article}</span>
+                      </div>
+                      {source.chapter && (
+                        <div className="source-chapter">{source.chapter}</div>
+                      )}
                     </li>
                   ))}
                 </ul>

@@ -7,6 +7,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import type { Components } from 'react-markdown';
 import { sendChatMessage, getChatSessions, getChatSession, deleteHistoryItem, type ChatSession, type Source } from '../api/client';
 
 interface Message {
@@ -21,7 +22,7 @@ export default function Lawyer() {
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState<number | undefined>();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [showSidebar, setShowSidebar] = useState(true);
+  const [showSidebar, setShowSidebar] = useState(window.innerWidth > 768);
   const [chatMode, setChatMode] = useState<'risk-manager' | 'smalltalk' | 'consultant' | 'practitioner' | 'litigator' | 'legal-audit' | 'compliance' | 'tax' | 'corporate' | 'commercial' | 'negotiator' | 'startup' | 'procedural' | 'deadlines' | 'hr' | 'worker-protection' | 'analyst' | 'skeptic' | 'judge-questions' | 'odds' | 'strategist' | 'what-if' | 'interview-practice' | 'family' | 'real-estate' | 'notary' | 'ip' | 'criminal-defense' | 'criminal-prosecution' | 'admin-defense' | 'admin-procedure' | 'customs' | 'procurement' | 'enforcement' | 'arbitration' | 'constitutional' | 'consumer-protection' | 'housing' | 'land-disputes' | 'digital-law' | 'environmental' | 'antitrust' | 'insurance' | 'banking' | 'securities' | 'investor-protection' | 'mediation' | 'doc-review' | 'legal-letter' | 'compliance-hr' | 'debt-collection' | 'bankruptcy' | 'merger-acquisition' | 'licensing' | 'regulatory' | 'cross-border' | 'forensic-legal' | 'quick-answer'>('consultant');
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -175,6 +176,10 @@ export default function Lawyer() {
 
   return (
     <div className={`lawyer-page ${!showSidebar ? 'sidebar-collapsed' : ''}`}>
+      <div 
+        className={`sidebar-backdrop ${showSidebar ? 'active' : ''}`} 
+        onClick={() => setShowSidebar(false)}
+      />
       <aside className={`chat-sidebar ${!showSidebar ? 'collapsed' : ''}`}>
           <button onClick={() => navigate('/')} className="btn-back">← Назад</button>
           <button onClick={startNewChat} className="btn-new-chat">+ Новый чат</button>
@@ -403,28 +408,80 @@ export default function Lawyer() {
             </div>
           )}
 
-          {messages.map((msg, idx) => (
-            <div key={idx} className={`message ${msg.role}`}>
-              <div className="message-avatar">{msg.role === 'user' ? '👤' : '⚖️'}</div>
-              <div className="message-content">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
-                {msg.sources && msg.sources.length > 0 && (
-                  <details className="sources-expander">
-                    <summary>📚 Источники ({msg.sources.length})</summary>
-                    <ul className="sources-list">
-                      {msg.sources.map((source, i) => (
-                        <li key={i}>
-                          <strong>Статья {source.article}</strong> — {source.source}
-                          <br />
-                          <span className="source-chapter">{source.chapter}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                )}
+          {messages.map((msg, idx) => {
+            // Create markdown components with interactive citations
+            const components: Components = {
+              p: ({children, ...props}) => {
+                if (typeof children === 'string' && msg.sources) {
+                  // Process text to add citation links
+                  const processedChildren = children.split(/(Статья\s+\d+(?:\.\d+)?)/g).map((part, i) => {
+                    const match = part.match(/Статья\s+(\d+(?:\.\d+)?)/);
+                    if (match) {
+                      const articleNum = match[1];
+                      const sourceIndex = msg.sources?.findIndex(s => s.article === articleNum);
+                      if (sourceIndex !== undefined && sourceIndex >= 0) {
+                        return (
+                          <a
+                            key={i}
+                            href={`#source-${idx}-${sourceIndex}`}
+                            className="citation-link"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              const sourceEl = document.getElementById(`source-${idx}-${sourceIndex}`);
+                              const detailsEl = sourceEl?.closest('details');
+                              if (detailsEl && !detailsEl.open) {
+                                detailsEl.open = true;
+                              }
+                              sourceEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                              sourceEl?.classList.add('highlighted');
+                              setTimeout(() => sourceEl?.classList.remove('highlighted'), 2000);
+                            }}
+                          >
+                            {part}
+                          </a>
+                        );
+                      }
+                    }
+                    return part;
+                  });
+                  return <p {...props}>{processedChildren}</p>;
+                }
+                return <p {...props}>{children}</p>;
+              },
+            };
+
+            return (
+              <div key={idx} className={`message ${msg.role}`}>
+                <div className="message-avatar">{msg.role === 'user' ? '👤' : '⚖️'}</div>
+                <div className="message-content">
+                  <ReactMarkdown 
+                    remarkPlugins={[remarkGfm]}
+                    components={msg.role === 'assistant' ? components : undefined}
+                  >
+                    {msg.content}
+                  </ReactMarkdown>
+                  {msg.sources && msg.sources.length > 0 && (
+                    <details className="sources-expander">
+                      <summary>📚 Источники ({msg.sources.length})</summary>
+                      <ul className="sources-list">
+                        {msg.sources.map((source, i) => (
+                          <li key={i} id={`source-${idx}-${i}`} className="source-item-entry">
+                            <div className="source-header-info">
+                              <strong>{source.source}</strong>
+                              <span className="source-article-badge">Статья {source.article}</span>
+                            </div>
+                            {source.chapter && (
+                              <div className="source-chapter">{source.chapter}</div>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {loading && (
             <div className="message assistant loading">

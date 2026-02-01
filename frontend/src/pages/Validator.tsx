@@ -167,10 +167,10 @@ export default function Validator() {
                 <summary>📚 Правовая основа ({result.sources.length})</summary>
                 <ul className="sources-list detailed">
                   {result.sources.map((source, i) => (
-                    <li key={i} className="source-item">
-                      <div className="source-header">
-                        <strong>Статья {source.article}</strong>
-                        <span className="source-file">{source.source}</span>
+                    <li key={i} id={`validator-source-${i}`} className="source-item-entry">
+                      <div className="source-header-info">
+                        <strong>{source.source}</strong>
+                        <span className="source-article-badge">Статья {source.article}</span>
                         {source.similarity && (
                           <span className="source-similarity">{source.similarity}</span>
                         )}

@@ -1078,6 +1078,11 @@ body {
   color: var(--color-text-link);
   font-weight: 500;
   font-size: 14px;
+  transition: color 0.2s;
+}
+
+.sources-expander summary:hover {
+  color: var(--color-primary);
 }
 
 .sources-list {
@@ -1089,6 +1094,69 @@ body {
 .sources-list li {
   margin-bottom: 8px;
   font-size: 14px;
+}
+
+/* Interactive Citation Links */
+.citation-link {
+  color: var(--color-primary);
+  text-decoration: none;
+  font-weight: 500;
+  border-bottom: 1px dotted var(--color-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.citation-link:hover {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+  background: rgba(var(--color-primary-rgb), 0.05);
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+/* Improved Source Display */
+.source-item-entry {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  border-left: 3px solid var(--color-primary);
+  margin-bottom: var(--space-md);
+  transition: all 0.3s;
+  scroll-margin-top: 20px;
+}
+
+.source-item-entry.highlighted {
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border-left-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.2);
+}
+
+.source-header-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-xs);
+}
+
+.source-header-info strong {
+  color: var(--color-text);
+  font-size: 15px;
+}
+
+.source-article-badge {
+  background: var(--color-primary);
+  color: white;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.source-chapter {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .source-item {
@@ -2289,11 +2357,38 @@ body.dark .alert.info {
 
 @media (max-width: 768px) {
   .chat-sidebar {
-    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 1000;
+    width: 280px;
+    box-shadow: 20px 0 50px rgba(0,0,0,0.3);
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
   }
   
   .chat-main {
-    margin-left: 0;
+    margin-left: 0 !important;
+  }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+    z-index: 999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  
+  .sidebar-backdrop.active {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .features-grid {
