@@ -3545,9 +3545,20 @@ class AIService:
             top_k = 30  # Fewer documents for simple questions
             logger.info(f"Simple mode detected, using top_k={top_k}")
         
+        # Build retrieval query - include last user question for follow-up context
+        retrieval_query = question
+        if history and len(history) >= 2:
+            # Find the last user message (excluding the current one which hasn't been added yet)
+            last_user_messages = [m for m in history if m.get('role') == 'user']
+            if last_user_messages:
+                # Combine last user question with current for better context retrieval
+                last_user_question = last_user_messages[-1].get('content', '')[:200]
+                retrieval_query = f"{last_user_question}\n\n{question}"
+                logger.info(f"Using combined query for follow-up context retrieval")
+        
         # Retrieve relevant context
         logger.info(f"Retrieving context with top_k={top_k}...")
-        results = await self._retrieve_context(question, top_k=top_k)
+        results = await self._retrieve_context(retrieval_query, top_k=top_k)
         logger.info(f"Retrieved {len(results)} documents")
         
         # Format context for LLM
