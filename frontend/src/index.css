@@ -1368,11 +1368,7 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: var(--space-md) var(--space-lg);
-  
-  /* FORCE WHITE BACKGROUND & DARK TEXT */
-  background: #ffffff; 
-  color: #1A1A1A;
-  
+  background: var(--color-background);
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-lg);
   cursor: pointer;
@@ -1382,16 +1378,14 @@ body {
 }
 
 .dropdown-toggle:hover {
-  border-color: var(--color-primary);
-  /* Keep background white on hover */
-  background: #ffffff; 
+  border-color: var(--color-border-hover);
+  background: var(--color-surface);
   box-shadow: var(--shadow-md);
 }
 
 .dropdown-toggle.has-selection {
-  border-color: var(--color-primary);
-  /* Keep background white when selected */
-  background: #ffffff;
+  border-color: var(--color-border-hover);
+  background: var(--color-surface-alt);
 }
 
 .toggle-content {
@@ -1408,11 +1402,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Use light gray for icon background so it stands out against white */
-  background: #F0F2F5; 
+  background: white;
   border-radius: 50%;
   box-shadow: var(--shadow-sm);
-  color: #1A1A1A; /* Force dark icon color */
 }
 
 .selected-text {
@@ -1423,12 +1415,12 @@ body {
 .selected-name {
   font-weight: 600;
   font-size: 15px;
-  color: #1A1A1A; /* Force dark text */
+  color: var(--color-text-primary);
 }
 
 .selected-meta {
   font-size: 12px;
-  color: #586069; /* Force dark-grey text */
+  color: var(--color-text-secondary);
 }
 
 .placeholder {
@@ -1453,10 +1445,7 @@ body {
   top: calc(100% + 8px);
   left: 0;
   right: 0;
-  
-  /* FORCE WHITE BACKGROUND */
-  background: #ffffff;
-  
+  background: var(--color-background);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
@@ -1479,24 +1468,19 @@ body {
   gap: var(--space-md);
   padding: 12px;
   border: none;
-  
-  /* FORCE WHITE BACKGROUND & DARK TEXT */
-  background: #ffffff;
-  color: #1A1A1A;
-  
+  background: transparent;
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all 0.2s;
   text-align: left;
 }
+
 .dropdown-item:hover {
-  /* Slight gray on hover to show interaction */
-  background: #F0F2F5; 
+  background: var(--color-surface);
 }
 
 .dropdown-item.active {
-  background: #F0F2F5;
-  border: 1px solid var(--color-primary);
+  background: var(--color-surface-alt);
 }
 
 .item-icon {
@@ -1506,13 +1490,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Light gray background for visibility */
-  background: #F0F2F5;
+  background: var(--color-surface);
   border-radius: 50%;
-  color: #1A1A1A;
 }
-
-
 
 .dropdown-item:hover .item-icon {
   background: white;
@@ -1527,7 +1507,7 @@ body {
 .item-name {
   font-weight: 600;
   font-size: 14px;
-  color: #1A1A1A; /* Force dark text */
+  color: var(--color-text-primary);
 }
 
 .item-count {
@@ -1536,32 +1516,30 @@ body {
 }
 
 .check {
-  color: var(--color-primary);
+  color: var(--color-success);
   font-weight: bold;
 }
-
 /* Dark mode adjustments for dropdown */
-body.dark .dropdown-toggle,
-body.dark .dropdown-toggle:hover,
-body.dark .dropdown-menu,
-body.dark .dropdown-item {
-  background: #ffffff;
-  color: #1A1A1A;
-}
-
+/* Dark mode adjustments for dropdown */
 body.dark .selected-icon,
 body.dark .item-icon {
-  background: #F0F2F5;
-  color: #1A1A1A;
+  background: var(--color-surface-alt);
+}
+
+body.dark .dropdown-toggle:hover {
+  background: var(--color-surface-alt);
 }
 
 body.dark .dropdown-item:hover {
-  background: #F0F2F5;
+  background: var(--color-surface-alt);
 }
 
-body.dark .selected-name,
-body.dark .item-name {
-  color: #1A1A1A;
+body.dark .dropdown-item.active {
+  background: var(--color-surface-alt);
+}
+
+body.dark .dropdown-item:hover .item-icon {
+  background: var(--color-surface);
 }
 
 /* Generated result */
