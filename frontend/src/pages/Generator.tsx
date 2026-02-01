@@ -297,9 +297,6 @@ export default function Generator() {
                         </span>
                         <div className="selected-text">
                           <span className="selected-name">{selectedCategory}</span>
-                          <span className="selected-meta">
-                            {categories.find(c => c.name === selectedCategory)?.count} шаблонов
-                          </span>
                         </div>
                       </>
                     ) : (
