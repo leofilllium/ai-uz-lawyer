@@ -1428,7 +1428,10 @@ body {
 .category-dropdown .selected-name {
   font-weight: 600;
   font-size: 15px;
-  color: var(--color-text-primary);
+  color: var(--color-text-primary) !important;
+}
+.category-dropdown .item-name {
+  color: var(--color-text-primary) !important;
 }
 
 .category-dropdown .selected-meta {

@@ -321,7 +321,6 @@ export default function Generator() {
                         <span className="item-icon">{cat.description}</span>
                         <div className="item-info">
                           <span className="item-name">{cat.name}</span>
-                          <span className="item-count">{cat.count} шаблонов</span>
                         </div>
                         {selectedCategory === cat.name && <span className="check">✓</span>}
                       </button>
