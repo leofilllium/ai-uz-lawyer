@@ -1355,6 +1355,12 @@ body {
   border: 1px solid var(--color-border);
 }
 
+/* Category Dropdown */
+.category-dropdown {
+  position: relative;
+  width: 100%;
+}
+
 .category-dropdown .dropdown-toggle {
   width: 100%;
   display: flex;
