@@ -13,7 +13,7 @@ class ChatRequest(BaseModel):
     session_id: int | None = None
     chat_mode: str = Field(
         default='risk-manager', 
-        pattern='^(risk-manager|smalltalk|consultant|practitioner|litigator|legal-audit|compliance|tax|corporate|commercial|negotiator|startup|procedural|deadlines|hr|worker-protection|analyst|skeptic|judge-questions|odds|strategist|what-if|interview-practice)$'
+        pattern='^(risk-manager|smalltalk|consultant|practitioner|litigator|legal-audit|compliance|tax|corporate|commercial|negotiator|startup|procedural|deadlines|hr|worker-protection|analyst|skeptic|judge-questions|odds|strategist|what-if|interview-practice|family|real-estate|notary|ip|criminal-defense|criminal-prosecution|admin-defense|admin-procedure|customs|procurement|enforcement|arbitration|constitutional|consumer-protection|housing|land-disputes|digital-law|environmental|antitrust|insurance|banking|securities|investor-protection|mediation|doc-review|legal-letter|compliance-hr|debt-collection|bankruptcy|merger-acquisition|licensing|regulatory|cross-border|forensic-legal|quick-answer)$'
     )
 
 
