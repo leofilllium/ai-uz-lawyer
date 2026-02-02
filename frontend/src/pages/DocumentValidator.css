@@ -264,7 +264,7 @@
 
 .section-score.score-excellent { background: var(--color-success-light); color: var(--color-success); }
 .section-score.score-good { background: var(--color-warning-light); color: #92400e; }
-.section-score.score-warning { background: #ffedd5; color: #c2410c; }
+.section-score.score-warning { background: var(--color-warning-light); color: #c2410c; }
 .section-score.score-critical { background: var(--color-error-light); color: var(--color-error); }
 
 .section-toggle {
@@ -301,7 +301,7 @@
 }
 
 .issue-item.severity-critical { background: var(--color-error-light); border-left: 3px solid var(--color-error); }
-.issue-item.severity-high { background: #fff7ed; border-left: 3px solid #f97316; }
+.issue-item.severity-high { background: var(--color-warning-light); border-left: 3px solid #f97316; }
 .issue-item.severity-medium { background: var(--color-warning-light); border-left: 3px solid var(--color-warning); }
 .issue-item.severity-low { background: var(--color-success-light); border-left: 3px solid var(--color-success); }
 
@@ -342,7 +342,7 @@
 
 .risk-low, .readiness-high { background: var(--color-success-light); color: var(--color-success); }
 .risk-medium, .readiness-medium { background: var(--color-warning-light); color: #92400e; }
-.risk-high, .readiness-low { background: #ffedd5; color: #c2410c; }
+.risk-high, .readiness-low { background: var(--color-warning-light); color: #c2410c; }
 .risk-critical { background: var(--color-error-light); color: var(--color-error); }
 
 /* Improvements */
@@ -584,4 +584,23 @@
   font-size: 12px;
   color: var(--color-text-tertiary);
   margin-top: 4px;
+}
+/* Dark Mode Adjustments for Orange Sections */
+body.dark .section-score.score-good,
+body.dark .section-score.score-warning,
+body.dark .risk-medium,
+body.dark .readiness-medium,
+body.dark .risk-high,
+body.dark .readiness-low {
+  color: #ffb74d;
+}
+
+body.dark .issue-item.severity-high strong,
+body.dark .issue-item.severity-medium strong {
+  color: #ffb74d;
+}
+
+body.dark .issue-item.severity-high div,
+body.dark .issue-item.severity-medium div {
+  color: #e0e0e0;
 }
