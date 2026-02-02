@@ -84,8 +84,8 @@ class ConsistencyCheckSection(BaseModel):
     score: int = 0
     inconsistencies: list[dict] = []     # internal contradictions
     cross_references: list[dict] = []     # references to other docs
-    numbering_issues: list[dict] = []     # numbering/ordering problems
-    terminology_issues: list[dict] = []   # inconsistent terminology
+    numbering_issues: list[str] = []     # numbering/ordering problems (simple strings)
+    terminology_issues: list[str] = []   # inconsistent terminology (simple strings)
     explanation: str = ""
 
 
