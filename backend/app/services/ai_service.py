@@ -4098,18 +4098,36 @@ class AIService:
                         seen_articles.add(article_key)
                         all_results.append(result)
             
-            # Broad searches for document validation
+            # Broad searches for document validation (especially up-to-dateness)
             broad_searches = [
+                # Core document requirements
                 "доверенность полномочия представитель",
                 "форма документа обязательные реквизиты",
                 "сроки действия документа",
                 "подпись печать удостоверение",
                 "недействительность ничтожность",
+                # Up-to-dateness specific searches
                 "актуальность законодательства изменения",
+                "утратил силу недействующий",
+                "новая редакция изменения дополнения",
+                "переходные положения вступление в силу",
+                "применение законодательства действующий",
+                # Current codes and laws
+                "Гражданский кодекс",
+                "Трудовой кодекс",
+                "Налоговый кодекс",
+                "Хозяйственный процессуальный кодекс",
+                "Административный кодекс",
+                "Гражданский процессуальный кодекс",
+                # Procedural and regulatory
+                "порядок оформления регистрация",
+                "государственная пошлина сбор",
+                "сроки исковой давности",
+                "обязательства права сторон",
             ]
             
             for broad_query in broad_searches:
-                results = await self.vector_store.asearch(broad_query, top_k=5)
+                results = await self.vector_store.asearch(broad_query, top_k=8)
                 for result in results:
                     article_key = f"{result.get('metadata', {}).get('source')}_{result.get('metadata', {}).get('article_display')}"
                     if article_key not in seen_articles:
