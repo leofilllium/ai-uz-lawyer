@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getHistory, deleteHistoryItem, type HistoryItem } from '../api/client';
 
-type FilterType = 'all' | 'chat' | 'validation' | 'generation';
+type FilterType = 'all' | 'chat' | 'validation' | 'generation' | 'document_validation';
 
 export default function History() {
   const [items, setItems] = useState<HistoryItem[]>([]);
@@ -59,6 +59,9 @@ export default function History() {
       case 'validation':
         navigate(`/validator?id=${item.id}`);
         break;
+      case 'document_validation':
+        navigate(`/document-validator/${item.id}`);
+        break;
       case 'generation':
         navigate(`/generator?id=${item.id}`);
         break;
@@ -104,13 +107,19 @@ export default function History() {
             className={filter === 'validation' ? 'active' : ''} 
             onClick={() => setFilter('validation')}
           >
-            ✅ Проверки
+            ✅ Договоры
+          </button>
+          <button 
+            className={filter === 'document_validation' ? 'active' : ''} 
+            onClick={() => setFilter('document_validation')}
+          >
+            📄 Документы
           </button>
           <button 
             className={filter === 'generation' ? 'active' : ''} 
             onClick={() => setFilter('generation')}
           >
-            📝 Договоры
+            📝 Генерация
           </button>
         </div>
 
@@ -119,7 +128,7 @@ export default function History() {
         ) : items.length === 0 ? (
           <div className="empty-state">
             <p>История пуста</p>
-            <p>Начните использовать AI Юрист, и ваши консультации, проверки договоров и созданные документы появятся здесь</p>
+            <p>Начните использовать AI Юрист, и ваши консультации, проверки и документы появятся здесь</p>
           </div>
         ) : (
           <div className="history-grid">
@@ -133,7 +142,8 @@ export default function History() {
                   <span className="card-icon">{item.icon}</span>
                   <span className="card-type">
                     {item.type === 'chat' ? 'Консультация' : 
-                     item.type === 'validation' ? 'Проверка' : 'Договор'}
+                     item.type === 'validation' ? 'Проверка договора' : 
+                     item.type === 'document_validation' ? 'Проверка документа' : 'Договор'}
                   </span>
                 </div>
                 <h3 className="card-title">{item.title}</h3>

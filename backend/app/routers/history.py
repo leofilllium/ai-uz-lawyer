@@ -104,7 +104,36 @@ async def get_unified_history(
                 }
             })
             
-    # 3. Contract generations
+    # 3. Document validations
+    if not type or type == 'document_validation':
+        from app.models.document import DocumentAnalysis
+        query = db.query(DocumentAnalysis)
+        if user_id:
+            query = query.filter(DocumentAnalysis.user_id == user_id)
+        else:
+            query = query.filter(DocumentAnalysis.user_id.is_(None))
+        
+        doc_analyses = query.order_by(DocumentAnalysis.created_at.desc()).offset(fetch_offset).limit(fetch_limit).all()
+        
+        for doc in doc_analyses:
+            score = doc.overall_score
+            icon = "🟢" if score >= 80 else "🟡" if score >= 40 else "🔴"
+            
+            validation_results.append({
+                'id': doc.id,
+                'type': 'document_validation',
+                'title': f'Проверка документа ({score}/100)',
+                'preview': doc.document_text[:100] + '...' if len(doc.document_text) > 100 else doc.document_text,
+                'created_at': doc.created_at.isoformat() if doc.created_at else None,
+                'updated_at': doc.created_at.isoformat() if doc.created_at else None,
+                'icon': icon,
+                'metadata': {
+                    'validity_score': score,
+                    'document_type': doc.document_type
+                }
+            })
+
+    # 4. Contract generations
     if not type or type == 'generation':
         query = db.query(GeneratedContract)
         if user_id:
@@ -156,7 +185,7 @@ async def delete_history_item(
     """
     Delete a history item by type and ID.
     
-    Types: chat, validation, generation
+    Types: chat, validation, document_validation, generation
     """
     from fastapi import HTTPException
     
@@ -172,6 +201,15 @@ async def delete_history_item(
         
     elif item_type == 'validation':
         item = db.query(ContractAnalysis).filter(ContractAnalysis.id == item_id).first()
+        if not item:
+            raise HTTPException(status_code=404, detail="Item not found")
+        if user_id and item.user_id != user_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+        db.delete(item)
+
+    elif item_type == 'document_validation':
+        from app.models.document import DocumentAnalysis
+        item = db.query(DocumentAnalysis).filter(DocumentAnalysis.id == item_id).first()
         if not item:
             raise HTTPException(status_code=404, detail="Item not found")
         if user_id and item.user_id != user_id:

@@ -105,13 +105,13 @@ export interface GeneratedContract {
 
 export interface HistoryItem {
   id: number;
-  type: 'chat' | 'validation' | 'generation';
+  type: 'chat' | 'validation' | 'generation' | 'document_validation';
   title: string;
   preview: string;
-  created_at?: string;
-  updated_at?: string;
+  created_at: string;
+  updated_at: string;
   icon: string;
-  metadata: Record<string, any>;
+  metadata: any;
 }
 
 // Base fetch with auth
@@ -388,7 +388,7 @@ export async function getGeneratedContractById(id: number): Promise<GeneratedCon
 }
 
 // Unified History API
-export async function getHistory(type?: 'chat' | 'validation' | 'generation', skip: number = 0, limit: number = 50): Promise<HistoryItem[]> {
+export async function getHistory(type?: 'chat' | 'validation' | 'generation' | 'document_validation', skip: number = 0, limit: number = 50): Promise<HistoryItem[]> {
   const params = new URLSearchParams();
   if (type) params.append('type', type);
   params.append('skip', skip.toString());
@@ -399,7 +399,7 @@ export async function getHistory(type?: 'chat' | 'validation' | 'generation', sk
   return response.json();
 }
 
-export async function deleteHistoryItem(type: 'chat' | 'validation' | 'generation', id: number): Promise<void> {
+export async function deleteHistoryItem(type: 'chat' | 'validation' | 'generation' | 'document_validation', id: number): Promise<void> {
   const response = await fetchWithAuth(`/api/history/${type}/${id}`, {
     method: 'DELETE',
   });

@@ -39,6 +39,9 @@ export default function Dashboard() {
       case 'validation':
         navigate(`/validator?id=${item.id}`);
         break;
+      case 'document_validation':
+        navigate(`/document-validator/${item.id}`);
+        break;
       case 'generation':
         navigate(`/generator?id=${item.id}`);
         break;
