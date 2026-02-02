@@ -4127,7 +4127,7 @@ class AIService:
             ]
             
             for broad_query in broad_searches:
-                results = await self.vector_store.asearch(broad_query, top_k=8)
+                results = await self.vector_store.asearch(broad_query, top_k=20)
                 for result in results:
                     article_key = f"{result.get('metadata', {}).get('source')}_{result.get('metadata', {}).get('article_display')}"
                     if article_key not in seen_articles:
