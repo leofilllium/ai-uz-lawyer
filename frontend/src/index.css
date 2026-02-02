@@ -414,7 +414,7 @@ body {
    ────────────────────────────────────────────── */
 .features-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: var(--space-lg);
   margin-bottom: var(--space-2xl);
 }
@@ -457,6 +457,11 @@ body {
   box-shadow: 0 12px 24px -8px rgba(33, 150, 243, 0.3);
 }
 
+.feature-card.doc-validator:hover {
+  border-color: #8B5CF6;
+  box-shadow: 0 12px 24px -8px rgba(139, 92, 246, 0.3);
+}
+
 .feature-icon {
   width: 48px;
   height: 48px;
@@ -479,6 +484,10 @@ body {
 
 .feature-card.history .feature-icon {
   background: var(--color-info-light);
+}
+
+.feature-card.doc-validator .feature-icon {
+  background: #EDE9FE;
 }
 
 .feature-card h2 {
