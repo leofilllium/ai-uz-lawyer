@@ -414,9 +414,21 @@ body {
    ────────────────────────────────────────────── */
 .features-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--space-lg);
   margin-bottom: var(--space-2xl);
+}
+
+@media (max-width: 900px) {
+  .features-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .features-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .feature-card {
@@ -452,14 +464,14 @@ body {
   box-shadow: 0 12px 24px -8px rgba(255, 167, 38, 0.3);
 }
 
+.feature-card.doc-validator:hover {
+  border-color: #6366f1;
+  box-shadow: 0 12px 24px -8px rgba(99, 102, 241, 0.3);
+}
+
 .feature-card.history:hover {
   border-color: var(--color-info);
   box-shadow: 0 12px 24px -8px rgba(33, 150, 243, 0.3);
-}
-
-.feature-card.doc-validator:hover {
-  border-color: #8B5CF6;
-  box-shadow: 0 12px 24px -8px rgba(139, 92, 246, 0.3);
 }
 
 .feature-icon {
@@ -482,12 +494,12 @@ body {
   background: var(--color-warning-light);
 }
 
-.feature-card.history .feature-icon {
-  background: var(--color-info-light);
+.feature-card.doc-validator .feature-icon {
+  background: #eef2ff;
 }
 
-.feature-card.doc-validator .feature-icon {
-  background: #EDE9FE;
+.feature-card.history .feature-icon {
+  background: var(--color-info-light);
 }
 
 .feature-card h2 {

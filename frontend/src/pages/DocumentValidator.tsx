@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { 
   analyzeDocument, 
   getDocumentValidationById,
@@ -83,6 +83,7 @@ function Section({
 
 function DocumentValidator() {
   const { analysisId } = useParams<{ analysisId?: string }>();
+  const navigate = useNavigate();
   const [documentText, setDocumentText] = useState('');
   const [documentType, setDocumentType] = useState('');
   const [loading, setLoading] = useState(false);
@@ -149,15 +150,14 @@ function DocumentValidator() {
 
   return (
     <div className="document-validator-page">
-      <div className="page-header">
-        <Link to="/" className="back-link">← Назад</Link>
+      <header className="page-header">
+        <button onClick={() => navigate('/')} className="btn-back">← Назад</button>
         <h1>📄 Проверка документа</h1>
-        <p className="page-subtitle">Комплексный 11-блоковый анализ юридических документов</p>
-      </div>
+      </header>
 
-      {/* Input Form */}
-      {!result && (
-        <form onSubmit={handleSubmit} className="document-form">
+      <main className="validator-content">
+        {!result && (
+          <form onSubmit={handleSubmit} className="document-form">
           <div className="form-group">
             <label htmlFor="documentType">Тип документа (опционально)</label>
             <select 
@@ -204,7 +204,7 @@ function DocumentValidator() {
 
           {error && <div className="error-message">{error}</div>}
         </form>
-      )}
+        )}
 
       {/* Results */}
       {result && audit && (
@@ -580,6 +580,7 @@ function DocumentValidator() {
           </button>
         </div>
       )}
+      </main>
     </div>
   );
 }
