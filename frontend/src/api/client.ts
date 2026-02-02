@@ -408,3 +408,112 @@ export async function deleteHistoryItem(type: 'chat' | 'validation' | 'generatio
     throw new Error(error.detail || 'Failed to delete item');
   }
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Document Validator API (11-Block Comprehensive Analysis)
+// ═══════════════════════════════════════════════════════════════
+
+export interface DocumentValiditySection {
+  is_valid?: boolean;
+  is_current?: boolean;
+  is_consistent?: boolean;
+  is_compliant?: boolean;
+  passes_ethics?: boolean;
+  score: number;
+  issues?: Array<Record<string, any>>;
+  explanation: string;
+  [key: string]: any;
+}
+
+export interface DocumentRiskSection {
+  risk_level: 'low' | 'medium' | 'high' | 'critical';
+  score: number;
+  risks: Array<Record<string, any>>;
+  mitigation_suggestions: string[];
+  explanation: string;
+}
+
+export interface DocumentLitigationSection {
+  readiness_level: 'low' | 'medium' | 'high';
+  score: number;
+  evidence_gaps: Array<Record<string, any>>;
+  litigation_strategy: string[];
+  explanation: string;
+  [key: string]: any;
+}
+
+export interface DocumentAudit {
+  overall_score: number;
+  document_type_detected: string;
+  formal_validity: DocumentValiditySection;
+  legal_validity: DocumentValiditySection;
+  up_to_dateness: DocumentValiditySection;
+  compliance_check: DocumentValiditySection;
+  risk_analysis: DocumentRiskSection;
+  consistency_check: DocumentValiditySection;
+  jurisdiction_intelligence: DocumentValiditySection;
+  litigation_readiness: DocumentLitigationSection;
+  ethical_guardrails: DocumentValiditySection;
+  improvements: Array<{
+    issue: string;
+    location: string;
+    current_text?: string;
+    suggested_text: string;
+    priority: string;
+    explanation: string;
+  }>;
+  summary: string;
+  explainability: string;
+}
+
+export interface DocumentAnalysis {
+  id: number;
+  document_preview: string;
+  document_type?: string;
+  overall_score: number;
+  formal_validity: Record<string, any>;
+  legal_validity: Record<string, any>;
+  up_to_dateness: Record<string, any>;
+  compliance_check: Record<string, any>;
+  risk_analysis: Record<string, any>;
+  consistency_check: Record<string, any>;
+  jurisdiction_intelligence: Record<string, any>;
+  litigation_readiness: Record<string, any>;
+  ethical_guardrails: Record<string, any>;
+  improvements: Array<Record<string, any>>;
+  summary?: string;
+  explainability?: string;
+  sources: Source[];
+  created_at?: string;
+}
+
+export async function analyzeDocument(document: string, documentType?: string): Promise<{
+  analysis_id: number;
+  session_id?: number;
+  audit: DocumentAudit;
+  sources: Source[];
+}> {
+  const response = await fetchWithAuth('/api/document-validator/analyze', {
+    method: 'POST',
+    body: JSON.stringify({ document, document_type: documentType }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Document analysis failed');
+  }
+
+  return response.json();
+}
+
+export async function getDocumentValidationHistory(): Promise<DocumentAnalysis[]> {
+  const response = await fetchWithAuth('/api/document-validator/history');
+  if (!response.ok) throw new Error('Failed to fetch document validation history');
+  return response.json();
+}
+
+export async function getDocumentValidationById(id: number): Promise<DocumentAnalysis> {
+  const response = await fetchWithAuth(`/api/document-validator/${id}`);
+  if (!response.ok) throw new Error('Document analysis not found');
+  return response.json();
+}

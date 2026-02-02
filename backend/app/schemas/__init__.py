@@ -27,6 +27,12 @@ from app.schemas.contract import (
     ContractTemplate,
     GeneratedContractResponse
 )
+from app.schemas.document import (
+    ValidateDocumentRequest,
+    DocumentAudit,
+    ValidateDocumentResponse,
+    DocumentAnalysisResponse
+)
 
 __all__ = [
     # Auth
@@ -49,5 +55,11 @@ __all__ = [
     'GenerateContractRequest',
     'ContractCategory',
     'ContractTemplate',
-    'GeneratedContractResponse'
+    'GeneratedContractResponse',
+    # Document
+    'ValidateDocumentRequest',
+    'DocumentAudit',
+    'ValidateDocumentResponse',
+    'DocumentAnalysisResponse'
 ]
+

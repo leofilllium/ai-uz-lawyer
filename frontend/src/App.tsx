@@ -16,6 +16,7 @@ import Validator from './pages/Validator';
 import Generator from './pages/Generator';
 import History from './pages/History';
 import Admin from './pages/Admin';
+import DocumentValidator from './pages/DocumentValidator';
 
 // Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -113,6 +114,22 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <History />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/document-validator"
+        element={
+          <ProtectedRoute>
+            <DocumentValidator />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/document-validator/:analysisId"
+        element={
+          <ProtectedRoute>
+            <DocumentValidator />
           </ProtectedRoute>
         }
       />

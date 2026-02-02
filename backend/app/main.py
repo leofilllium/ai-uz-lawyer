@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.database import create_tables
-from app.routers import auth, lawyer, validator, generator, history, admin
+from app.routers import auth, lawyer, validator, generator, history, admin, doc_validator
 
 
 @asynccontextmanager
@@ -43,6 +43,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(lawyer.router, prefix="/api/lawyer", tags=["Lawyer Chat"])
 app.include_router(validator.router, prefix="/api/validator", tags=["Contract Validator"])
+app.include_router(doc_validator.router, prefix="/api/document-validator", tags=["Document Validator"])
 app.include_router(generator.router, prefix="/api/generator", tags=["Contract Generator"])
 app.include_router(history.router, prefix="/api/history", tags=["History"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])

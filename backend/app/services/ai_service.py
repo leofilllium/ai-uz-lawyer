@@ -4069,3 +4069,551 @@ class AIService:
                 "missing_clauses": [],
                 "summary": response_text[:500] if response_text else "No response received"
             }
+
+    async def analyze_document(self, document_text: str, document_type: Optional[str] = None, top_k: int = 50) -> Dict[str, Any]:
+        """
+        Analyze a legal document for validity, compliance, and provide improvements.
+        Returns comprehensive audit with formal validity, legal validity, up-to-dateness,
+        compliance, risk analysis, and drafting improvements.
+        """
+        sources = []
+        context = ""
+        
+        try:
+            # Ensure documents are indexed
+            await self.ensure_indexed()
+            
+            # Extract key topics for targeted retrieval
+            search_queries = self._extract_document_topics(document_text, document_type)
+            
+            # Retrieve relevant legal context
+            all_results = []
+            seen_articles = set()
+            
+            for search_query in search_queries:
+                results = await self.vector_store.asearch(search_query, top_k=top_k // len(search_queries) + 5)
+                for result in results:
+                    article_key = f"{result.get('metadata', {}).get('source')}_{result.get('metadata', {}).get('article_display')}"
+                    if article_key not in seen_articles:
+                        seen_articles.add(article_key)
+                        all_results.append(result)
+            
+            # Broad searches for document validation
+            broad_searches = [
+                "доверенность полномочия представитель",
+                "форма документа обязательные реквизиты",
+                "сроки действия документа",
+                "подпись печать удостоверение",
+                "недействительность ничтожность",
+                "актуальность законодательства изменения",
+            ]
+            
+            for broad_query in broad_searches:
+                results = await self.vector_store.asearch(broad_query, top_k=5)
+                for result in results:
+                    article_key = f"{result.get('metadata', {}).get('source')}_{result.get('metadata', {}).get('article_display')}"
+                    if article_key not in seen_articles:
+                        seen_articles.add(article_key)
+                        all_results.append(result)
+            
+            # Sort by similarity and take top results
+            all_results.sort(key=lambda x: x.get("similarity", 0), reverse=True)
+            final_results = all_results[:top_k]
+            
+            # Format context for LLM
+            context = self._format_context(final_results)
+            
+            # Format sources for UI
+            sources = self._format_sources(final_results)
+            
+            # Generate audit using DOCUMENT_AUDIT_PROMPT
+            type_hint = f"Тип документа: {document_type}" if document_type else "Тип документа: не указан (определить автоматически)"
+            audit_prompt = DOCUMENT_AUDIT_PROMPT.format(
+                context=context,
+                document_text=document_text,
+                document_type=type_hint
+            )
+            
+            response = await self.client.messages.create(
+                model=self.settings.claude_opus_model,
+                max_tokens=20000,
+                system=DOCUMENT_VALIDATOR_PROMPT,
+                messages=[{"role": "user", "content": audit_prompt}]
+            )
+            
+            # Extract text from response
+            response_text = ""
+            for block in response.content:
+                if block.type == "text":
+                    response_text += block.text
+            
+            # Parse JSON from response
+            audit_result = self._parse_document_audit_response(response_text)
+            
+            return {
+                "audit": audit_result,
+                "sources": sources,
+                "context": context,
+                "raw_response": response_text,
+            }
+            
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"analyze_document error: {error_details}")
+            
+            return {
+                "audit": {
+                    "overall_score": 0,
+                    "document_type_detected": document_type or "unknown",
+                    "formal_validity": {"is_valid": False, "score": 0, "issues": [], "explanation": f"Error: {str(e)}"},
+                    "legal_validity": {"is_valid": False, "score": 0, "issues": [], "applicable_laws": [], "explanation": ""},
+                    "up_to_dateness": {"is_current": False, "score": 0, "outdated_references": [], "deprecated_laws": [], "explanation": ""},
+                    "compliance_check": {"is_compliant": False, "score": 0, "violations": [], "requirements": [], "explanation": ""},
+                    "risk_analysis": {"risk_level": "high", "score": 0, "risks": [], "mitigation_suggestions": [], "explanation": ""},
+                    "improvements": [],
+                    "summary": f"Analysis failed: {str(e)}",
+                    "explainability": "Could not complete analysis due to an error."
+                },
+                "sources": sources,
+                "context": context,
+                "raw_response": f"Error: {str(e)}",
+            }
+    
+    def _extract_document_topics(self, document_text: str, document_type: Optional[str] = None) -> List[str]:
+        """Extract key topics from document for targeted legal search."""
+        keywords = []
+        text_lower = document_text.lower()
+        
+        # Based on document type
+        if document_type:
+            type_queries = {
+                "power_of_attorney": ["доверенность полномочия представитель", "удостоверение доверенности нотариус"],
+                "corporate_resolution": ["решение учредителя протокол собрания", "полномочия органов управления"],
+                "claim": ["претензия требование ответственность", "порядок предъявления претензий"],
+                "application": ["заявление рассмотрение сроки", "порядок подачи заявления"],
+                "agreement": ["соглашение договоренность стороны", "условия соглашения"],
+                "act": ["акт составление подписание", "акт приема передачи"],
+                "order": ["приказ распоряжение руководитель", "издание приказа"],
+            }
+            if document_type in type_queries:
+                keywords.extend(type_queries[document_type])
+        
+        # Based on document content
+        if "доверен" in text_lower:
+            keywords.append("доверенность отмена срок действия")
+        if "протокол" in text_lower or "собрани" in text_lower:
+            keywords.append("протокол общего собрания кворум")
+        if "претензи" in text_lower:
+            keywords.append("претензионный порядок сроки ответа")
+        if "иск" in text_lower:
+            keywords.append("исковое заявление требования подсудность")
+        if "приказ" in text_lower:
+            keywords.append("приказ руководителя полномочия")
+        if "устав" in text_lower:
+            keywords.append("устав юридического лица регистрация")
+        if "трудов" in text_lower:
+            keywords.append("трудовой договор прием увольнение")
+        
+        if not keywords:
+            keywords = ["документ форма реквизиты требования", "юридическая сила документа"]
+        
+        return keywords
+    
+    def _parse_document_audit_response(self, response_text: str) -> Dict[str, Any]:
+        """Parse the JSON document audit response from LLM."""
+        try:
+            content = response_text.strip()
+            
+            if "```json" in content:
+                match = re.search(r'```json\s*(.*?)\s*```', content, re.DOTALL)
+                if match:
+                    content = match.group(1)
+            elif "```" in content:
+                match = re.search(r'```\s*(.*?)\s*```', content, re.DOTALL)
+                if match:
+                    content = match.group(1)
+            
+            if content.startswith("{"):
+                return json.loads(content)
+            
+            start = content.find("{")
+            end = content.rfind("}")
+            if start != -1 and end != -1:
+                return json.loads(content[start:end+1])
+            
+            raise ValueError("No valid JSON found in response")
+            
+        except Exception as e:
+            return {
+                "overall_score": 50,
+                "document_type_detected": "unknown",
+                "formal_validity": {"is_valid": True, "score": 50, "issues": [], "explanation": "Unable to parse"},
+                "legal_validity": {"is_valid": True, "score": 50, "issues": [], "applicable_laws": [], "explanation": ""},
+                "up_to_dateness": {"is_current": True, "score": 50, "outdated_references": [], "deprecated_laws": [], "explanation": ""},
+                "compliance_check": {"is_compliant": True, "score": 50, "violations": [], "requirements": [], "explanation": ""},
+                "risk_analysis": {"risk_level": "medium", "score": 50, "risks": [], "mitigation_suggestions": [], "explanation": ""},
+                "improvements": [],
+                "summary": response_text[:500] if response_text else "No response received",
+                "explainability": f"Could not parse AI response structure: {str(e)}"
+            }
+
+
+# ═══════════════════════════════════════════════════════════════
+# 📄 DOCUMENT VALIDATOR PROMPTS (11-BLOCK COMPREHENSIVE ANALYSIS)
+# ═══════════════════════════════════════════════════════════════
+
+DOCUMENT_VALIDATOR_PROMPT = """Вы — «Экспертная система проверки юридических документов Узбекистана». Ваша задача — провести КОМПЛЕКСНЫЙ 11-БЛОКОВЫЙ АУДИТ любого правового документа.
+
+📚 НОРМАТИВНАЯ БАЗА (используйте для проверки):
+- Гражданский кодекс Республики Узбекистан
+- Гражданский процессуальный кодекс
+- Экономический процессуальный кодекс
+- Трудовой кодекс
+- Закон "О нотариате"
+- Закон "О государственной регистрации юридических лиц"
+- Закон "Об обращениях физических и юридических лиц"
+- Постановления Кабинета Министров по делопроизводству
+
+🎯 ВАША ЗАДАЧА — 11 БЛОКОВ ПРОВЕРКИ:
+
+## 1️⃣ ФОРМАЛЬНАЯ ДЕЙСТВИТЕЛЬНОСТЬ (Formal Validity)
+Проверьте структуру и обязательные реквизиты:
+- Заголовок/наименование документа
+- Дата и место составления
+- Полные реквизиты сторон (ФИО, ИНН/СТИР, паспортные данные, адреса)
+- Нумерация страниц (для многостраничных)
+- Подписи (с расшифровкой)
+- Печати (где требуются)
+- Регистрационный номер (где требуется)
+
+## 2️⃣ ПРАВОВАЯ ДЕЙСТВИТЕЛЬНОСТЬ (Legal Validity)
+Проверьте на соответствие материальному праву:
+- Соответствие обязательным нормам закона
+- Правоспособность и дееспособность сторон
+- Наличие необходимых полномочий (доверенность, устав)
+- Законность предмета документа
+- Соблюдение требуемой формы (простая письменная, нотариальная)
+
+## 3️⃣ АКТУАЛЬНОСТЬ (Up-to-Dateness) — КРИТИЧЕСКИ ВАЖНО!
+⚠️ ОСОБОЕ ВНИМАНИЕ! Проверьте:
+- Ссылки на ДЕЙСТВУЮЩИЕ нормативные акты (не утратившие силу!)
+- Использование актуальных форм документов
+- Соответствие текущим требованиям законодательства
+- Отсутствие ссылок на отменённые законы/статьи
+- Актуальность сроков и ставок (госпошлины, БРВ и т.д.)
+
+## 4️⃣ КОМПЛАЕНС И РЕГУЛЯТОРНЫЕ ТРЕБОВАНИЯ (Compliance)
+Проверьте специальные требования:
+- Отраслевые требования (банковское, медицинское право и т.д.)
+- Требования к регистрации/уведомлению
+- Лицензионные требования
+- Валютное регулирование (для международных операций)
+- Антимонопольные требования
+
+## 5️⃣ АНАЛИЗ РИСКОВ (Risk Analysis) — "ЮРИДИЧЕСКИЙ МОЗГ"
+Оцените риски как опытный юрист:
+- Потенциальные споры и их вероятность
+- Уязвимые места документа
+- Риски оспаривания
+- Риски неисполнения
+- Репутационные и финансовые риски
+
+## 6️⃣ ПРОВЕРКА СОГЛАСОВАННОСТИ (Consistency Check) — НОВОЕ!
+Проверьте внутреннюю и внешнюю согласованность:
+- Внутренние противоречия в тексте документа
+- Согласованность нумерации пунктов и ссылок
+- Единство терминологии (одни и те же термины?)
+- Перекрёстные ссылки на другие документы
+- Согласованность дат, сроков, сумм
+
+## 7️⃣ ЮРИСДИКЦИОННЫЙ АНАЛИЗ (Jurisdiction Intelligence) — НОВОЕ!
+Определите юрисдикционные аспекты:
+- Применимое право (право Узбекистана или иное?)
+- Компетентные суды для разрешения споров
+- Территориальная подсудность
+- Трансграничные вопросы (если есть иностранный элемент)
+- Сроки исковой давности
+- Альтернативные способы разрешения споров (арбитраж, медиация)
+
+## 8️⃣ ГОТОВНОСТЬ К СУДЕБНОМУ ПРОЦЕССУ (Litigation Readiness) — НОВОЕ!
+Оцените документ с точки зрения возможного спора:
+- Пробелы в доказательственной базе
+- Требования к форме доказательств
+- Необходимость свидетельских показаний
+- Цепочка документов (есть ли все подтверждающие документы?)
+- Вопросы допустимости как доказательства
+- Стратегические рекомендации для судебной защиты
+
+## 9️⃣ ЭТИЧЕСКИЕ ГАРАНТИИ (Ethical Guardrails) — НОВОЕ!
+Проверьте на этичность и добросовестность:
+- Этические проблемы (обман, введение в заблуждение)
+- Противоречие публичному порядку
+- Нарушение принципа добросовестности
+- Несправедливые условия (особенно для слабой стороны)
+- Защита прав потребителей
+- Антикоррупционные требования
+
+## 🔟 ОБЪЯСНИМОСТЬ (Explainability) — ОБЯЗАТЕЛЬНО!
+⚠️ НЕ ПОДЛЕЖИТ ОБСУЖДЕНИЮ: Для КАЖДОГО найденного недостатка предоставьте:
+- Чёткое описание проблемы
+- КОНКРЕТНУЮ статью закона/кодекса
+- Почему это важно (последствия)
+- Понятное объяснение для неюриста
+
+## 1️⃣1️⃣ УЛУЧШЕНИЯ И ИСПРАВЛЕНИЯ (Drafting Mode)
+Для каждой проблемы предложите:
+- Конкретный текст для исправления (copy-paste ready)
+- Где именно в документе внести изменения
+- Приоритет исправления (критический/высокий/средний/низкий)
+
+🚨 ПРАВИЛА:
+1. ВСЕГДА указывайте конкретные статьи законов
+2. Объясняйте простым языком для неюриста
+3. Давайте готовые формулировки для исправлений
+4. Особое внимание уделяйте АКТУАЛЬНОСТИ ссылок на законы
+5. Используйте русский язык в ответах"""
+
+DOCUMENT_AUDIT_PROMPT = """Проведите комплексную 11-блоковую проверку документа.
+
+{document_type}
+
+ПРАВОВОЙ КОНТЕКСТ ИЗ КОДЕКСОВ УЗБЕКИСТАНА:
+{context}
+
+ДОКУМЕНТ ДЛЯ ПРОВЕРКИ:
+{document_text}
+
+ВЕРНИТЕ РЕЗУЛЬТАТ В ФОРМАТЕ JSON:
+```json
+{{
+  "overall_score": <0-100>,
+  "document_type_detected": "<тип документа: доверенность/протокол/претензия/приказ/заявление/другое>",
+  
+  "formal_validity": {{
+    "is_valid": <true/false>,
+    "score": <0-100>,
+    "issues": [
+      {{
+        "issue": "<описание проблемы>",
+        "requirement": "<требование закона>",
+        "article": "<Статья X Закона/Кодекса>",
+        "severity": "critical/high/medium/low"
+      }}
+    ],
+    "explanation": "<общее объяснение формальной проверки>"
+  }},
+  
+  "legal_validity": {{
+    "is_valid": <true/false>,
+    "score": <0-100>,
+    "issues": [
+      {{
+        "issue": "<описание проблемы>",
+        "article": "<Статья X>",
+        "consequence": "<возможные последствия>",
+        "severity": "critical/high/medium/low"
+      }}
+    ],
+    "applicable_laws": ["<Закон 1>", "<Закон 2>"],
+    "explanation": "<объяснение правовой проверки>"
+  }},
+  
+  "up_to_dateness": {{
+    "is_current": <true/false>,
+    "score": <0-100>,
+    "outdated_references": [
+      {{
+        "reference": "<ссылка в документе>",
+        "status": "<утратил силу/изменён>",
+        "current_version": "<актуальная норма>",
+        "date_deprecated": "<дата утраты силы>"
+      }}
+    ],
+    "deprecated_laws": ["<Устаревший закон 1>"],
+    "explanation": "<объяснение проверки актуальности>"
+  }},
+  
+  "compliance_check": {{
+    "is_compliant": <true/false>,
+    "score": <0-100>,
+    "violations": [
+      {{
+        "requirement": "<требование>",
+        "violation": "<нарушение>",
+        "regulator": "<регулятор>",
+        "penalty": "<санкция>"
+      }}
+    ],
+    "requirements": [
+      {{
+        "requirement": "<требование>",
+        "status": "met/unmet/partial",
+        "article": "<основание>"
+      }}
+    ],
+    "explanation": "<объяснение комплаенс-проверки>"
+  }},
+  
+  "risk_analysis": {{
+    "risk_level": "low/medium/high/critical",
+    "score": <0-100>,
+    "risks": [
+      {{
+        "risk": "<описание риска>",
+        "probability": "low/medium/high",
+        "impact": "low/medium/high",
+        "category": "legal/financial/reputational/operational"
+      }}
+    ],
+    "mitigation_suggestions": ["<рекомендация 1>", "<рекомендация 2>"],
+    "explanation": "<объяснение анализа рисков>"
+  }},
+  
+  "consistency_check": {{
+    "is_consistent": <true/false>,
+    "score": <0-100>,
+    "inconsistencies": [
+      {{
+        "issue": "<описание противоречия>",
+        "location1": "<первое место в документе>",
+        "location2": "<второе место в документе>",
+        "severity": "critical/high/medium/low"
+      }}
+    ],
+    "cross_references": [
+      {{
+        "reference": "<ссылка на внешний документ>",
+        "status": "valid/invalid/missing",
+        "note": "<примечание>"
+      }}
+    ],
+    "numbering_issues": ["<проблема нумерации 1>"],
+    "terminology_issues": ["<несогласованный термин 1>"],
+    "explanation": "<объяснение проверки согласованности>"
+  }},
+  
+  "jurisdiction_intelligence": {{
+    "primary_jurisdiction": "Узбекистан",
+    "score": <0-100>,
+    "applicable_courts": ["<Суд 1>", "<Суд 2>"],
+    "territorial_scope": "<территориальная подсудность>",
+    "cross_border_issues": [
+      {{
+        "issue": "<трансграничный вопрос>",
+        "recommendation": "<рекомендация>"
+      }}
+    ],
+    "forum_selection": {{
+      "clause_exists": <true/false>,
+      "selected_forum": "<выбранный форум>",
+      "enforceability": "enforceable/questionable/unenforceable"
+    }},
+    "statute_of_limitations": {{
+      "applicable_period": "<срок исковой давности>",
+      "start_date": "<начало течения срока>",
+      "article": "<статья ГК>"
+    }},
+    "explanation": "<объяснение юрисдикционного анализа>"
+  }},
+  
+  "litigation_readiness": {{
+    "readiness_level": "low/medium/high",
+    "score": <0-100>,
+    "evidence_gaps": [
+      {{
+        "gap": "<пробел в доказательствах>",
+        "required_evidence": "<необходимое доказательство>",
+        "how_to_obtain": "<как получить>"
+      }}
+    ],
+    "proof_requirements": [
+      {{
+        "fact": "<факт для доказывания>",
+        "burden": "plaintiff/defendant",
+        "evidence_type": "<тип доказательства>"
+      }}
+    ],
+    "witness_needs": ["<необходимость свидетеля 1>"],
+    "document_chain": [
+      {{
+        "document": "<документ>",
+        "status": "present/missing/incomplete",
+        "importance": "critical/important/optional"
+      }}
+    ],
+    "admissibility_issues": [
+      {{
+        "issue": "<проблема допустимости>",
+        "article": "<статья ГПК/ЭПК>",
+        "recommendation": "<рекомендация>"
+      }}
+    ],
+    "litigation_strategy": ["<стратегическая рекомендация 1>"],
+    "explanation": "<объяснение оценки готовности к суду>"
+  }},
+  
+  "ethical_guardrails": {{
+    "passes_ethics": <true/false>,
+    "score": <0-100>,
+    "ethical_concerns": [
+      {{
+        "concern": "<этическая проблема>",
+        "severity": "critical/high/medium/low",
+        "recommendation": "<рекомендация>"
+      }}
+    ],
+    "public_policy_issues": [
+      {{
+        "issue": "<противоречие публичному порядку>",
+        "article": "<статья>",
+        "consequence": "<последствие>"
+      }}
+    ],
+    "good_faith_issues": [
+      {{
+        "issue": "<нарушение добросовестности>",
+        "explanation": "<объяснение>"
+      }}
+    ],
+    "unfair_terms": [
+      {{
+        "term": "<несправедливое условие>",
+        "location": "<место в документе>",
+        "why_unfair": "<почему несправедливо>",
+        "fix": "<исправление>"
+      }}
+    ],
+    "consumer_protection": [
+      {{
+        "issue": "<нарушение прав потребителя>",
+        "article": "<статья Закона о защите прав потребителей>"
+      }}
+    ],
+    "anti_corruption": [
+      {{
+        "issue": "<антикоррупционный риск>",
+        "recommendation": "<рекомендация>"
+      }}
+    ],
+    "explanation": "<объяснение этической проверки>"
+  }},
+  
+  "improvements": [
+    {{
+      "issue": "<проблема>",
+      "location": "<где в документе>",
+      "current_text": "<текущий текст>",
+      "suggested_text": "<предлагаемый текст (готовый для копирования)>",
+      "priority": "critical/high/medium/low",
+      "explanation": "<почему нужно исправить>"
+    }}
+  ],
+  
+  "summary": "<2-3 предложения итогового заключения>",
+  
+  "explainability": "<Понятное объяснение всех выводов для неюриста. Опишите главные проблемы, почему они важны, и что делать дальше. Используйте простой язык.>"
+}}
+```
+
+Проанализируйте документ и верните ТОЛЬКО JSON ответ без дополнительного текста."""

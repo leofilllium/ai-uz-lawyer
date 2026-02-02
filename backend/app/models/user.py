@@ -25,6 +25,7 @@ class User(Base):
     chat_sessions = relationship('ChatSession', back_populates='user', lazy='dynamic')
     contract_analyses = relationship('ContractAnalysis', back_populates='user', lazy='dynamic')
     generated_contracts = relationship('GeneratedContract', back_populates='user', lazy='dynamic')
+    document_analyses = relationship('DocumentAnalysis', back_populates='user', lazy='dynamic')
     
     def __repr__(self):
         return f'<User {self.email}>'

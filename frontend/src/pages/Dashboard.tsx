@@ -93,6 +93,12 @@ export default function Dashboard() {
             <p>Создание договоров на основе шаблонов и требований</p>
           </Link>
 
+          <Link to="/document-validator" className="feature-card doc-validator">
+            <div className="feature-icon">📄</div>
+            <h2>Проверка документов</h2>
+            <p>Комплексный 11-блоковый анализ юридических документов</p>
+          </Link>
+
           {/* <Link to="/lawyer?mode=smalltalk" className="feature-card smalltalk">
             <div className="feature-icon">🗣️</div>
             <h2>Просто поболтать</h2>
