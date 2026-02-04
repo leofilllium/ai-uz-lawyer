@@ -3523,7 +3523,7 @@ class AIService:
         self, 
         question: str, 
         history: Optional[List[Dict[str, str]]] = None,
-        top_k: int = 60,
+        top_k: int = 100,
         chat_mode: str = 'consultant'
     ) -> Dict[str, Any]:
         """
@@ -3542,7 +3542,7 @@ class AIService:
         
         # For simple modes, use fewer documents
         if chat_mode in SIMPLE_MODES:
-            top_k = 30  # Fewer documents for simple questions
+            top_k = 40  # Fewer documents for simple questions
             logger.info(f"Simple mode detected, using top_k={top_k}")
         
         # Build retrieval query - include last user question for follow-up context
