@@ -17,6 +17,7 @@ import Generator from './pages/Generator';
 import History from './pages/History';
 import Admin from './pages/Admin';
 import DocumentValidator from './pages/DocumentValidator';
+import About from './pages/About';
 
 // Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -136,6 +137,10 @@ function AppRoutes() {
       <Route
         path="/admin"
         element={<Admin />}
+      />
+      <Route
+        path="/about"
+        element={<About />}
       />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
