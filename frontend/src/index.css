@@ -3,8 +3,42 @@
  * Professional legal application design
  */
 
-/* Import Google Fonts */
+/* Import Google Fonts - Commented out
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;600&display=swap');
+*/
+
+/* Involve Font Definitions */
+@font-face {
+  font-family: 'Involve';
+  src: url('/fonts/Involve-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Involve';
+  src: url('/fonts/Involve-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Involve';
+  src: url('/fonts/Involve-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Involve';
+  src: url('/fonts/Involve-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
 
 /* ──────────────────────────────────────────────
    DESIGN SYSTEM CSS VARIABLES
@@ -42,8 +76,8 @@
   --color-info-light: #E3F2FD;
 
   /* Typography */
-  --font-display: 'Playfair Display', Georgia, serif;
-  --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Involve', 'Playfair Display', Georgia, serif;
+  --font-body: 'Involve', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 
   /* Spacing (8px base) */
   --space-xs: 4px;

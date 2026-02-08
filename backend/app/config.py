@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     openai_api_key: str = ""
     
+    # Telegram Integration
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
+    
     # Claude Models
     claude_haiku_model: str = "claude-haiku-4-5-20251001"
     claude_opus_model: str = "claude-opus-4-5-20251101"

@@ -15,10 +15,40 @@ import {
   Target
 } from 'lucide-react';
 import './About.css';
+import { sendContactMessage } from '../api/client';
 
 export default function About() {
   const [activeTab, setActiveTab] = useState(0);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  
+  // Contact form state
+  const [contactForm, setContactForm] = useState({
+    name: '',
+    email: '',
+    message: ''
+  });
+  const [contactStatus, setContactStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const handleContactChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { id, value } = e.target;
+    setContactForm(prev => ({ ...prev, [id]: value }));
+  };
+
+  const handleContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setContactStatus('loading');
+    setErrorMessage('');
+    
+    try {
+      await sendContactMessage(contactForm.name, contactForm.email, contactForm.message);
+      setContactStatus('success');
+      setContactForm({ name: '', email: '', message: '' });
+    } catch (error: any) {
+      setContactStatus('error');
+      setErrorMessage(error.message || 'Ошибка отправки сообщения');
+    }
+  };
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
@@ -646,21 +676,69 @@ export default function About() {
           
           <div className="contact-grid">
             <div className="contact-form-wrapper">
-              <form className="contact-form">
+              <form className="contact-form" onSubmit={handleContactSubmit}>
                 <div className="form-group">
                   <label htmlFor="name">Имя</label>
-                  <input type="text" id="name" placeholder="Ваше имя" required />
+                  <input 
+                    type="text" 
+                    id="name" 
+                    placeholder="Ваше имя" 
+                    required 
+                    value={contactForm.name}
+                    onChange={handleContactChange}
+                  />
                 </div>
                 <div className="form-group">
                   <label htmlFor="email">Email</label>
-                  <input type="email" id="email" placeholder="email@example.com" required />
+                  <input 
+                    type="email" 
+                    id="email" 
+                    placeholder="email@example.com" 
+                    required 
+                    value={contactForm.email}
+                    onChange={handleContactChange}
+                  />
                 </div>
                 <div className="form-group">
                   <label htmlFor="message">Сообщение</label>
-                  <textarea id="message" rows={4} placeholder="Ваш вопрос или сообщение..." required></textarea>
+                  <textarea 
+                    id="message" 
+                    rows={4} 
+                    placeholder="Ваш вопрос или сообщение..." 
+                    required
+                    value={contactForm.message}
+                    onChange={handleContactChange}
+                  ></textarea>
                 </div>
-                <button type="submit" className="contact-submit">
-                  <Send className="w-4 h-4" /> Отправить
+                
+                {contactStatus === 'success' && (
+                  <div className="p-3 mb-4 text-green-700 bg-green-100 rounded-lg flex items-center">
+                    <CheckCircle className="w-5 h-5 mr-2" />
+                    Сообщение отправлено! Мы свяжемся с вами.
+                  </div>
+                )}
+                
+                {contactStatus === 'error' && (
+                  <div className="p-3 mb-4 text-red-700 bg-red-100 rounded-lg flex items-center">
+                    <AlertTriangle className="w-5 h-5 mr-2" />
+                    {errorMessage}
+                  </div>
+                )}
+                
+                <button 
+                  type="submit" 
+                  className="contact-submit"
+                  disabled={contactStatus === 'loading' || contactStatus === 'success'}
+                >
+                  {contactStatus === 'loading' ? (
+                    <span className="flex items-center">
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Отправка...
+                    </span>
+                  ) : (
+                    <span className="flex items-center">
+                      <Send className="w-4 h-4 mr-2" /> Отправить
+                    </span>
+                  )}
                 </button>
               </form>
             </div>

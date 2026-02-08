@@ -46,7 +46,10 @@ app.include_router(validator.router, prefix="/api/validator", tags=["Contract Va
 app.include_router(doc_validator.router, prefix="/api/document-validator", tags=["Document Validator"])
 app.include_router(generator.router, prefix="/api/generator", tags=["Contract Generator"])
 app.include_router(history.router, prefix="/api/history", tags=["History"])
+app.include_router(history.router, prefix="/api/history", tags=["History"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
+from app.routers import contact
+app.include_router(contact.router, prefix="/api/contact", tags=["Contact"])
 
 
 @app.get("/health")

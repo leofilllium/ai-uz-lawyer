@@ -409,6 +409,27 @@ export async function deleteHistoryItem(type: 'chat' | 'validation' | 'generatio
   }
 }
 
+// Contact API
+export interface ContactForm {
+  name: string;
+  email: string;
+  message: string;
+}
+
+export async function sendContactMessage(name: string, email: string, message: string): Promise<{status: string, message: string}> {
+  const response = await fetchWithAuth('/api/contact/send', {
+    method: 'POST',
+    body: JSON.stringify({ name, email, message }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to send message');
+  }
+
+  return response.json();
+}
+
 // ═══════════════════════════════════════════════════════════════
 // Document Validator API (11-Block Comprehensive Analysis)
 // ═══════════════════════════════════════════════════════════════
