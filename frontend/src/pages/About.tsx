@@ -106,7 +106,7 @@ export default function About() {
   ];
 
   const faqs = [
-    { q: 'Как работает платформа?', a: 'LawHub использует передовые модели искусственного интеллекта, специально обученные на законодательстве Узбекистана. Загрузите документ или задайте вопрос — и получите мгновенный анализ с ссылками на нормативные акты.' },
+    { q: 'Как работает платформа?', a: 'RightPoint использует передовые модели искусственного интеллекта, специально обученные на законодательстве Узбекистана. Загрузите документ или задайте вопрос — и получите мгновенный анализ с ссылками на нормативные акты.' },
     { q: 'Насколько безопасны мои данные?', a: 'Мы используем 256-битное шифрование, храним данные на серверах в Узбекистане и проходим регулярные аудиты безопасности. Ваши документы полностью конфиденциальны.' },
     { q: 'Как рассчитываются кредиты?', a: 'Каждая операция имеет свою стоимость в кредитах: проверка документов — 10 кредитов, анализ договоров — 50, генерация — 100, AI-консультация — 20 кредитов за вопрос.' },
     { q: 'Какие законы охвачены?', a: 'Наша база включает все кодексы Узбекистана, законы, подзаконные акты и обновляется в реальном времени при публикации новых нормативных документов.' },
@@ -145,7 +145,7 @@ export default function About() {
       <nav className="landing-nav">
         <div className="landing-container nav-container">
           <div className="nav-logo" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            <Scale className="w-6 h-6 text-primary" /> Law<span className="text-primary">Hub</span>
+            <Scale className="w-6 h-6 text-primary" /> Right<span className="text-primary">Point</span>
           </div>
           <div className="nav-links">
             <button onClick={() => scrollToSection('product')}>Продукт</button>
@@ -308,7 +308,7 @@ export default function About() {
         <div className="landing-container">
           <h2 className="landing-section-title">Решение</h2>
           <p className="landing-section-subtitle">
-            LawHub.uz — рабочий инструмент для юридической практики. Платформа объединяет анализ законодательства, работу с договорами и консультации в одном интерфейсе.
+            RightPoint.uz — рабочий инструмент для юридической практики. Платформа объединяет анализ законодательства, работу с договорами и консультации в одном интерфейсе.
           </p>
           
           <div className="features-tabs">
@@ -650,7 +650,7 @@ export default function About() {
           <div className="cta-content">
             <h2 className="cta-title">Готовы автоматизировать юридическую работу?</h2>
             <p className="cta-subtitle">
-              Запросите демонстрацию платформы и узнайте, как LawHub может помочь вашему бизнесу.
+              Запросите демонстрацию платформы и узнайте, как RightPoint может помочь вашему бизнесу.
             </p>
             
             <div className="cta-buttons">
@@ -798,7 +798,7 @@ export default function About() {
           <div className="footer-grid">
             <div className="footer-brand">
               <div className="landing-logo">
-                <Scale className="w-8 h-8 text-white" /> Law<span className="text-primary">Hub</span>
+                <Scale className="w-8 h-8 text-white" /> Right<span className="text-primary">Point</span>
               </div>
               <p>
                 Бизнес-инструмент для юристов.
@@ -820,7 +820,7 @@ export default function About() {
           
           <div className="footer-bottom">
             <div className="footer-copyright">
-              © 2026 LawHub.
+              © 2026 RightPoint.
             </div>
           </div>
         </div>
