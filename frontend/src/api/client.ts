@@ -413,13 +413,14 @@ export async function deleteHistoryItem(type: 'chat' | 'validation' | 'generatio
 export interface ContactForm {
   name: string;
   email: string;
+  phone?: string;
   message: string;
 }
 
-export async function sendContactMessage(name: string, email: string, message: string): Promise<{status: string, message: string}> {
+export async function sendContactMessage(name: string, email: string, message: string, phone?: string): Promise<{status: string, message: string}> {
   const response = await fetchWithAuth('/api/contact/send', {
     method: 'POST',
-    body: JSON.stringify({ name, email, message }),
+    body: JSON.stringify({ name, email, message, phone }),
   });
 
   if (!response.ok) {

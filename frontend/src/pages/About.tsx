@@ -25,6 +25,7 @@ export default function About() {
   const [contactForm, setContactForm] = useState({
     name: '',
     email: '',
+    phone: '',
     message: ''
   });
   const [contactStatus, setContactStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -41,9 +42,9 @@ export default function About() {
     setErrorMessage('');
     
     try {
-      await sendContactMessage(contactForm.name, contactForm.email, contactForm.message);
+      await sendContactMessage(contactForm.name, contactForm.email, contactForm.message, contactForm.phone || undefined);
       setContactStatus('success');
-      setContactForm({ name: '', email: '', message: '' });
+      setContactForm({ name: '', email: '', phone: '', message: '' });
     } catch (error: any) {
       setContactStatus('error');
       setErrorMessage(error.message || 'Ошибка отправки сообщения');
@@ -700,6 +701,16 @@ export default function About() {
                   />
                 </div>
                 <div className="form-group">
+                  <label htmlFor="phone">Телефон</label>
+                  <input 
+                    type="tel" 
+                    id="phone" 
+                    placeholder="+998 90 123 45 67" 
+                    value={contactForm.phone}
+                    onChange={handleContactChange}
+                  />
+                </div>
+                <div className="form-group">
                   <label htmlFor="message">Сообщение</label>
                   <textarea 
                     id="message" 
@@ -750,14 +761,14 @@ export default function About() {
                   <Mail className="w-5 h-5 text-primary" />
                   <div>
                     <strong>Email</strong>
-                    <span>info@lawhub.uz</span>
+                    <span>leofillium@gmail.com</span>
                   </div>
                 </div>
                 <div className="contact-info-item">
                   <Phone className="w-5 h-5 text-primary" />
                   <div>
                     <strong>Телефон</strong>
-                    <span>+998 71 123 45 67</span>
+                    <span>+998 97 774 40 07</span>
                   </div>
                 </div>
                 <div className="contact-info-item">
