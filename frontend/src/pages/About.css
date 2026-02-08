@@ -521,24 +521,32 @@ body.dark .landing-page {
 .features-section { background: var(--color-background); }
 
 .features-tabs {
-  display: flex;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: 12px;
   margin-bottom: 48px;
-  flex-wrap: wrap;
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
   padding: 8px;
   border-radius: 20px;
   border: 1px solid var(--glass-border);
-  width: fit-content;
+  width: 100%;
+  max-width: 1000px;
   margin-left: auto;
   margin-right: auto;
 }
 
+@media (max-width: 1024px) {
+  .features-tabs { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .features-tabs { grid-template-columns: 1fr; }
+}
+
 .feature-tab {
-  padding: 14px 24px;
+  padding: 16px 20px;
   border-radius: 14px;
   font-size: 0.9rem;
   font-weight: 600;
@@ -547,7 +555,16 @@ body.dark .landing-page {
   background: transparent;
   color: var(--color-text-secondary);
   border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+  min-width: auto;
 }
+
+.feature-tab .mr-2 { margin-right: 0; }
 
 .feature-tab:hover { color: var(--color-text-primary); }
 
@@ -1116,10 +1133,17 @@ body.dark .landing-page {
 
 .testimonials-carousel { position: relative; }
 
-.testimonials-track { display: flex; gap: 24px; }
+.testimonials-track {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  align-items: stretch;
+}
 
 .testimonial-card {
-  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   min-width: 0;
   background: var(--glass-bg-dark);
   backdrop-filter: blur(var(--glass-blur));
@@ -1210,6 +1234,7 @@ body.dark .landing-page {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+  align-items: start;
 }
 
 .faq-item {
@@ -1526,4 +1551,900 @@ body.dark .features-tabs,
 body.dark .pricing-calculator {
   background: rgba(30, 30, 30, 0.6);
   border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* ══════════════════════════════════════════════════════
+   UTILITIES (Icon Sizing & Colors)
+   ══════════════════════════════════════════════════════ */
+.w-4 { width: 16px; min-width: 16px; }
+.h-4 { height: 16px; min-height: 16px; }
+.w-5 { width: 20px; min-width: 20px; }
+.h-5 { height: 20px; min-height: 20px; }
+.w-6 { width: 24px; min-width: 24px; }
+.h-6 { height: 24px; min-height: 24px; }
+.w-8 { width: 32px; min-width: 32px; }
+.h-8 { height: 32px; min-height: 32px; }
+.w-10 { width: 40px; min-width: 40px; }
+.h-10 { height: 40px; min-height: 40px; }
+
+.mr-1 { margin-right: 4px; }
+.mr-2 { margin-right: 8px; }
+.ml-2 { margin-left: 8px; }
+.inline { display: inline-block; vertical-align: middle; }
+
+.text-primary { color: var(--color-primary) !important; }
+.text-white { color: white !important; }
+.text-green-500 { color: var(--color-success) !important; }
+.text-yellow-500 { color: var(--color-warning) !important; }
+
+.animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+/* ══════════════════════════════════════════════════════
+   SECTION 12: CONTACT (NEW)
+   ══════════════════════════════════════════════════════ */
+.contact-section {
+  background: var(--color-background);
+  position: relative;
+  overflow: hidden;
+}
+
+.contact-container {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 32px;
+}
+
+.contact-form-card, .contact-info-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border-radius: 28px;
+  padding: 36px;
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.contact-form-card h3, .contact-info-card h3 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 24px;
+  color: var(--color-text-primary);
+}
+
+.contact-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-left: 4px;
+}
+
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon {
+  position: absolute;
+  left: 16px;
+  color: var(--color-text-tertiary);
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
+}
+
+.input-wrapper input,
+.input-wrapper textarea {
+  width: 100%;
+  padding: 14px 16px 14px 48px;
+  border-radius: 14px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: 0.95rem;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.input-wrapper textarea {
+  min-height: 120px;
+  resize: vertical;
+  padding-top: 14px;
+}
+
+.input-wrapper .input-icon {
+  top: 14px; /* for textarea alignment */
+}
+
+/* Fix for textarea icon */
+.input-wrapper input ~ .input-icon { top: 50%; transform: translateY(-50%); } 
+/* Wait, the DOM order is icon then input. My bad. CSS selector above is wrong? 
+   No, icon is first.
+   .input-wrapper { align-items: center } handles centered icon for input.
+   For textarea, we want top alignment.
+*/
+.input-wrapper.textarea { align-items: flex-start; }
+
+.input-wrapper input:focus,
+.input-wrapper textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-glow);
+  background: var(--glass-bg);
+}
+
+.btn-contact-submit {
+  margin-top: 10px;
+  background: var(--color-primary);
+  color: white;
+  padding: 16px;
+  border-radius: 14px;
+  font-weight: 600;
+  font-size: 1rem;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.3s;
+}
+
+.btn-contact-submit:hover {
+  background: var(--color-primary-pressed);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px var(--color-primary-glow);
+}
+
+.contact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.contact-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.contact-icon-box {
+  width: 48px;
+  height: 48px;
+  background: var(--color-surface);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary);
+  border: 1px solid var(--color-border);
+}
+
+.contact-label {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 2px;
+}
+
+.contact-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+
+.contact-value:hover { color: var(--color-primary); }
+
+.contact-map {
+  height: 200px;
+  background: var(--color-surface);
+  border-radius: 20px;
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+  position: relative;
+}
+
+.map-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  background: #1a1a1a repeating-linear-gradient(45deg, #1a1a1a 0, #1a1a1a 10px, #202020 10px, #202020 20px);
+}
+
+/* ══════════════════════════════════════════════════════
+   ALIGNMENT FIXES (USER REQUEST)
+   ══════════════════════════════════════════════════════ */
+
+/* 1. Features Tabs - Vertical Center */
+.features-tabs {
+  flex-direction: row !important;
+  align-items: stretch !important; /* Make tabs full width to look nice, or keep center? User said "aligned to the center" */
+  /* If I use stretch, the text can be centered */
+  margin-left: auto;
+  margin-right: auto;
+  gap: 8px !important;
+  display: flex !important;
+}
+
+.feature-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center; /* Center content */
+  text-align: center;
+  width: 100%;
+}
+
+/* 2. Testimonials Alignment */
+.testimonial-card {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100%;
+}
+
+.testimonial-quote {
+  flex-grow: 1; /* Pushes content down */
+  /* Ensure min-height if needed */
+}
+
+.testimonial-author {
+  margin-top: auto; /* Ensures author stays at bottom */
+}
+
+/* Responsive alignment */
+@media (max-width: 768px) {
+  .contact-container { grid-template-columns: 1fr; }
+}
+
+/* ══════════════════════════════════════════════════════
+   SECTION: CONTACT FORM
+   ══════════════════════════════════════════════════════ */
+.contact-section { background: var(--color-surface); }
+
+.contact-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 48px;
+  align-items: start;
+}
+
+.contact-form-wrapper {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border-radius: 28px;
+  padding: 40px;
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.contact-form { display: flex; flex-direction: column; gap: 20px; }
+
+.form-group { display: flex; flex-direction: column; gap: 8px; }
+
+.form-group label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.form-group input,
+.form-group textarea {
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 0.95rem;
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  transition: all 0.2s;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-glow);
+}
+
+.form-group textarea { resize: vertical; min-height: 100px; }
+
+.contact-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--color-primary);
+  color: white;
+  padding: 16px 32px;
+  border-radius: 14px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 8px;
+}
+
+.contact-submit:hover {
+  box-shadow: 0 8px 24px var(--color-primary-glow);
+  transform: translateY(-2px);
+}
+
+.contact-info-wrapper {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border-radius: 28px;
+  padding: 40px;
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.contact-info-wrapper h3 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 24px;
+}
+
+.contact-info-list { display: flex; flex-direction: column; gap: 20px; }
+
+.contact-info-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.contact-info-item > svg {
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.contact-info-item div { display: flex; flex-direction: column; gap: 2px; }
+
+.contact-info-item strong {
+  font-size: 0.95rem;
+  color: var(--color-text-primary);
+}
+
+.contact-info-item span {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.contact-hours {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border);
+}
+
+.contact-hours h4 {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 12px;
+}
+
+.contact-hours p {
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  margin-bottom: 6px;
+}
+
+/* Responsive adjustments for testimonials and contact */
+@media (max-width: 1024px) {
+  .testimonials-track { grid-template-columns: 1fr; }
+  .contact-grid { grid-template-columns: 1fr; }
+}
+
+/* ══════════════════════════════════════════════════════
+   NAVBAR
+   ══════════════════════════════════════════════════════ */
+.landing-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: rgba(10, 10, 10, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 16px 0;
+  transition: all 0.3s ease;
+}
+
+.nav-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+}
+
+.nav-links {
+  display: flex;
+  gap: 32px;
+}
+
+.nav-links button {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s;
+  padding: 4px 0;
+}
+
+.nav-links button:hover {
+  color: white;
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.nav-login {
+  color: white;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: opacity 0.2s;
+}
+
+.nav-login:hover { opacity: 0.8; }
+
+.nav-btn {
+  background: white;
+  color: var(--color-primary);
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.nav-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
+}
+
+@media (max-width: 768px) {
+  .nav-links { display: none; }
+}
+
+/* Footer button styles */
+.footer-column ul li button {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: color 0.2s;
+  padding: 0;
+  text-align: left;
+  font-family: var(--font-body);
+}
+
+.footer-column ul li button:hover {
+  color: white;
+}
+
+/* ══════════════════════════════════════════════════════
+   HARDCORE ANIMATIONS
+   ══════════════════════════════════════════════════════ */
+
+/* Keyframes */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-60px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeInRight {
+  from {
+    opacity: 0;
+    transform: translateX(60px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-15px) rotate(2deg); }
+  50% { transform: translateY(-5px) rotate(-1deg); }
+  75% { transform: translateY(-20px) rotate(1deg); }
+}
+
+@keyframes floatMedium {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-25px) rotate(3deg); }
+}
+
+@keyframes glowPulse {
+  0%, 100% { 
+    box-shadow: 0 0 20px rgba(196, 30, 58, 0.3), 0 0 40px rgba(196, 30, 58, 0.1);
+  }
+  50% { 
+    box-shadow: 0 0 40px rgba(196, 30, 58, 0.5), 0 0 80px rgba(196, 30, 58, 0.2);
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes gradientFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes rotateGlow {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes bounce {
+  0%, 20%, 53%, 80%, 100% { transform: translateY(0); }
+  40%, 43% { transform: translateY(-20px); }
+  70% { transform: translateY(-10px); }
+  90% { transform: translateY(-4px); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+@keyframes ripple {
+  0% { transform: scale(1); opacity: 0.4; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+/* Hero Section Animations */
+.hero-section {
+  animation: fadeInDown 1s ease-out;
+}
+
+.hero-title {
+  animation: fadeInUp 0.8s ease-out 0.2s both;
+}
+
+.hero-subtitle {
+  animation: fadeInUp 0.8s ease-out 0.4s both;
+}
+
+.hero-cta-group {
+  animation: fadeInUp 0.8s ease-out 0.6s both;
+}
+
+.hero-badge {
+  animation: fadeInDown 0.6s ease-out 0.8s both;
+}
+
+.hero-mockup {
+  animation: fadeInRight 1s ease-out 0.5s both;
+}
+
+.floating-icon {
+  animation: floatSlow 8s ease-in-out infinite;
+}
+
+.floating-icon:nth-child(2) {
+  animation: floatMedium 6s ease-in-out infinite 0.5s;
+}
+
+.floating-icon:nth-child(3) {
+  animation: floatSlow 7s ease-in-out infinite 1s;
+}
+
+/* Glowing Elements */
+.btn-landing-primary,
+.btn-cta-primary {
+  position: relative;
+  overflow: hidden;
+  animation: glowPulse 3s ease-in-out infinite;
+}
+
+.btn-landing-primary::before,
+.btn-cta-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  animation: shimmer 3s infinite;
+}
+
+/* Card Hover Effects */
+.trust-stat,
+.problem-card,
+.pricing-card,
+.faq-item,
+.testimonial-card,
+.contact-form-wrapper,
+.contact-info-wrapper {
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.trust-stat:hover,
+.problem-card:hover,
+.testimonial-card:hover {
+  transform: translateY(-12px) scale(1.02);
+  box-shadow: 0 25px 50px rgba(0,0,0,0.15);
+}
+
+.pricing-card:hover {
+  transform: translateY(-16px) scale(1.03);
+}
+
+.pricing-card.popular {
+  animation: glowPulse 4s ease-in-out infinite;
+}
+
+/* Feature Tab Animations */
+.feature-tab {
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.feature-tab:hover {
+  transform: translateY(-4px) scale(1.05);
+}
+
+.feature-tab.active {
+  animation: scaleIn 0.3s ease-out;
+}
+
+.feature-panel.active {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+/* Section Entrance Animations (CSS-only scroll-triggered) */
+.landing-section {
+  opacity: 0;
+  animation: fadeInUp 0.8s ease-out forwards;
+}
+
+.landing-section:nth-child(1) { animation-delay: 0s; }
+.landing-section:nth-child(2) { animation-delay: 0.1s; }
+.landing-section:nth-child(3) { animation-delay: 0.15s; }
+.landing-section:nth-child(4) { animation-delay: 0.2s; }
+
+/* Trust Badge Shimmer */
+.hero-trust-badge {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 4s linear infinite, fadeInUp 0.8s ease-out 1s both;
+}
+
+/* Navbar Glassmorphism Enhance */
+.landing-nav {
+  transition: all 0.5s ease;
+}
+
+.landing-nav:hover {
+  background: rgba(10, 10, 10, 0.95);
+  backdrop-filter: blur(20px);
+}
+
+/* How Timeline Animation */
+.how-step {
+  opacity: 0;
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.how-step:nth-child(1) { animation-delay: 0.1s; }
+.how-step:nth-child(2) { animation-delay: 0.3s; }
+.how-step:nth-child(3) { animation-delay: 0.5s; }
+
+.how-step-number {
+  transition: all 0.4s ease;
+}
+
+.how-step:hover .how-step-number {
+  transform: scale(1.15) rotate(5deg);
+  box-shadow: 0 15px 40px rgba(196, 30, 58, 0.4);
+}
+
+/* FAQ Accordion Animation */
+.faq-answer {
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.faq-item.open .faq-answer {
+  animation: fadeInDown 0.3s ease-out;
+}
+
+.faq-icon {
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.faq-item.open .faq-icon {
+  transform: rotate(180deg);
+}
+
+/* CTA Section Glow */
+.cta-section::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(196, 30, 58, 0.15), transparent 70%);
+  animation: glowPulse 5s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.cta-content {
+  position: relative;
+  z-index: 1;
+}
+
+/* Footer Animation */
+.footer-section {
+  animation: fadeInUp 0.8s ease-out;
+}
+
+.footer-social a {
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.footer-social a:hover {
+  transform: translateY(-5px) scale(1.2);
+}
+
+/* Button Ripple Effect */
+.btn-landing-primary:active,
+.btn-cta-primary:active,
+.btn-landing-secondary:active,
+.btn-cta-secondary:active {
+  animation: shake 0.3s ease-out;
+}
+
+/* Contact Form Input Focus Animation */
+.form-group input:focus,
+.form-group textarea:focus {
+  animation: scaleIn 0.2s ease-out;
+  transform: scale(1.01);
+}
+
+/* Testimonial Carousel Stagger */
+.testimonial-card:nth-child(1) { animation: fadeInUp 0.6s ease-out 0.1s both; }
+.testimonial-card:nth-child(2) { animation: fadeInUp 0.6s ease-out 0.25s both; }
+.testimonial-card:nth-child(3) { animation: fadeInUp 0.6s ease-out 0.4s both; }
+
+/* Industry Cards Animation */
+.industry-card {
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.industry-card:hover {
+  transform: translateY(-10px) rotateX(5deg);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+}
+
+/* Pricing Features Stagger */
+.pricing-features li {
+  opacity: 0;
+  animation: fadeInLeft 0.4s ease-out forwards;
+}
+
+.pricing-features li:nth-child(1) { animation-delay: 0.05s; }
+.pricing-features li:nth-child(2) { animation-delay: 0.1s; }
+.pricing-features li:nth-child(3) { animation-delay: 0.15s; }
+.pricing-features li:nth-child(4) { animation-delay: 0.2s; }
+.pricing-features li:nth-child(5) { animation-delay: 0.25s; }
+.pricing-features li:nth-child(6) { animation-delay: 0.3s; }
+
+/* 3D Card Tilt on Hover (subtle) */
+.hero-mockup:hover {
+  transform: perspective(1000px) rotateY(-5deg) rotateX(5deg) translateZ(20px);
+  transition: transform 0.5s ease;
+}
+
+/* Logo Bounce on Hover - REMOVED */
+/* .nav-logo:hover,
+.landing-logo:hover {
+  animation: bounce 0.8s ease;
+} */
+
+/* Reduce Motion for Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
