@@ -308,7 +308,7 @@ export default function About() {
         <div className="landing-container">
           <h2 className="landing-section-title">Решение</h2>
           <p className="landing-section-subtitle">
-            LegalAI.uz — рабочий инструмент для юридической практики. Платформа объединяет анализ законодательства, работу с договорами и консультации в одном интерфейсе.
+            LawHub.uz — рабочий инструмент для юридической практики. Платформа объединяет анализ законодательства, работу с договорами и консультации в одном интерфейсе.
           </p>
           
           <div className="features-tabs">
