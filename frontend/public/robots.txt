@@ -1,0 +1,15 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+
+# Sitemap location - REPLACE WITH YOUR DOMAIN
+Sitemap: https://lawyerai.uz/sitemap.xml
+
+# Block authenticated routes from crawling
+Disallow: /dashboard
+Disallow: /lawyer
+Disallow: /validator
+Disallow: /generator
+Disallow: /history
+Disallow: /document-validator
+Disallow: /admin
