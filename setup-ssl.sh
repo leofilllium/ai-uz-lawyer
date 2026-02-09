@@ -4,7 +4,7 @@
 
 set -e
 
-DOMAINS="safarworld.store api.safarworld.store"
+DOMAINS="lawyerai.uz api.lawyerai.uz"
 EMAIL="leofillium@gmail.com"  # Replace with your email
 STAGING=0  # Set to 1 for testing (avoids rate limits)
 
@@ -74,7 +74,7 @@ http {
     # HTTP - redirect to HTTPS
     server {
         listen 80;
-        server_name safarworld.store api.safarworld.store;
+        server_name lawyerai.uz api.lawyerai.uz;
 
         location /.well-known/acme-challenge/ {
             root /var/www/certbot;
@@ -88,10 +88,10 @@ http {
     # HTTPS - API Backend
     server {
         listen 443 ssl http2;
-        server_name api.safarworld.store;
+        server_name api.lawyerai.uz;
 
-        ssl_certificate /etc/letsencrypt/live/api.safarworld.store/fullchain.pem;
-        ssl_certificate_key /etc/letsencrypt/live/api.safarworld.store/privkey.pem;
+        ssl_certificate /etc/letsencrypt/live/api.lawyerai.uz/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/api.lawyerai.uz/privkey.pem;
         ssl_protocols TLSv1.2 TLSv1.3;
 
         add_header X-Frame-Options "SAMEORIGIN" always;
@@ -114,10 +114,10 @@ http {
     # HTTPS - Frontend
     server {
         listen 443 ssl http2;
-        server_name safarworld.store;
+        server_name lawyerai.uz;
 
-        ssl_certificate /etc/letsencrypt/live/safarworld.store/fullchain.pem;
-        ssl_certificate_key /etc/letsencrypt/live/safarworld.store/privkey.pem;
+        ssl_certificate /etc/letsencrypt/live/lawyerai.uz/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/lawyerai.uz/privkey.pem;
         ssl_protocols TLSv1.2 TLSv1.3;
 
         add_header X-Frame-Options "SAMEORIGIN" always;
@@ -154,7 +154,7 @@ docker compose exec nginx nginx -s reload
 echo ""
 echo "=== SSL Setup Complete! ==="
 echo "Your sites are now available at:"
-echo "  - https://safarworld.store (frontend)"
-echo "  - https://api.safarworld.store (backend API)"
+echo "  - https://lawyerai.uz (frontend)"
+echo "  - https://api.lawyerai.uz (backend API)"
 echo ""
 echo "Certificates will auto-renew via certbot container."
