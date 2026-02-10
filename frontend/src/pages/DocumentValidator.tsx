@@ -151,7 +151,7 @@ function DocumentValidator() {
   return (
     <div className="document-validator-page">
       <header className="page-header">
-        <button onClick={() => navigate('/')} className="btn-back">← Назад</button>
+        <button onClick={() => navigate('/dashboard')} className="btn-back">← Назад</button>
         <h1>📄 Проверка документа</h1>
       </header>
 

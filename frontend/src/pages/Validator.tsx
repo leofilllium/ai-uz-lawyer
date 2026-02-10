@@ -76,7 +76,7 @@ export default function Validator() {
   return (
     <div className="validator-page">
       <header className="page-header">
-        <button onClick={() => navigate('/')} className="btn-back">← Назад</button>
+        <button onClick={() => navigate('/dashboard')} className="btn-back">← Назад</button>
         <h1>✅ Проверка договора</h1>
       </header>
 

@@ -181,7 +181,7 @@ export default function Lawyer() {
         onClick={() => setShowSidebar(false)}
       />
       <aside className={`chat-sidebar ${!showSidebar ? 'collapsed' : ''}`}>
-          <button onClick={() => navigate('/')} className="btn-back">← Назад</button>
+          <button onClick={() => navigate('/dashboard')} className="btn-back">← Назад</button>
           <button onClick={startNewChat} className="btn-new-chat">+ Новый чат</button>
           <div className="sessions-list">
             <h3>История чатов</h3>

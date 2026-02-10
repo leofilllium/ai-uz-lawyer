@@ -85,7 +85,7 @@ export default function History() {
   return (
     <div className="history-page">
       <header className="page-header">
-        <button onClick={() => navigate('/')} className="btn-back">← Назад</button>
+        <button onClick={() => navigate('/dashboard')} className="btn-back">← Назад</button>
         <h1>📚 История</h1>
       </header>
 

@@ -272,7 +272,7 @@ export default function Generator() {
   return (
     <div className="generator-page">
       <header className="page-header">
-        <button onClick={() => navigate('/')} className="btn-back">← Назад</button>
+        <button onClick={() => navigate('/dashboard')} className="btn-back">← Назад</button>
         <h1>📝 Генератор договоров</h1>
       </header>
 
