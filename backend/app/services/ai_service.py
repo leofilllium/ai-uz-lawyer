@@ -3590,7 +3590,7 @@ class AIService:
         logger.info(f"History messages: {len(history) if history else 0}")
         
         # Ensure documents are indexed
-        await self.ensure_indexed()
+        # await self.ensure_indexed()
         
         # Select prompt based on mode
         system_prompt = CHAT_MODE_PROMPTS.get(chat_mode, LAWYER_PROMPT)
