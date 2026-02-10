@@ -3476,10 +3476,63 @@ GENERATOR_PROMPT = """Вы профессиональный юрист-сост�
 Используйте markdown для форматирования (заголовки, нумерация, выделение)."""
 
 
+# ═══════════════════════════════════════════════════════════════
+# 🤖 AGENTIC RAG: Tool definitions for Claude tool-use loop
+# ═══════════════════════════════════════════════════════════════
+
+SEARCH_TOOLS = [
+    {
+        "name": "search_legal_database",
+        "description": (
+            "Search the internal Uzbekistan legal database (codes, laws, articles). "
+            "Returns relevant legal provisions from our database. Use this to find "
+            "specific articles, laws, or legal provisions related to the user's question. "
+            "You can call this tool multiple times with different queries to gather "
+            "comprehensive legal context. Available sources include: Гражданский кодекс, "
+            "Уголовный кодекс, Трудовой кодекс, Налоговый кодекс, Семейный кодекс, "
+            "Земельный кодекс, Жилищный кодекс, Таможенный кодекс, Бюджетный кодекс, "
+            "Конституция, Закон о защите прав потребителей, and other codes/laws."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query in Russian — specific legal topic, article reference, or keyword phrase"
+                },
+                "top_k": {
+                    "type": "integer",
+                    "description": "Number of results to return (default 15, max 30)"
+                }
+            },
+            "required": ["query"]
+        }
+    }
+]
+
+AGENTIC_INSTRUCTION = """
+🔧 ИНСТРУКЦИЯ ПО ИСПОЛЬЗОВАНИЮ ИНСТРУМЕНТОВ:
+
+У вас есть доступ к одному инструменту: `search_legal_database` — он ищет ТОЛЬКО в нашей внутренней базе данных законодательства Узбекистана.
+
+ПРАВИЛА:
+1. Вы ОБЯЗАНЫ использовать этот инструмент для поиска правовой базы перед ответом на юридические вопросы
+2. Вы можете вызывать инструмент НЕСКОЛЬКО РАЗ с разными запросами для сбора полного контекста
+3. Формулируйте запросы на русском языке, используя юридическую терминологию
+4. Если инструмент возвращает мало результатов или результаты с низкой релевантностью — попробуйте переформулировать запрос
+5. КРИТИЧНО: Если после нескольких попыток поиска релевантная информация НЕ НАЙДЕНА, вы ОБЯЗАНЫ ответить:
+   "К сожалению, в нашей базе данных недостаточно информации для ответа на данный вопрос. Рекомендуем обратиться к профессиональному юристу для получения консультации по этой теме."
+6. ЗАПРЕЩЕНО выдумывать или предполагать нормы закона — используйте ТОЛЬКО данные из нашей базы
+7. Для вопросов общего характера (приветствия, благодарности) инструмент использовать не нужно
+"""
+
+MAX_AGENTIC_ROUNDS = 3
+
+
 class AIService:
     """
     Unified AI service supporting multiple modes.
-    - lawyer: Full RAG with Claude Opus and extended thinking
+    - lawyer: Agentic RAG with Claude Opus and tool-use loop
     - validator: Contract analysis with structured output
     - generator: Contract generation from templates
     """
@@ -3527,55 +3580,33 @@ class AIService:
         chat_mode: str = 'consultant'
     ) -> Dict[str, Any]:
         """
-        Query with RAG (for lawyer mode).
-        chat_mode: supports all modes defined in CHAT_MODE_PROMPTS
+        Agentic RAG: Claude autonomously decides what to search in the internal
+        legal database, iterates up to MAX_AGENTIC_ROUNDS times, then produces
+        a final answer. Only uses data from our internal ChromaDB.
         """
-        logger.info(f"=== AI SERVICE: query_with_rag ===")
+        logger.info(f"=== AI SERVICE: query_with_rag (AGENTIC) ===")
         logger.info(f"Question: {question[:100]}...")
         logger.info(f"Chat mode: {chat_mode}")
         logger.info(f"History messages: {len(history) if history else 0}")
         
         # Ensure documents are indexed
-        logger.info("Checking document indexing...")
         await self.ensure_indexed()
-        logger.info("Document indexing check complete")
         
-        # For simple modes, use fewer documents
+        # Select prompt based on mode
+        system_prompt = CHAT_MODE_PROMPTS.get(chat_mode, LAWYER_PROMPT)
+        
+        # For simple modes (smalltalk, quick-answer), skip the agentic loop entirely
         if chat_mode in SIMPLE_MODES:
-            top_k = 40  # Fewer documents for simple questions
-            logger.info(f"Simple mode detected, using top_k={top_k}")
+            return await self._simple_query(question, history, chat_mode, system_prompt)
         
-        # Build retrieval query - include last user question for follow-up context
-        retrieval_query = question
-        if history and len(history) >= 2:
-            # Find the last user message (excluding the current one which hasn't been added yet)
-            last_user_messages = [m for m in history if m.get('role') == 'user']
-            if last_user_messages:
-                # Combine last user question with current for better context retrieval
-                last_user_question = last_user_messages[-1].get('content', '')[:200]
-                retrieval_query = f"{last_user_question}\n\n{question}"
-                logger.info(f"Using combined query for follow-up context retrieval")
+        # ─── AGENTIC RAG LOOP ─────────────────────────────────────────
+        # Phase 1: Let Claude search the DB autonomously (non-streaming)
+        # Phase 2: Stream the final text answer to the user
         
-        # Retrieve relevant context
-        logger.info(f"Retrieving context with top_k={top_k}...")
-        results = await self._retrieve_context(retrieval_query, top_k=top_k)
-        logger.info(f"Retrieved {len(results)} documents")
+        all_sources = []       # Accumulated from all search rounds
+        all_context_parts = [] # Raw context strings from all rounds
         
-        # Format context for LLM
-        context = self._format_context(results)
-        logger.info(f"Context formatted, length: {len(context)} chars")
-        
-        # Check if we need fallback mode (only for risk-manager)
-        if chat_mode == 'risk-manager' and self._should_use_fallback(results):
-            context = self._get_fallback_instruction() + "\n\n" + context
-        
-        # Format sources for UI - limit for simple modes for cleaner UI
-        if chat_mode in SIMPLE_MODES:
-            sources = self._format_sources(results[:60])
-        else:
-            sources = self._format_sources(results)
-        
-        # Build messages
+        # Build conversation messages
         messages = []
         if history:
             for msg in history[-6:]:
@@ -3584,67 +3615,135 @@ class AIService:
                     "content": msg["content"]
                 })
         
-        # Add current query with context - different format for simple vs advanced modes
-        if chat_mode in SIMPLE_MODES:
-            user_message = f"""Контекст из законодательства (для справки):
-{context[:6000]}
-
-Вопрос: {question}
-
-Ответь согласно формату указанному в системном промпте."""
-        else:
-            user_message = f"""ПРАВОВОЙ КОНТЕКСТ ИЗ КОДЕКСОВ УЗБЕКИСТАНА:
-{context}
-
-ВОПРОС ПОЛЬЗОВАТЕЛЯ:
-{question}
-
-Предоставьте точный, структурированный ответ согласно системному промпту."""
+        messages.append({"role": "user", "content": question})
         
-        messages.append({"role": "user", "content": user_message})
-        
-        # Select prompt based on mode from the mapping
-        system_prompt = CHAT_MODE_PROMPTS.get(chat_mode, LAWYER_PROMPT)
+        # Combine mode prompt with agentic instructions
+        full_system_prompt = system_prompt + "\n\n" + AGENTIC_INSTRUCTION
         
         logger.info(f"Using model: {self.settings.claude_opus_model}")
-        logger.info(f"System prompt length: {len(system_prompt)} chars")
-        logger.info(f"Total messages in context: {len(messages)}")
+        logger.info(f"Starting agentic loop (max {MAX_AGENTIC_ROUNDS} rounds)...")
         
-        # Stream response - simple modes don't need extended thinking
+        # Run the agentic tool-use loop (non-streaming)
+        agentic_messages = list(messages)  # Copy
+        
+        for round_num in range(1, MAX_AGENTIC_ROUNDS + 1):
+            logger.info(f"=== AGENTIC ROUND {round_num}/{MAX_AGENTIC_ROUNDS} ===")
+            
+            response = await self.client.messages.create(
+                model=self.settings.claude_opus_model,
+                max_tokens=16000,
+                system=full_system_prompt,
+                tools=SEARCH_TOOLS,
+                messages=agentic_messages,
+            )
+            
+            logger.info(f"Stop reason: {response.stop_reason}")
+            
+            # If Claude wants to use a tool
+            if response.stop_reason == "tool_use":
+                # Extract tool use blocks
+                tool_results = []
+                assistant_content = response.content
+                
+                for block in assistant_content:
+                    if block.type == "tool_use" and block.name == "search_legal_database":
+                        query = block.input.get("query", "")
+                        search_top_k = min(block.input.get("top_k", 15), 30)
+                        
+                        logger.info(f"  Tool call: search_legal_database(query='{query}', top_k={search_top_k})")
+                        
+                        # Execute search against our internal ChromaDB
+                        results = await self._retrieve_context(query, top_k=search_top_k)
+                        logger.info(f"  Found {len(results)} results")
+                        
+                        # Format results for Claude
+                        context_str = self._format_context(results)
+                        all_context_parts.append(context_str)
+                        
+                        # Collect sources for UI
+                        round_sources = self._format_sources(results)
+                        all_sources.extend(round_sources)
+                        
+                        # Build tool result
+                        if results:
+                            similarities = [r.get('similarity', 0) for r in results]
+                            avg_sim = sum(similarities) / len(similarities)
+                            result_summary = (
+                                f"Found {len(results)} results (avg similarity: {avg_sim:.1%}).\n\n"
+                                f"{context_str}"
+                            )
+                        else:
+                            result_summary = "No relevant results found in the database for this query."
+                        
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": result_summary
+                        })
+                
+                # Append assistant message and tool results to continue the loop
+                agentic_messages.append({"role": "assistant", "content": assistant_content})
+                agentic_messages.append({"role": "user", "content": tool_results})
+                
+            else:
+                # Claude is done searching — it produced a final text answer
+                logger.info(f"Agentic loop complete after {round_num} round(s)")
+                break
+        
+        # Deduplicate sources by article key
+        seen_source_keys = set()
+        unique_sources = []
+        for src in all_sources:
+            key = f"{src.get('source_filename', '')}_{src.get('article', '')}"
+            if key not in seen_source_keys:
+                seen_source_keys.add(key)
+                unique_sources.append(src)
+        
+        # ─── PHASE 2: Stream the final response ──────────────────────
+        # Now we stream: send the full agentic conversation but WITHOUT tools
+        # so Claude produces a final streamed text response.
+        
+        final_messages = list(agentic_messages)
+        
+        # If the last response was already a text (end_turn), we stream that text directly
+        # Otherwise, ask Claude for the final answer without tools
+        if response.stop_reason == "tool_use":
+            # Max rounds exhausted while still wanting tools — ask for final answer
+            logger.info("Max rounds reached, requesting final answer...")
+            final_messages.append({
+                "role": "assistant", 
+                "content": response.content
+            })
+            # Add a synthetic tool result telling Claude to answer now
+            final_tool_results = []
+            for block in response.content:
+                if block.type == "tool_use":
+                    final_tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": "Лимит поисковых запросов исчерпан. Пожалуйста, дайте ответ на основе уже найденной информации."
+                    })
+            final_messages.append({"role": "user", "content": final_tool_results})
+        
+        combined_context = "\n\n".join(all_context_parts)
+        
         async def stream_response():
             try:
-                logger.info(f"=== CLAUDE API CALL STARTING ===")
-                if chat_mode in SIMPLE_MODES:
-                    # Simpler mode without extended thinking for faster responses
-                    logger.info("Using simple mode (no extended thinking)")
-                    async with self.client.messages.stream(
-                        model=self.settings.claude_opus_model,
-                        max_tokens=8000,
-                        system=system_prompt,
-                        messages=messages,
-                    ) as stream:
-                        logger.info("Stream connection established")
-                        chunk_count = 0
-                        async for text in stream.text_stream:
-                            chunk_count += 1
-                            if chunk_count == 1:
-                                logger.info("First chunk received from Claude")
-                            yield text
-                        logger.info(f"Stream complete, total chunks: {chunk_count}")
+                logger.info(f"=== STREAMING FINAL RESPONSE ===")
+                # Check if the last non-streaming response already has the final text
+                if response.stop_reason == "end_turn":
+                    # Extract and yield the text from the already-completed response
+                    for block in response.content:
+                        if hasattr(block, 'text'):
+                            yield block.text
                 else:
-                    # Full mode with extended thinking
-                    logger.info(f"Using extended thinking mode, budget: {self.settings.thinking_budget_tokens}")
+                    # Stream a new response without tools (forces text output)
                     async with self.client.messages.stream(
                         model=self.settings.claude_opus_model,
                         max_tokens=16000,
-                        system=system_prompt,
-                        thinking={
-                            "type": "enabled",
-                            "budget_tokens": self.settings.thinking_budget_tokens
-                        },
-                        messages=messages,
+                        system=full_system_prompt,
+                        messages=final_messages,
                     ) as stream:
-                        logger.info("Stream connection established (with thinking)")
                         chunk_count = 0
                         async for text in stream.text_stream:
                             chunk_count += 1
@@ -3661,7 +3760,64 @@ class AIService:
         
         return {
             "response": stream_response(),
-            "sources": sources,  # Include sources for all modes
+            "sources": unique_sources,
+            "context": combined_context,
+            "query": question,
+        }
+    
+    async def _simple_query(
+        self,
+        question: str,
+        history: Optional[List[Dict[str, str]]],
+        chat_mode: str,
+        system_prompt: str
+    ) -> Dict[str, Any]:
+        """
+        Simple (non-agentic) query for smalltalk/quick-answer modes.
+        Uses a single vector search pass and no tool-use loop.
+        """
+        logger.info(f"Using simple mode for chat_mode='{chat_mode}'")
+        
+        # Quick context retrieval
+        results = await self._retrieve_context(question, top_k=40)
+        context = self._format_context(results)
+        sources = self._format_sources(results[:60])
+        
+        messages = []
+        if history:
+            for msg in history[-6:]:
+                messages.append({"role": msg["role"], "content": msg["content"]})
+        
+        user_message = f"""Контекст из законодательства (для справки):
+{context[:6000]}
+
+Вопрос: {question}
+
+Ответь согласно формату указанному в системном промпте."""
+        messages.append({"role": "user", "content": user_message})
+        
+        async def stream_response():
+            try:
+                async with self.client.messages.stream(
+                    model=self.settings.claude_opus_model,
+                    max_tokens=8000,
+                    system=system_prompt,
+                    messages=messages,
+                ) as stream:
+                    chunk_count = 0
+                    async for text in stream.text_stream:
+                        chunk_count += 1
+                        if chunk_count == 1:
+                            logger.info("First chunk received (simple mode)")
+                        yield text
+                    logger.info(f"Simple mode stream complete, chunks: {chunk_count}")
+            except Exception as e:
+                logger.error(f"Simple mode error: {e}")
+                raise
+        
+        return {
+            "response": stream_response(),
+            "sources": sources,
             "context": context,
             "query": question,
         }
@@ -3951,28 +4107,16 @@ class AIService:
         return sources
     
     def _should_use_fallback(self, results: List[Dict[str, Any]]) -> bool:
-        """Detect if we should use fallback (general legal reasoning) mode."""
+        """Legacy fallback detection — kept for contract analysis compatibility."""
         if not results:
             return True
-        
         similarities = [r.get("similarity", 0) for r in results]
         avg_similarity = sum(similarities) / len(similarities) if similarities else 0
-        
-        FALLBACK_THRESHOLD = 0.35
-        return avg_similarity < FALLBACK_THRESHOLD
+        return avg_similarity < 0.35
     
     def _get_fallback_instruction(self) -> str:
-        """Return additional instruction for fallback mode."""
-        return """
-⚠️ РЕЖИМ FALLBACK: В базе документов НЕ НАЙДЕНО точных совпадений по запросу.
-
-Ваши действия:
-1. Используйте общие принципы права Узбекистана
-2. Начните ответ с: "⚠️ В текущей базе документов точной нормы не найдено, но..."
-3. Дайте практическую рекомендацию на основе общих принципов
-4. Укажите, какие законы следует проверить дополнительно
-5. Предложите конкретный алгоритм действий
-"""
+        """Legacy fallback instruction — kept for contract analysis compatibility."""
+        return """\n⚠️ В базе документов НЕ НАЙДЕНО точных совпадений по запросу.\nОтветьте на основе найденного контекста или укажите что информации недостаточно.\n"""
     
     def _extract_contract_topics(self, contract_text: str) -> List[str]:
         """Extract key topics from contract for targeted legal search."""
