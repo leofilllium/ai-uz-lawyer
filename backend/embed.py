@@ -22,7 +22,9 @@ def process_txt_files():
     # but based on previous turns, the files are in backend/data/laws_txt/laws_txt
     # However, let's look at the directory structure again if we are unsure.
     # The previous script used: backend/data/laws_txt/laws_txt
-    laws_dir = Path("backend/data/laws_txt")
+    # laws_dir = Path("backend/data/laws_txt") 
+    # Docker path: /app/data/laws_txt
+    laws_dir = Path("data/laws_txt")
 
 
     
