@@ -1,26 +1,31 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  
   <!-- Homepage / Landing Page -->
   <url>
     <loc>https://lawyerai.uz/</loc>
-    <lastmod>2026-02-09</lastmod>
+    <lastmod>2026-02-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://lawyerai.uz/" />
+    <xhtml:link rel="alternate" hreflang="uz" href="https://lawyerai.uz/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://lawyerai.uz/" />
   </url>
   
   <!-- Login Page -->
-  <!-- <url>
+  <url>
     <loc>https://lawyerai.uz/login</loc>
-    <lastmod>2026-02-09</lastmod>
+    <lastmod>2026-02-10</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
-  </url> -->
+    <priority>0.4</priority>
+  </url>
   
   <!-- Register Page -->
-  <!-- <url>
+  <url>
     <loc>https://lawyerai.uz/register</loc>
-    <lastmod>2026-02-09</lastmod>
+    <lastmod>2026-02-10</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
-  </url> -->
+    <priority>0.4</priority>
+  </url>
 </urlset>
