@@ -145,9 +145,9 @@ async def main():
     embedding_start = time.time()
     
     # Optimal batch size for OpenAI + Chroma
-    BATCH_SIZE = 100 
+    BATCH_SIZE = 50 
     # Number of concurrent embedding requests
-    CONCURRENT_REQUESTS = 5 
+    CONCURRENT_REQUESTS = 2
     
     total_added = 0
     
@@ -161,14 +161,29 @@ async def main():
     
     async def upload_batch(batch, batch_idx):
         async with sem:
-            try:
-                # VectorStore.aadd_documents wraps add_documents in run_in_threadpool
-                count = await vector_store.aadd_documents(batch, batch_size=BATCH_SIZE)
-                print(f"  [Batch {batch_idx+1}/{total_batches}] Indexed {count} chunks")
-                return count
-            except Exception as e:
-                print(f"  [Batch {batch_idx+1}/{total_batches}] FAILED: {e}")
-                return 0
+            retries = 0
+            max_retries = 5
+            backoff = 2
+            
+            while retries < max_retries:
+                try:
+                    # VectorStore.aadd_documents wraps add_documents in run_in_threadpool
+                    count = await vector_store.aadd_documents(batch, batch_size=BATCH_SIZE)
+                    print(f"  [Batch {batch_idx+1}/{total_batches}] Indexed {count} chunks")
+                    return count
+                except Exception as e:
+                    error_msg = str(e).lower()
+                    if "rate limit" in error_msg or "429" in error_msg:
+                        wait_time = backoff ** retries
+                        print(f"  [Batch {batch_idx+1}/{total_batches}] Rate limit hit. Retrying in {wait_time}s...")
+                        await asyncio.sleep(wait_time)
+                        retries += 1
+                    else:
+                        print(f"  [Batch {batch_idx+1}/{total_batches}] FAILED: {e}")
+                        return 0
+            
+            print(f"  [Batch {batch_idx+1}/{total_batches}] FAILED after {max_retries} retries.")
+            return 0
 
     # Create upload tasks
     upload_tasks = [upload_batch(b, i) for i, b in enumerate(batches)]
