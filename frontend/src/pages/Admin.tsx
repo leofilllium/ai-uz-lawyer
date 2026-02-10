@@ -7,7 +7,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.safarworld.store';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.lawyerai.uz';
 
 interface IndexedDocument {
   source_name: string;
