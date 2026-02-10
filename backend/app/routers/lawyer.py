@@ -1,6 +1,6 @@
 """
 Lawyer Chat Router
-Full AI Lawyer with RAG using Claude and extended thinking.
+Full AI Lawyer with Agentic RAG using Claude tool-use loop.
 """
 
 import json

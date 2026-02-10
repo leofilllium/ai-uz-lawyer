@@ -3983,15 +3983,14 @@ class AIService:
 На основе приведённых шаблонов, законодательства и требований пользователя составьте полный, профессиональный договор.
 Убедитесь, что договор соответствует всем требованиям Гражданского кодекса Узбекистана."""
         
-        # Stream response using Opus with extended thinking
+        # Stream response using Opus with adaptive thinking
         async def stream_response():
             async with self.client.messages.stream(
                 model=self.settings.claude_opus_model,
                 max_tokens=24000,
                 system=GENERATOR_PROMPT,
                 thinking={
-                    "type": "enabled",
-                    "budget_tokens": self.settings.thinking_budget_tokens
+                    "type": "adaptive"
                 },
                 messages=[{"role": "user", "content": generation_prompt}],
             ) as stream:
