@@ -59,6 +59,13 @@ async def main():
     max_workers = max(2, int(available_cpus * 0.8))
     print(f"Using {max_workers} processes for parsing.")
     
+    # Initialize VectorStore in main process
+    try:
+        vector_store = VectorStore()
+    except Exception as e:
+        print(f"VectorStore initialization failed: {e}")
+        return
+    
     loop = asyncio.get_running_loop()
     all_chunks = []
     processed_count = 0
