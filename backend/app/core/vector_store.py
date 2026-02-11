@@ -4,6 +4,7 @@ ChromaDB integration for storing and searching legal document embeddings.
 Migrated to work with FastAPI.
 """
 
+import time as _time
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -49,6 +50,11 @@ class VectorStore:
                 "hnsw:space": "cosine"
             }
         )
+        
+        # Cache for get_indexed_documents (avoids scanning all chunks on every request)
+        self._indexed_docs_cache: List[Dict[str, Any]] = []
+        self._indexed_docs_cache_time: float = 0
+        self._cache_ttl: float = 60  # seconds
         
         # Check for dimension mismatch (migration from 1536 -> 3072)
         try:
@@ -171,10 +177,19 @@ class VectorStore:
         """Check if documents have been indexed."""
         return self.get_document_count() > 0
     
-    def get_indexed_documents(self) -> List[Dict[str, Any]]:
-        """Get list of all indexed source documents with their chunk counts using pagination."""
+    def get_indexed_documents(self, force_refresh: bool = False) -> List[Dict[str, Any]]:
+        """Get list of all indexed source documents with their chunk counts.
+        Results are cached for 60 seconds to avoid scanning all chunks on every call.
+        """
+        # Return cache if still fresh
+        now = _time.time()
+        if not force_refresh and self._indexed_docs_cache and (now - self._indexed_docs_cache_time) < self._cache_ttl:
+            return self._indexed_docs_cache
+        
         total_count = self.collection.count()
         if total_count == 0:
+            self._indexed_docs_cache = []
+            self._indexed_docs_cache_time = now
             return []
             
         all_metadatas = []
@@ -183,7 +198,6 @@ class VectorStore:
         
         while offset < total_count:
             try:
-                # Fetch in batches to avoid "too many SQL variables" or memory issues
                 batch = self.collection.get(
                     include=["metadatas"],
                     limit=batch_size,
@@ -197,6 +211,8 @@ class VectorStore:
                 break
         
         if not all_metadatas:
+            self._indexed_docs_cache = []
+            self._indexed_docs_cache_time = now
             return []
         
         # Aggregate by source
@@ -213,7 +229,10 @@ class VectorStore:
                 }
             source_stats[source]["chunk_count"] += 1
         
-        return list(source_stats.values())
+        result = list(source_stats.values())
+        self._indexed_docs_cache = result
+        self._indexed_docs_cache_time = now
+        return result
     
     def is_document_indexed(self, source_name: str) -> bool:
         """Check if a specific document is already indexed."""

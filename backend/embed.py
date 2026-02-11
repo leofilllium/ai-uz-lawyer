@@ -145,9 +145,9 @@ async def main():
     embedding_start = time.time()
     
     # Optimal batch size for OpenAI + Chroma
-    BATCH_SIZE = 50 
+    BATCH_SIZE = 100 
     # Number of concurrent embedding requests
-    CONCURRENT_REQUESTS = 2
+    CONCURRENT_REQUESTS = 3
     
     total_added = 0
     
