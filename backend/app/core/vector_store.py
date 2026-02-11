@@ -61,7 +61,7 @@ class VectorStore:
             # Peek at one item to check dimensionality
             existing_items = self.collection.peek(limit=1)
             # Fix: explicitly check length to avoid numpy ambiguity
-            if existing_items and existing_items['embeddings'] and len(existing_items['embeddings']) > 0:
+            if existing_items and existing_items.get('embeddings') is not None and len(existing_items['embeddings']) > 0:
                 current_dim = len(existing_items['embeddings'][0])
                 target_dim = 3072 if "3-large" in settings.openai_embedding_model else 1536
                 
