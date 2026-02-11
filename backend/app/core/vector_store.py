@@ -54,6 +54,7 @@ class VectorStore:
         try:
             # Peek at one item to check dimensionality
             existing_items = self.collection.peek(limit=1)
+            # Fix: explicitly check length to avoid numpy ambiguity
             if existing_items and existing_items['embeddings'] and len(existing_items['embeddings']) > 0:
                 current_dim = len(existing_items['embeddings'][0])
                 target_dim = 3072 if "3-large" in settings.openai_embedding_model else 1536
@@ -171,17 +172,38 @@ class VectorStore:
         return self.get_document_count() > 0
     
     def get_indexed_documents(self) -> List[Dict[str, Any]]:
-        """Get list of all indexed source documents with their chunk counts."""
-        # Get all documents from collection
-        all_docs = self.collection.get(include=["metadatas"])
+        """Get list of all indexed source documents with their chunk counts using pagination."""
+        total_count = self.collection.count()
+        if total_count == 0:
+            return []
+            
+        all_metadatas = []
+        batch_size = 2000
+        offset = 0
         
-        if not all_docs or not all_docs["metadatas"]:
+        while offset < total_count:
+            try:
+                # Fetch in batches to avoid "too many SQL variables" or memory issues
+                batch = self.collection.get(
+                    include=["metadatas"],
+                    limit=batch_size,
+                    offset=offset
+                )
+                if batch and batch["metadatas"]:
+                    all_metadatas.extend(batch["metadatas"])
+                offset += batch_size
+            except Exception as e:
+                print(f"Error fetching batch at offset {offset}: {e}")
+                break
+        
+        if not all_metadatas:
             return []
         
         # Aggregate by source
         source_stats: Dict[str, Dict[str, Any]] = {}
         
-        for metadata in all_docs["metadatas"]:
+        for metadata in all_metadatas:
+            if not metadata: continue
             source = metadata.get("source", "unknown")
             if source not in source_stats:
                 source_stats[source] = {

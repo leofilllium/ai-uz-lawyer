@@ -18,6 +18,9 @@ interface IndexedDocument {
 interface AdminStats {
   total_documents: number;
   total_chunks: number;
+  total_pages: number;
+  current_page: number;
+  page_size: number;
   documents: IndexedDocument[];
 }
 
@@ -33,6 +36,8 @@ export default function Admin() {
   const [uploadMessage, setUploadMessage] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(50);
 
   // Get auth header
   const getAuthHeader = useCallback(() => {
@@ -40,12 +45,12 @@ export default function Admin() {
   }, [username, password]);
 
   // Load stats
-  const loadStats = useCallback(async () => {
+  const loadStats = useCallback(async (page = currentPage) => {
     if (!isAuthenticated) return;
     
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/stats`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/stats?page=${page}&page_size=${pageSize}`, {
         headers: { 'Authorization': getAuthHeader() },
       });
       
@@ -65,7 +70,13 @@ export default function Admin() {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, getAuthHeader]);
+  }, [isAuthenticated, getAuthHeader, currentPage, pageSize]);
+
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || (stats && newPage > stats.total_pages)) return;
+    setCurrentPage(newPage);
+  };
 
   // Login handler
   const handleLogin = async (e: React.FormEvent) => {
@@ -336,6 +347,29 @@ export default function Admin() {
             </div>
           )}
         </section>
+
+        {/* Pagination Controls */}
+        {stats && stats.total_pages > 1 && (
+          <section className="pagination-controls">
+            <button 
+              className="btn-page" 
+              disabled={currentPage === 1}
+              onClick={() => handlePageChange(currentPage - 1)}
+            >
+              Previous
+            </button>
+            <span className="page-info">
+              Page {currentPage} of {stats.total_pages}
+            </span>
+            <button 
+              className="btn-page" 
+              disabled={currentPage === stats.total_pages}
+              onClick={() => handlePageChange(currentPage + 1)}
+            >
+              Next
+            </button>
+          </section>
+        )}
       </main>
     </div>
   );

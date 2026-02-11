@@ -58,6 +58,9 @@ class UploadResult(BaseModel):
 class AdminStats(BaseModel):
     total_documents: int
     total_chunks: int
+    total_pages: int
+    current_page: int
+    page_size: int
     documents: List[IndexedDocument]
 
 
@@ -88,17 +91,34 @@ def get_processor() -> FlexibleDocumentProcessor:
 
 
 @router.get("/stats", response_model=AdminStats)
-async def get_admin_stats(admin: bool = Depends(verify_admin)):
-    """Get indexing statistics."""
+async def get_admin_stats(
+    page: int = 1, 
+    page_size: int = 50,
+    admin: bool = Depends(verify_admin)
+):
+    """Get indexing statistics with pagination."""
     vector_store = get_vector_store()
     
-    documents = await vector_store.aget_indexed_documents()
-    total_chunks = sum(doc["chunk_count"] for doc in documents)
+    # Get all documents (vector_store.get_indexed_documents is now efficient/paginated internally)
+    all_documents = await vector_store.aget_indexed_documents()
+    total_chunks = sum(doc["chunk_count"] for doc in all_documents)
+    total_documents = len(all_documents)
+    
+    # Calculate pagination
+    total_pages = (total_documents + page_size - 1) // page_size
+    
+    # Slice for current page
+    start_idx = (page - 1) * page_size
+    end_idx = start_idx + page_size
+    paginated_docs = all_documents[start_idx:end_idx]
     
     return AdminStats(
-        total_documents=len(documents),
+        total_documents=total_documents,
         total_chunks=total_chunks,
-        documents=[IndexedDocument(**doc) for doc in documents],
+        total_pages=total_pages,
+        current_page=page,
+        page_size=page_size,
+        documents=[IndexedDocument(**doc) for doc in paginated_docs],
     )
 
 
