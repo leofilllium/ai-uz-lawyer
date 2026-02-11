@@ -140,6 +140,49 @@ async def main():
         print("No chunks to embed.")
         return
 
+    # Sync to SQL Database (Metadata)
+    print("Syncing metadata to SQL database...")
+    db = SessionLocal()
+    try:
+        # We need to process by document (source_name)
+        # Group chunks by source
+        docs_metadata = {}
+        for chunk in all_chunks:
+            src = chunk['metadata']['source']
+            if src not in docs_metadata:
+                docs_metadata[src] = {
+                    'chunk_count': 0,
+                    'doc_type': chunk['metadata'].get('doc_type', 'unknown')
+                }
+            docs_metadata[src]['chunk_count'] += 1
+
+        # Upsert into SQL
+        processed_sql = 0
+        for source_name, info in docs_metadata.items():
+            doc = db.query(LegalDocument).filter(LegalDocument.source_name == source_name).first()
+            if doc:
+                doc.chunk_count = info['chunk_count']
+                doc.updated_at = datetime.utcnow()
+            else:
+                doc = LegalDocument(
+                    source_name=source_name,
+                    title=source_name.replace(".txt", "").replace("_", " "),
+                    doc_type=info['doc_type'],
+                    chunk_count=info['chunk_count'],
+                    is_indexed=True
+                )
+                db.add(doc)
+            processed_sql += 1
+        
+        db.commit()
+        print(f"Synced {processed_sql} documents to SQL.")
+        
+    except Exception as e:
+        print(f"Failed to sync metadata to SQL: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
     # 2. Embed chunks in batches concurrently
     print("Starting embedding process...")
     embedding_start = time.time()

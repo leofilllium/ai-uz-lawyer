@@ -12,8 +12,12 @@ from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, Header
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
+from app.database import get_db
+from app.models.legal_document import LegalDocument
 from app.core.vector_store import VectorStore
 from app.core.flexible_processor import FlexibleDocumentProcessor
 
@@ -63,6 +67,9 @@ class AdminStats(BaseModel):
     page_size: int
     documents: List[IndexedDocument]
 
+    class Config:
+        from_attributes = True
+
 
 class DeleteResult(BaseModel):
     success: bool
@@ -94,23 +101,23 @@ def get_processor() -> FlexibleDocumentProcessor:
 async def get_admin_stats(
     page: int = 1, 
     page_size: int = 50,
-    admin: bool = Depends(verify_admin)
+    admin: bool = Depends(verify_admin),
+    db: Session = Depends(get_db)
 ):
-    """Get indexing statistics with pagination."""
-    vector_store = get_vector_store()
+    """Get indexing statistics with pagination using SQL Metadata."""
     
-    # Get all documents (vector_store.get_indexed_documents is now efficient/paginated internally)
-    all_documents = await vector_store.aget_indexed_documents()
-    total_chunks = sum(doc["chunk_count"] for doc in all_documents)
-    total_documents = len(all_documents)
+    # query total count
+    total_documents = db.query(LegalDocument).count()
+    
+    # calculate total chunks
+    total_chunks = db.query(func.sum(LegalDocument.chunk_count)).scalar() or 0
     
     # Calculate pagination
     total_pages = (total_documents + page_size - 1) // page_size
+    offset = (page - 1) * page_size
     
-    # Slice for current page
-    start_idx = (page - 1) * page_size
-    end_idx = start_idx + page_size
-    paginated_docs = all_documents[start_idx:end_idx]
+    # Fetch paginated documents
+    docs = db.query(LegalDocument).order_by(LegalDocument.source_name).offset(offset).limit(page_size).all()
     
     return AdminStats(
         total_documents=total_documents,
@@ -118,7 +125,13 @@ async def get_admin_stats(
         total_pages=total_pages,
         current_page=page,
         page_size=page_size,
-        documents=[IndexedDocument(**doc) for doc in paginated_docs],
+        documents=[
+            IndexedDocument(
+                source_name=doc.source_name,
+                chunk_count=doc.chunk_count,
+                doc_type=doc.doc_type or "unknown"
+            ) for doc in docs
+        ],
     )
 
 
@@ -134,6 +147,7 @@ async def list_documents(admin: bool = Depends(verify_admin)):
 async def upload_document(
     file: UploadFile = File(...),
     admin: bool = Depends(verify_admin),
+    db: Session = Depends(get_db)
 ):
     """Upload and index a new document."""
     # Validate file type
@@ -147,9 +161,11 @@ async def upload_document(
     processor = get_processor()
     
     # Check if already indexed
+    # Check if already indexed (Check SQL first is faster)
     source_name = file.filename
-    if await vector_store.ais_document_indexed(source_name):
-        raise HTTPException(
+    existing_doc = db.query(LegalDocument).filter(LegalDocument.source_name == source_name).first()
+    if existing_doc:
+         raise HTTPException(
             status_code=409,
             detail=f"Document '{source_name}' is already indexed. Delete it first to re-upload."
         )
@@ -181,6 +197,17 @@ async def upload_document(
             message=f"Successfully indexed {doc_info['chunk_count']} chunks from {source_name}",
         )
         
+        # Add to SQL Metadata
+        new_doc = LegalDocument(
+            source_name=source_name,
+            title=source_name.replace(".docx", "").replace("_", " "),
+            doc_type=doc_info["doc_type"],
+            chunk_count=doc_info["chunk_count"],
+            is_indexed=True
+        )
+        db.add(new_doc)
+        db.commit()
+        
     except HTTPException:
         raise
     except Exception as e:
@@ -198,6 +225,7 @@ async def upload_document(
 async def delete_document(
     source_name: str,
     admin: bool = Depends(verify_admin),
+    db: Session = Depends(get_db)
 ):
     """Delete a document from the index."""
     vector_store = get_vector_store()
@@ -211,6 +239,10 @@ async def delete_document(
     
     # Remove from vector store
     chunks_removed = await vector_store.aremove_document(source_name)
+    
+    # Remove from SQL Metadata
+    db.query(LegalDocument).filter(LegalDocument.source_name == source_name).delete()
+    db.commit()
     
     return DeleteResult(
         success=True,
