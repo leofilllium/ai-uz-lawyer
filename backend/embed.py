@@ -14,6 +14,9 @@ sys.path.append(os.getcwd())
 from app.core.vector_store import VectorStore
 # from app.core.document_processor import DocumentProcessor
 from app.core.uzbek_law_processor import UzbekLawProcessor
+from app.database import SessionLocal
+from app.models.legal_document import LegalDocument
+from datetime import datetime
 
 # Worker function must be top-level for pickling
 def process_single_file(file_path_str: str) -> Tuple[List[Dict[str, Any]], Dict[str, Any], str]:
