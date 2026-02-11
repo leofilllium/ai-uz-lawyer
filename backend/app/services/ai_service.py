@@ -3552,11 +3552,12 @@ class AIService:
     
     def _init_rag_engine(self):
         """Initialize the RAG engine with vector store."""
-        from app.core.vector_store import VectorStore
+        from app.core.vector_store import get_vector_store
         from app.core.document_processor import DocumentProcessor
         
-        self.vector_store = VectorStore()
+        self.vector_store = get_vector_store()
         self.document_processor = DocumentProcessor()
+
     
     async def ensure_indexed(self) -> bool:
         """Ensure documents are indexed in the vector store."""

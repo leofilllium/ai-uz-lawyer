@@ -3,6 +3,8 @@ FastAPI Application - AI Lawyer Backend
 Main application entry point with CORS and router configuration.
 """
 
+
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,11 +14,28 @@ from app.database import create_tables
 from app.routers import auth, lawyer, validator, generator, history, admin, doc_validator
 
 
+# Configure logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler for startup/shutdown."""
     # Startup
+    logger.info("Implementation plan applied: Initializing database tables...")
     create_tables()
+    
+    # Initialize singleton VectorStore (heaviest part)
+    logger.info("Initializing VectorStore (loading index)... This may take a while for large datasets.")
+    try:
+        from app.core.vector_store import get_vector_store
+        # This triggers the singleton initialization
+        get_vector_store()
+        logger.info("VectorStore initialized successfully.")
+    except Exception as e:
+        logger.error(f"Failed to initialize VectorStore: {e}")
+        
     yield
     # Shutdown (cleanup if needed)
 

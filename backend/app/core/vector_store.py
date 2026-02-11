@@ -278,3 +278,16 @@ class VectorStore:
         """Async version of remove_document."""
         return await run_in_threadpool(self.remove_document, source_name)
 
+
+# Global singleton instance
+_vector_store_instance: Optional[VectorStore] = None
+
+
+def get_vector_store() -> VectorStore:
+    """Get or create singleton VectorStore instance."""
+    global _vector_store_instance
+    if _vector_store_instance is None:
+        _vector_store_instance = VectorStore()
+    return _vector_store_instance
+
+
