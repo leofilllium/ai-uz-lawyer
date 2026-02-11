@@ -45,12 +45,21 @@ export default function Admin() {
   }, [username, password]);
 
   // Load stats
-  const loadStats = useCallback(async (page = currentPage) => {
+  const loadStats = useCallback(async (page = currentPage, search = searchTerm) => {
     if (!isAuthenticated) return;
     
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/stats?page=${page}&page_size=${pageSize}`, {
+      const queryParams = new URLSearchParams({
+        page: page.toString(),
+        page_size: pageSize.toString(),
+      });
+      
+      if (search) {
+        queryParams.append('search_query', search);
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/admin/stats?${queryParams.toString()}`, {
         headers: { 'Authorization': getAuthHeader() },
       });
       
@@ -70,7 +79,7 @@ export default function Admin() {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, getAuthHeader, currentPage, pageSize]);
+  }, [isAuthenticated, getAuthHeader, currentPage, pageSize, searchTerm]);
 
   // Handle page change
   const handlePageChange = (newPage: number) => {
@@ -78,12 +87,33 @@ export default function Admin() {
     setCurrentPage(newPage);
   };
 
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // Create a specific load for search to avoid stale closure issues
+      // Reset to page 1 on search change
+      if (isAuthenticated) {
+        // We only want to reload if the search term actually changed or we are initial loading
+        // effectively handled by the dependency array
+         loadStats(1, searchTerm);
+         setCurrentPage(1);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm, isAuthenticated]); // Removed loadStats from dependency to avoid loop, though useCallback handles it.
+
+  // Initial load is handled by the search effect now (as searchTerm is initial '')
+  // or we can keep a separate effect for mount. 
+  // actually, the debounce effect will run on mount too.
+
   // Login handler
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
     
     try {
+      // Initial stats load to verify credentials
       const response = await fetch(`${API_BASE_URL}/api/admin/stats`, {
         headers: { 'Authorization': 'Basic ' + btoa(`${username}:${password}`) },
       });
@@ -124,7 +154,7 @@ export default function Admin() {
       
       if (response.ok) {
         setUploadMessage(`✅ ${data.message}`);
-        loadStats();
+        loadStats(currentPage, searchTerm);
       } else {
         setUploadMessage(`❌ ${data.detail || 'Upload failed'}`);
       }
@@ -150,7 +180,7 @@ export default function Admin() {
       
       if (response.ok) {
         setUploadMessage(`✅ Deleted: ${sourceName}`);
-        loadStats();
+        loadStats(currentPage, searchTerm);
       } else {
         const data = await response.json();
         setUploadMessage(`❌ ${data.detail || 'Delete failed'}`);
@@ -182,15 +212,9 @@ export default function Admin() {
     const file = e.target.files?.[0];
     if (file) handleUpload(file);
   };
-
-  useEffect(() => {
-    loadStats();
-  }, [loadStats]);
-
-  // Filter documents
-  const filteredDocs = stats?.documents.filter(doc =>
-    doc.source_name.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  
+  // Use server-side results directly
+  const displayDocs = stats?.documents || [];
 
   // Login form
   if (!isAuthenticated) {
@@ -302,7 +326,7 @@ export default function Admin() {
         {/* Documents List */}
         <section className="documents-section">
           <div className="section-header">
-            <h2>📚 Indexed Documents ({filteredDocs.length})</h2>
+            <h2>📚 Indexed Documents ({stats?.total_documents || 0})</h2>
             <input
               type="text"
               placeholder="Search documents..."
@@ -314,13 +338,13 @@ export default function Admin() {
           
           {loading ? (
             <div className="loading">Loading...</div>
-          ) : filteredDocs.length === 0 ? (
+          ) : displayDocs.length === 0 ? (
             <div className="empty-state">
               {searchTerm ? 'No documents match your search.' : 'No documents indexed yet.'}
             </div>
           ) : (
             <div className="documents-list">
-              {filteredDocs.map((doc) => (
+              {displayDocs.map((doc) => (
                 <div key={doc.source_name} className="document-item">
                   <div className="doc-info">
                     <span className="doc-icon">

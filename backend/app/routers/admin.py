@@ -101,23 +101,42 @@ def get_processor() -> FlexibleDocumentProcessor:
 async def get_admin_stats(
     page: int = 1, 
     page_size: int = 50,
+    search_query: str = None,
     admin: bool = Depends(verify_admin),
     db: Session = Depends(get_db)
 ):
     """Get indexing statistics with pagination using SQL Metadata."""
     
-    # query total count
-    total_documents = db.query(LegalDocument).count()
+    # Base query
+    query = db.query(LegalDocument)
     
-    # calculate total chunks
-    total_chunks = db.query(func.sum(LegalDocument.chunk_count)).scalar() or 0
+    # Apply search filter if provided
+    if search_query:
+        search = f"%{search_query}%"
+        query = query.filter(
+            (LegalDocument.source_name.ilike(search)) | 
+            (LegalDocument.title.ilike(search))
+        )
+    
+    # query total count
+    total_documents = query.count()
+    
+    # calculate total chunks (approximate if filtered, exact if not)
+    if search_query:
+        total_chunks = db.query(func.sum(LegalDocument.chunk_count)).filter(
+            (LegalDocument.source_name.ilike(search)) | 
+            (LegalDocument.title.ilike(search))
+        ).scalar() or 0
+    else:
+        total_chunks = db.query(func.sum(LegalDocument.chunk_count)).scalar() or 0
     
     # Calculate pagination
     total_pages = (total_documents + page_size - 1) // page_size
+    if total_pages == 0: total_pages = 1
     offset = (page - 1) * page_size
     
     # Fetch paginated documents
-    docs = db.query(LegalDocument).order_by(LegalDocument.source_name).offset(offset).limit(page_size).all()
+    docs = query.order_by(LegalDocument.source_name).offset(offset).limit(page_size).all()
     
     return AdminStats(
         total_documents=total_documents,
