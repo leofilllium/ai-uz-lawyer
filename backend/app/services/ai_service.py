@@ -3631,8 +3631,8 @@ class AIService:
             logger.info(f"=== AGENTIC ROUND {round_num}/{MAX_AGENTIC_ROUNDS} ===")
             
             response = await self.client.messages.create(
-                model=self.settings.claude_opus_model,
-                max_tokens=16000,
+                model=self.settings.claude_haiku_model,  # Use Haiku for tool use loop (faster, cheaper)
+                max_tokens=4000,
                 system=full_system_prompt,
                 tools=SEARCH_TOOLS,
                 messages=agentic_messages,
@@ -3731,15 +3731,12 @@ class AIService:
         async def stream_response():
             try:
                 logger.info(f"=== STREAMING FINAL RESPONSE ===")
-                # Check if the last non-streaming response already has the final text
-                if response.stop_reason == "end_turn":
-                    # Extract and yield the text from the already-completed response
-                    for block in response.content:
-                        if hasattr(block, 'text'):
-                            yield block.text
-                else:
-                    # Stream a new response without tools (forces text output)
-                    async with self.client.messages.stream(
+                # ALWAYS stream the final response using Opus for maximum quality
+                # We ignore Haiku's final text response (if any) and re-generate with Opus
+                # based on the context found by Haiku.
+                
+                logger.info(f"Generating final answer with Opus...")
+                async with self.client.messages.stream(
                         model=self.settings.claude_opus_model,
                         max_tokens=16000,
                         system=full_system_prompt,
