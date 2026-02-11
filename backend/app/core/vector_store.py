@@ -192,7 +192,8 @@ class VectorStore:
             self._indexed_docs_cache_time = now
             return []
             
-        all_metadatas = []
+        # Aggregate by source incrementally to avoid OOM
+        source_stats: Dict[str, Dict[str, Any]] = {}
         batch_size = 2000
         offset = 0
         
@@ -204,30 +205,20 @@ class VectorStore:
                     offset=offset
                 )
                 if batch and batch["metadatas"]:
-                    all_metadatas.extend(batch["metadatas"])
+                    for metadata in batch["metadatas"]:
+                        if not metadata: continue
+                        source = metadata.get("source", "unknown")
+                        if source not in source_stats:
+                            source_stats[source] = {
+                                "source_name": source,
+                                "chunk_count": 0,
+                                "doc_type": metadata.get("doc_type", "unknown"),
+                            }
+                        source_stats[source]["chunk_count"] += 1
                 offset += batch_size
             except Exception as e:
                 print(f"Error fetching batch at offset {offset}: {e}")
                 break
-        
-        if not all_metadatas:
-            self._indexed_docs_cache = []
-            self._indexed_docs_cache_time = now
-            return []
-        
-        # Aggregate by source
-        source_stats: Dict[str, Dict[str, Any]] = {}
-        
-        for metadata in all_metadatas:
-            if not metadata: continue
-            source = metadata.get("source", "unknown")
-            if source not in source_stats:
-                source_stats[source] = {
-                    "source_name": source,
-                    "chunk_count": 0,
-                    "doc_type": metadata.get("doc_type", "unknown"),
-                }
-            source_stats[source]["chunk_count"] += 1
         
         result = list(source_stats.values())
         self._indexed_docs_cache = result
