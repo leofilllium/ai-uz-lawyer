@@ -3502,7 +3502,7 @@ SEARCH_TOOLS = [
                 },
                 "top_k": {
                     "type": "integer",
-                    "description": "Number of results to return (default 15, max 30)"
+                    "description": "Number of results to return (default 5, max 10)"
                 }
             },
             "required": ["query"]
@@ -3649,7 +3649,7 @@ class AIService:
                 for block in assistant_content:
                     if block.type == "tool_use" and block.name == "search_legal_database":
                         query = block.input.get("query", "")
-                        search_top_k = min(block.input.get("top_k", 15), 30)
+                        search_top_k = min(block.input.get("top_k", 5), 10)
                         
                         logger.info(f"  Tool call: search_legal_database(query='{query}', top_k={search_top_k})")
                         
