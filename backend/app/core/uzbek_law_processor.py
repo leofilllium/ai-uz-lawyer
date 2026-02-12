@@ -213,9 +213,10 @@ class UzbekLawProcessor:
         if articles:
             for article in articles:
                 article_chunks = self.text_splitter.split_text(article["content"])
-                for i, chunk in enumerate(article_chunks):
+                    # Create deterministic ID based on source and chunk index to allow UPSERT
+                    chunk_id = hashlib.md5(f"{source_name}_{i}_{chunk}".encode()).hexdigest()
                     chunks.append({
-                        "id": str(uuid.uuid4()),
+                        "id": chunk_id,
                         "content": chunk,
                         "metadata": {
                             "source": source_name,
@@ -234,8 +235,9 @@ class UzbekLawProcessor:
              # Fallback chunking
             text_chunks = self.text_splitter.split_text(text)
             for i, chunk in enumerate(text_chunks):
+                chunk_id = hashlib.md5(f"{source_name}_{i}_{chunk}".encode()).hexdigest()
                 chunks.append({
-                    "id": str(uuid.uuid4()),
+                    "id": chunk_id,
                     "content": chunk,
                     "metadata": {
                         "source": source_name,
