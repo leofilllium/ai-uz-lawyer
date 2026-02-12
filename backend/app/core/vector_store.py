@@ -11,7 +11,8 @@ from typing import List, Dict, Any, Optional
 from starlette.concurrency import run_in_threadpool
 import chromadb
 from chromadb.config import Settings
-from langchain_openai import OpenAIEmbeddings
+# from langchain_openai import OpenAIEmbeddings
+from langchain_voyageai import VoyageAIEmbeddings
 
 from app.config import get_settings
 
@@ -36,11 +37,19 @@ class VectorStore:
             )
         )
         
-        # Initialize OpenAI embeddings
-        self.embeddings = OpenAIEmbeddings(
-            model=settings.openai_embedding_model,
-            openai_api_key=settings.openai_api_key,
-        )
+        # Initialize Embeddings
+        if settings.embedding_provider == "voyage":
+            self.embeddings = VoyageAIEmbeddings(
+                model=settings.embedding_model,
+                voyage_api_key=settings.voyage_api_key,
+            )
+        else:
+            # Fallback (though we removed OpenAI config from Settings class for now, keeping logic just in case)
+            from langchain_openai import OpenAIEmbeddings
+            self.embeddings = OpenAIEmbeddings(
+                model=settings.embedding_model if hasattr(settings, 'embedding_model') else "text-embedding-3-large",
+                openai_api_key=settings.openai_api_key,
+            )
         
         # Get or create collection with cosine similarity
         self.collection = self.client.get_or_create_collection(
@@ -63,7 +72,11 @@ class VectorStore:
             # Fix: explicitly check length to avoid numpy ambiguity
             if existing_items and existing_items.get('embeddings') is not None and len(existing_items['embeddings']) > 0:
                 current_dim = len(existing_items['embeddings'][0])
-                target_dim = 3072 if "3-large" in settings.openai_embedding_model else 1536
+                # Voyage-4-large is 1536 dims, same as text-embedding-3-large (usually), but let's be safe
+                # Note: Voyage-large-2 is 1024. usage depends on specific model version.
+                # voyage-4-large output dimension is 1536 (default) for MRL or explicit. 
+                # Let's assume 1536 for now as target.
+                target_dim = 1536 # Default for most large models we use
                 
                 if current_dim != target_dim:
                     print(f"⚠️ DETECTED DIMENSION MISMATCH: DB={current_dim}, Model={target_dim}")

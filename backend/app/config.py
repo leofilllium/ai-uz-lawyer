@@ -33,7 +33,11 @@ class Settings(BaseSettings):
     max_output_tokens: int = 16000
     
     # OpenAI Models
-    openai_embedding_model: str = "text-embedding-3-large"
+    voyage_api_key: str = ""
+    
+    # Embedding Models
+    embedding_provider: str = "voyage"  # "openai" or "voyage"
+    embedding_model: str = "voyage-4-large" # was text-embedding-3-large
     
     # Paths
     codes_path: str = "codes"
