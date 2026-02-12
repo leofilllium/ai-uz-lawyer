@@ -210,12 +210,14 @@ class UzbekLawProcessor:
             articles = []
 
         chunks = []
+        global_chunk_index = 0
         if articles:
             for article in articles:
                 article_chunks = self.text_splitter.split_text(article["content"])
                 for i, chunk in enumerate(article_chunks):
-                    # Create deterministic ID based on source and chunk index to allow UPSERT
-                    chunk_id = hashlib.md5(f"{source_name}_{i}_{chunk}".encode()).hexdigest()
+                    # Create deterministic ID based on source and GLOBAL chunk index to allow UPSERT
+                    # We utilize global_chunk_index to ensure uniqueness even if content is identical across articles
+                    chunk_id = hashlib.md5(f"{source_name}_{global_chunk_index}_{chunk}".encode()).hexdigest()
                     chunks.append({
                         "id": chunk_id,
                         "content": chunk,
@@ -227,11 +229,12 @@ class UzbekLawProcessor:
                             "chapter_num": article["chapter_num"],
                             "section": article["section"],
                             "title": article["title"],
-                            "chunk_index": i,
-                            "total_chunks": len(article_chunks),
+                            "chunk_index": global_chunk_index,
+                            "total_chunks": len(article_chunks), # This is per article, maybe misleading? But kept for now.
                             "doc_type": doc_type
                         }
                     })
+                    global_chunk_index += 1
         else:
              # Fallback chunking
             text_chunks = self.text_splitter.split_text(text)

@@ -193,7 +193,7 @@ async def main():
     # Optimal batch size for Voyage AI (Max 128)
     BATCH_SIZE = 128 
     # Number of concurrent embedding requests (Voyage typically handles high concurrency well)
-    CONCURRENT_REQUESTS = 10
+    CONCURRENT_REQUESTS = 2
     
     total_added = 0
     
