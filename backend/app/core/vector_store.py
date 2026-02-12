@@ -76,8 +76,18 @@ class VectorStore:
                 # Note: Voyage-large-2 is 1024. usage depends on specific model version.
                 # voyage-4-large output dimension is 1536 (default) for MRL or explicit. 
                 # Let's assume 1536 for now as target.
-                target_dim = 1536 # Default for most large models we use
+                # Determine expected dimension based on config
+                target_dim = 1536 # Default
                 
+                if settings.embedding_provider == "voyage":
+                    target_dim = 1024 # Voyage-4-large, large-2, etc are 1024
+                elif settings.embedding_provider == "openai":
+                     if "text-embedding-3-large" in settings.embedding_model:
+                         # Default for large is 3072 unless dimensions param is set. 
+                         # LangChain's OpenAIEmbeddings doesn't easily expose this param unless passed.
+                         # Assuming standard usage.
+                         target_dim = 3072 
+                     
                 if current_dim != target_dim:
                     print(f"⚠️ DETECTED DIMENSION MISMATCH: DB={current_dim}, Model={target_dim}")
                     print("⚠️ CLEARING COLLECTION FOR RE-INDEXING...")
