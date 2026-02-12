@@ -79,11 +79,13 @@ async def chat(
     db.commit()
     logger.info(f"User message saved. Session ID: {session.id}")
     
-    # Get chat history for context
+    # Get chat history for context (exclude the just-saved user message
+    # because query_with_rag adds the current question separately)
     history = [
         {'role': msg.role, 'content': msg.content}
         for msg in db.query(ChatMessage).filter(
-            ChatMessage.session_id == session.id
+            ChatMessage.session_id == session.id,
+            ChatMessage.id != user_msg.id
         ).order_by(ChatMessage.created_at).all()
     ]
     logger.info(f"Chat history loaded: {len(history)} messages")

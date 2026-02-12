@@ -3632,7 +3632,7 @@ class AIService:
             
             response = await self.client.messages.create(
                 model=self.settings.claude_haiku_model,  # Use Haiku for tool use loop (faster, cheaper)
-                max_tokens=4000,
+                max_tokens=8192,
                 system=full_system_prompt,
                 tools=SEARCH_TOOLS,
                 messages=agentic_messages,
