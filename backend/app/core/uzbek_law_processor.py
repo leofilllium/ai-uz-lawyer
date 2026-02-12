@@ -20,7 +20,7 @@ class UzbekLawProcessor:
     TYPE_ORDER = "order"     # Buyruq / Nizom / Qaror
     TYPE_GENERIC = "generic"
     
-    def __init__(self, chunk_size: int = 1500, chunk_overlap: int = 200):
+    def __init__(self, chunk_size: int = 12000, chunk_overlap: int = 500):
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.text_splitter = RecursiveCharacterTextSplitter(

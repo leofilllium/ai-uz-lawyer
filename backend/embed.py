@@ -190,10 +190,10 @@ async def main():
     print("Starting embedding process...")
     embedding_start = time.time()
     
-    # Optimal batch size for OpenAI + Chroma
-    BATCH_SIZE = 100 
-    # Number of concurrent embedding requests
-    CONCURRENT_REQUESTS = 3
+    # Optimal batch size for Voyage AI (Max 128)
+    BATCH_SIZE = 128 
+    # Number of concurrent embedding requests (Voyage typically handles high concurrency well)
+    CONCURRENT_REQUESTS = 10
     
     total_added = 0
     
