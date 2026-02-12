@@ -3700,41 +3700,45 @@ class AIService:
                 seen_source_keys.add(key)
                 unique_sources.append(src)
         
-        # ─── PHASE 2: Stream the final response ──────────────────────
-        # Now we stream: send the full agentic conversation but WITHOUT tools
-        # so Claude produces a final streamed text response.
-        
-        final_messages = list(agentic_messages)
-        
-        # If the last response was already a text (end_turn), we stream that text directly
-        # Otherwise, ask Claude for the final answer without tools
-        if response.stop_reason == "tool_use":
-            # Max rounds exhausted while still wanting tools — ask for final answer
-            logger.info("Max rounds reached, requesting final answer...")
-            final_messages.append({
-                "role": "assistant", 
-                "content": response.content
-            })
-            # Add a synthetic tool result telling Claude to answer now
-            final_tool_results = []
-            for block in response.content:
-                if block.type == "tool_use":
-                    final_tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": "Лимит поисковых запросов исчерпан. Пожалуйста, дайте ответ на основе уже найденной информации."
-                    })
-            final_messages.append({"role": "user", "content": final_tool_results})
+        # ─── PHASE 2: Stream the final response with Opus ─────────────
+        # Build a CLEAN message for Opus: original question + all gathered context.
+        # We do NOT pass the raw agentic conversation (with tool_use/tool_result blocks)
+        # because Opus is called WITHOUT tools and can produce confused/short responses
+        # when it sees tool blocks it can't act on.
         
         combined_context = "\n\n".join(all_context_parts)
+        
+        # Build clean conversation for Opus
+        final_messages = []
+        
+        # Include conversation history (without tool blocks)
+        if history:
+            for msg in history[-6:]:
+                final_messages.append({
+                    "role": msg["role"],
+                    "content": msg["content"]
+                })
+        
+        # Build the final user message with question + all retrieved context
+        if combined_context:
+            final_user_content = (
+                f"ПРАВОВОЙ КОНТЕКСТ ИЗ БАЗЫ ДАННЫХ ЗАКОНОДАТЕЛЬСТВА УЗБЕКИСТАНА:\n\n"
+                f"{combined_context}\n\n"
+                f"───────────────────────────────────────────\n\n"
+                f"ВОПРОС КЛИЕНТА:\n{question}\n\n"
+                f"На основе приведённого правового контекста дайте полный, структурированный ответ "
+                f"согласно формату указанному в системном промпте. Цитируйте конкретные статьи и нормы."
+            )
+        else:
+            final_user_content = question
+        
+        final_messages.append({"role": "user", "content": final_user_content})
+        
+        logger.info(f"Phase 2: Built clean message for Opus with {len(all_context_parts)} context parts")
         
         async def stream_response():
             try:
                 logger.info(f"=== STREAMING FINAL RESPONSE ===")
-                # ALWAYS stream the final response using Opus for maximum quality
-                # We ignore Haiku's final text response (if any) and re-generate with Opus
-                # based on the context found by Haiku.
-                
                 logger.info(f"Generating final answer with Opus...")
                 async with self.client.messages.stream(
                         model=self.settings.claude_opus_model,
