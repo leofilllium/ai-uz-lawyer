@@ -239,7 +239,7 @@ class UzbekLawProcessor:
              # Fallback chunking
             text_chunks = self.text_splitter.split_text(text)
             for i, chunk in enumerate(text_chunks):
-                chunk_id = hashlib.md5(f"{source_name}_{i}_{chunk}".encode()).hexdigest()
+                chunk_id = hashlib.md5(f"{source_name}_{global_chunk_index}_{chunk}".encode()).hexdigest()
                 chunks.append({
                     "id": chunk_id,
                     "content": chunk,
@@ -248,11 +248,12 @@ class UzbekLawProcessor:
                         "article_number": "N/A",
                         "article_display": "Text Fragment",
                         "chapter": "General",
-                        "chunk_index": i,
+                        "chunk_index": global_chunk_index,
                         "total_chunks": len(text_chunks),
                         "doc_type": doc_type
                     }
                 })
+                global_chunk_index += 1
                 
         doc_info = {
             "source_name": source_name,

@@ -34,7 +34,19 @@ def process_single_file(file_path_str: str) -> Tuple[List[Dict[str, Any]], Dict[
         if not text.strip():
             return [], {}, "Empty file"
             
-        chunks, doc_info = processor.process_text_content(text, file_path.name)
+        # Use relative path as source_name to avoid collisions between files with same name in different folders
+        try:
+            # Try to get relative path from laws_txt
+            laws_dir = Path("data/laws_txt")
+            if laws_dir.exists() and str(file_path).startswith(str(laws_dir)):
+                 source_name = str(file_path.relative_to(laws_dir))
+            else:
+                 # Fallback to name if not in laws_txt (e.g. absolute path usage)
+                 source_name = file_path.name
+        except ValueError:
+            source_name = file_path.name
+
+        chunks, doc_info = processor.process_text_content(text, source_name)
         return chunks, doc_info, None
     except Exception as e:
         return [], {}, str(e)
