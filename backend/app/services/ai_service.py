@@ -3739,7 +3739,7 @@ class AIService:
                 async with self.client.messages.stream(
                         model=self.settings.claude_opus_model,
                         max_tokens=16000,
-                        system=full_system_prompt,
+                        system=system_prompt, # Use the original mode prompt WITHOUT agentic tool instructions
                         messages=final_messages,
                     ) as stream:
                         chunk_count = 0
