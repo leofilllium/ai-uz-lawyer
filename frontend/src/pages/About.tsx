@@ -768,7 +768,7 @@ export default function About() {
                   <Phone className="w-5 h-5 text-primary" />
                   <div>
                     <strong>Телефон</strong>
-                    <span>+998 97 774 40 07</span>
+                    <span>+998 97 773 40 07</span>
                   </div>
                 </div>
                 <div className="contact-info-item">
