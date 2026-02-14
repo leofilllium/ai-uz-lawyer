@@ -32,15 +32,29 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Create tables
-    logger.info("Creating database tables...")
+    """Application lifespan handler for startup/shutdown."""
+    # Startup
+    logger.info("Implementation plan applied: Initializing database tables...")
     create_tables()
+    
+    # Initialize singleton VectorStore (heaviest part)
+    logger.info("Initializing VectorStore (loading index)... This may take a while for large datasets.")
+    try:
+        from app.core.vector_store import get_vector_store
+        # This triggers the singleton initialization
+        get_vector_store()
+        logger.info("VectorStore initialized successfully.")
+    except Exception as e:
+        logger.error(f"Failed to initialize VectorStore: {e}")
+        
     yield
-    # Shutdown (if needed)
+    # Shutdown (cleanup if needed)
+
+settings = get_settings()
 
 app = FastAPI(
     title="AI Lawyer API",
-    description="Backend API for AI Lawyer Uzbekistan",
+    description="Backend API for AI-powered legal assistant with RAG",
     version="2.0.0",
     lifespan=lifespan
 )
