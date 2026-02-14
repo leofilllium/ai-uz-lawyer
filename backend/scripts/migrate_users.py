@@ -2,14 +2,15 @@
 import os
 import sys
 from sqlalchemy import create_engine, text
-from app.config import settings
+from app.config import get_settings
 
 def migrate_users_table():
     """Add missing columns to users table if they don't exist."""
     print("Starting user table migration...")
     
+    settings = get_settings()
     # Use the database URL from settings
-    engine = create_engine(settings.DATABASE_URL)
+    engine = create_engine(settings.database_url)
     
     with engine.connect() as conn:
         # Check if columns exist
