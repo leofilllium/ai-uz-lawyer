@@ -115,6 +115,9 @@ export default function Admin() {
   // or we can keep a separate effect for mount. 
   // actually, the debounce effect will run on mount too.
 
+  // Tabs state
+  const [activeTab, setActiveTab] = useState<'documents' | 'organizations'>('documents');
+
   // Login handler
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -199,7 +202,8 @@ export default function Admin() {
   };
 
   // Create Organization
-  const handleCreateOrg = async () => {
+  const handleCreateOrg = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!newOrgName.trim() || !headEmail.trim() || !headPassword.trim()) return;
     
     setCreatingOrg(true);
@@ -309,187 +313,257 @@ export default function Admin() {
         <div className="header-left">
           <Link to="/" className="back-link">← Dashboard</Link>
           <h1>⚙️ Admin Panel</h1>
+          
+          <nav className="admin-nav" style={{ display: 'flex', gap: '20px', marginLeft: '30px' }}>
+            <button 
+              onClick={() => setActiveTab('documents')}
+              className={`nav-tab ${activeTab === 'documents' ? 'active' : ''}`}
+              style={{
+                background: 'none',
+                border: 'none',
+                borderBottom: activeTab === 'documents' ? '2px solid var(--color-primary)' : '2px solid transparent',
+                padding: '8px 4px',
+                color: activeTab === 'documents' ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontSize: '15px'
+              }}
+            >
+              Documents
+            </button>
+            <button 
+              onClick={() => setActiveTab('organizations')}
+              className={`nav-tab ${activeTab === 'organizations' ? 'active' : ''}`}
+              style={{
+                background: 'none',
+                border: 'none',
+                borderBottom: activeTab === 'organizations' ? '2px solid var(--color-primary)' : '2px solid transparent',
+                padding: '8px 4px',
+                color: activeTab === 'organizations' ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontSize: '15px'
+              }}
+            >
+              Organizations
+            </button>
+          </nav>
         </div>
-        <button onClick={() => setIsAuthenticated(false)} className="btn-logout">
+        
+        <button onClick={() => setIsAuthenticated(false)} className="btn-logout" style={{ background: 'transparent', border: '1px solid currentColor', borderRadius: '6px', padding: '6px 12px' }}>
           Logout
         </button>
       </header>
 
-      <main className="admin-content">
-        {/* Stats Cards */}
-        <section className="stats-grid">
-          <div className="stat-card">
-            <div className="stat-icon">📄</div>
-            <div className="stat-value">{stats?.total_documents || 0}</div>
-            <div className="stat-label">Documents</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-icon">📦</div>
-            <div className="stat-value">{stats?.total_chunks || 0}</div>
-            <div className="stat-label">Total Chunks</div>
-          </div>
-        </section>
-
-        {/* Upload Section */}
-        <section className="upload-section">
-          <h2>📤 Upload Document</h2>
-          <div
-            className={`upload-zone ${dragOver ? 'drag-over' : ''} ${uploading ? 'uploading' : ''}`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            {uploading ? (
-              <div className="upload-progress">
-                <div className="spinner">⏳</div>
-                <p>Processing document...</p>
+      <main className="admin-content" style={{ maxWidth: '1200px', margin: '0 auto', padding: '30px 20px' }}>
+        
+        {activeTab === 'documents' && (
+          <>
+            {/* Stats Cards */}
+            <section className="stats-grid">
+              <div className="stat-card">
+                <div className="stat-icon">📄</div>
+                <div className="stat-value">{stats?.total_documents || 0}</div>
+                <div className="stat-label">Documents</div>
               </div>
-            ) : (
-              <>
-                <div className="upload-icon">📁</div>
-                <p>Drag & drop a .docx file here</p>
-                <p className="upload-hint">or</p>
-                <label className="btn-select-file">
-                  Select File
-                  <input
-                    type="file"
-                    accept=".docx"
-                    onChange={handleFileSelect}
-                    hidden
-                  />
-                </label>
-                <p className="upload-formats">
-                  Supports: Russian codes (Статья), Uzbek codes (X-modda), Decrees (QAROR/NIZOM)
-                </p>
-              </>
-            )}
-          </div>
-          {uploadMessage && (
-            <div className={`upload-message ${uploadMessage.startsWith('✅') ? 'success' : 'error'}`}>
-              {uploadMessage}
-            </div>
-          )}
-        </section>
+              <div className="stat-card">
+                <div className="stat-icon">📦</div>
+                <div className="stat-value">{stats?.total_chunks || 0}</div>
+                <div className="stat-label">Total Chunks</div>
+              </div>
+            </section>
 
-        {/* Organization Management */}
-        <section className="org-section">
-          <h2>🏢 Organization Management</h2>
-          <div className="org-create-form" style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '400px' }}>
-            <input
-              type="text"
-              placeholder="Organization Name"
-              value={newOrgName}
-              onChange={(e) => setNewOrgName(e.target.value)}
-              className="org-input"
-            />
-            <input
-              type="text"
-              placeholder="Head User Name"
-              value={headName}
-              onChange={(e) => setHeadName(e.target.value)}
-              className="org-input"
-            />
-            <input
-              type="email"
-              placeholder="Head User Email"
-              value={headEmail}
-              onChange={(e) => setHeadEmail(e.target.value)}
-              className="org-input"
-            />
-            <input
-              type="password"
-              placeholder="Head User Password"
-              value={headPassword}
-              onChange={(e) => setHeadPassword(e.target.value)}
-              className="org-input"
-            />
-            <button 
-              className="btn-create-org"
-              onClick={handleCreateOrg}
-              disabled={creatingOrg || !newOrgName.trim() || !headEmail.trim() || !headPassword.trim()}
-              style={{ marginTop: '10px' }}
-            >
-              {creatingOrg ? 'Creating...' : 'Create Organization & Head'}
-            </button>
-          </div>
-          {orgMessage && (
-            <div className={`upload-message ${orgMessage.startsWith('✅') ? 'success' : 'error'}`}>
-              {orgMessage}
-            </div>
-          )}
-        </section>
-
-        {/* Documents List */}
-        <section className="documents-section">
-          <div className="section-header">
-            <h2>📚 Indexed Documents ({stats?.total_documents || 0})</h2>
-            <input
-              type="text"
-              placeholder="Search documents..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-            />
-          </div>
-          
-          {loading ? (
-            <div className="loading">Loading...</div>
-          ) : displayDocs.length === 0 ? (
-            <div className="empty-state">
-              {searchTerm ? 'No documents match your search.' : 'No documents indexed yet.'}
-            </div>
-          ) : (
-            <div className="documents-list">
-              {displayDocs.map((doc) => (
-                <div key={doc.source_name} className="document-item">
-                  <div className="doc-info">
-                    <span className="doc-icon">
-                      {doc.doc_type === 'russian_code' ? '🇷🇺' : 
-                       doc.doc_type === 'uzbek_code' ? '🇺🇿' : 
-                       doc.doc_type === 'decree' ? '📜' : '📄'}
-                    </span>
-                    <div className="doc-details">
-                      <span className="doc-name">{doc.source_name}</span>
-                      <span className="doc-meta">
-                        {doc.chunk_count} chunks • {doc.doc_type.replace('_', ' ')}
-                      </span>
-                    </div>
+            {/* Upload Section */}
+            <section className="upload-section">
+              <h2>📤 Upload Document</h2>
+              <div
+                className={`upload-zone ${dragOver ? 'drag-over' : ''} ${uploading ? 'uploading' : ''}`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                {uploading ? (
+                  <div className="upload-progress">
+                    <div className="spinner">⏳</div>
+                    <p>Processing document...</p>
                   </div>
-                  <button
-                    className="btn-delete"
-                    onClick={() => handleDelete(doc.source_name)}
-                    title="Delete document"
-                  >
-                    🗑️
-                  </button>
+                ) : (
+                  <>
+                    <div className="upload-icon">📁</div>
+                    <p>Drag & drop a .docx file here</p>
+                    <p className="upload-hint">or</p>
+                    <label className="btn-select-file">
+                      Select File
+                      <input
+                        type="file"
+                        accept=".docx"
+                        onChange={handleFileSelect}
+                        hidden
+                      />
+                    </label>
+                    <p className="upload-formats">
+                      Supports: Russian codes (Статья), Uzbek codes (X-modda), Decrees (QAROR/NIZOM)
+                    </p>
+                  </>
+                )}
+              </div>
+              {uploadMessage && (
+                <div className={`upload-message ${uploadMessage.startsWith('✅') ? 'success' : 'error'}`}>
+                  {uploadMessage}
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
+              )}
+            </section>
 
-        {/* Pagination Controls */}
-        {stats && stats.total_pages > 1 && (
-          <section className="pagination-controls">
-            <button 
-              className="btn-page" 
-              disabled={currentPage === 1}
-              onClick={() => handlePageChange(currentPage - 1)}
-            >
-              Previous
-            </button>
-            <span className="page-info">
-              Page {currentPage} of {stats.total_pages}
-            </span>
-            <button 
-              className="btn-page" 
-              disabled={currentPage === stats.total_pages}
-              onClick={() => handlePageChange(currentPage + 1)}
-            >
-              Next
-            </button>
+            {/* Documents List */}
+            <section className="documents-section">
+              <div className="section-header">
+                <h2>📚 Indexed Documents ({stats?.total_documents || 0})</h2>
+                <input
+                  type="text"
+                  placeholder="Search documents..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="search-input"
+                />
+              </div>
+              
+              {loading ? (
+                <div className="loading">Loading...</div>
+              ) : displayDocs.length === 0 ? (
+                <div className="empty-state">
+                  {searchTerm ? 'No documents match your search.' : 'No documents indexed yet.'}
+                </div>
+              ) : (
+                <div className="documents-list">
+                  {displayDocs.map((doc) => (
+                    <div key={doc.source_name} className="document-item">
+                      <div className="doc-info">
+                        <span className="doc-icon">
+                          {doc.doc_type === 'russian_code' ? '🇷🇺' : 
+                           doc.doc_type === 'uzbek_code' ? '🇺🇿' : 
+                           doc.doc_type === 'decree' ? '📜' : '📄'}
+                        </span>
+                        <div className="doc-details">
+                          <span className="doc-name">{doc.source_name}</span>
+                          <span className="doc-meta">
+                            {doc.chunk_count} chunks • {doc.doc_type.replace('_', ' ')}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        className="btn-delete"
+                        onClick={() => handleDelete(doc.source_name)}
+                        title="Delete document"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* Pagination Controls */}
+            {stats && stats.total_pages > 1 && (
+              <section className="pagination-controls">
+                <button 
+                  className="btn-page" 
+                  disabled={currentPage === 1}
+                  onClick={() => handlePageChange(currentPage - 1)}
+                >
+                  Previous
+                </button>
+                <span className="page-info">
+                  Page {currentPage} of {stats.total_pages}
+                </span>
+                <button 
+                  className="btn-page" 
+                  disabled={currentPage === stats.total_pages}
+                  onClick={() => handlePageChange(currentPage + 1)}
+                >
+                  Next
+                </button>
+              </section>
+            )}
+          </>
+        )}
+
+        {activeTab === 'organizations' && (
+          <section className="org-section" style={{ display: 'flex', justifyContent: 'center', paddingTop: '40px' }}>
+            <div className="auth-card" style={{ maxWidth: '600px', width: '100%', padding: '40px' }}>
+              <div className="auth-header" style={{ marginBottom: '30px' }}>
+                <h2 style={{ fontSize: '24px', fontWeight: 700 }}>🏢 Create Organization</h2>
+                <p>Register a new law firm and assign its Head.</p>
+              </div>
+
+              <form onSubmit={handleCreateOrg} className="auth-form">
+                <div className="form-group">
+                  <label>Organization Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Legal Corp LLC"
+                    value={newOrgName}
+                    onChange={(e) => setNewOrgName(e.target.value)}
+                    required
+                  />
+                </div>
+                
+                <div style={{ margin: '15px 0', borderTop: '1px solid var(--color-border)' }}></div>
+                <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--color-primary)', marginBottom: '10px' }}>👤 Assign Head User</h3>
+                
+                <div className="form-group">
+                  <label>Head Name</label>
+                  <input
+                    type="text"
+                    placeholder="Full Name"
+                    value={headName}
+                    onChange={(e) => setHeadName(e.target.value)}
+                    required
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label>Head Email</label>
+                  <input
+                    type="email"
+                    placeholder="head@example.com"
+                    value={headEmail}
+                    onChange={(e) => setHeadEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label>Head Password</label>
+                  <input
+                    type="password"
+                    placeholder="Secure password"
+                    value={headPassword}
+                    onChange={(e) => setHeadPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                </div>
+
+                <button 
+                  type="submit"
+                  className="btn-primary"
+                  disabled={creatingOrg || !newOrgName.trim() || !headEmail.trim() || !headPassword.trim()}
+                  style={{ marginTop: '20px', width: '100%' }}
+                >
+                  {creatingOrg ? 'Creating Organization...' : 'Create Organization & Head'}
+                </button>
+              </form>
+
+              {orgMessage && (
+                <div className={`upload-message ${orgMessage.startsWith('✅') ? 'success' : 'error'}`} style={{ marginTop: '20px' }}>
+                  {orgMessage}
+                </div>
+              )}
+            </div>
           </section>
         )}
+
       </main>
     </div>
   );
