@@ -1,6 +1,6 @@
 /**
  * Project Board Page
- * Premium Kanban board for task management using dnd-kit.
+ * Dark-themed Kanban board matching the specific user design.
  */
 
 import { useState, useEffect } from 'react';
@@ -14,6 +14,8 @@ import {
   DragOverlay,
   type DragStartEvent,
   type DragEndEvent,
+  defaultDropAnimationSideEffects,
+  type DropAnimation
 } from '@dnd-kit/core';
 import { 
   SortableContext, 
@@ -26,16 +28,34 @@ import { useAuth } from '../contexts/AuthContext';
 import { getTasks, updateTask, createTask, type Task, TaskStatus, TaskPriority, TaskComplexity } from '../api/client';
 
 // Icons
-const PlusIcon = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>;
+const PlusIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>;
+const MoreHorizontalIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>;
+const CircleIcon = ({ color }: { color: string }) => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+  </svg>
+);
 
-// Columns configuration
+// Columns configuration matching the screenshot
 const COLUMNS = [
-  { id: TaskStatus.BACKLOG, title: 'Backlog', color: '#6c757d', bg: '#f8f9fa' },
-  { id: TaskStatus.TO_DO, title: 'To Do', color: '#007bff', bg: '#e7f1ff' },
-  { id: TaskStatus.IN_PROGRESS, title: 'In Progress', color: '#ffc107', bg: '#fff9db' },
-  { id: TaskStatus.REVIEW, title: 'In Review', color: '#17a2b8', bg: '#e0faff' },
-  { id: TaskStatus.DONE, title: 'Done', color: '#28a745', bg: '#d4edda' },
-  { id: TaskStatus.RE_DO, title: 'Re-Do', color: '#dc3545', bg: '#f8d7da' },
+  { 
+    id: TaskStatus.TO_DO, 
+    title: 'Todo', 
+    color: '#28a745', // Green
+    subtitle: "This item hasn't been started"
+  },
+  { 
+    id: TaskStatus.IN_PROGRESS, 
+    title: 'In progress', 
+    color: '#ffc107', // Orange/Yellow
+    subtitle: 'This is actively being worked on'
+  },
+  { 
+    id: TaskStatus.DONE, 
+    title: 'Done', 
+    color: '#6f42c1', // Purple
+    subtitle: 'This has been completed'
+  },
 ];
 
 // --- Components ---
@@ -66,7 +86,7 @@ function TaskCard({ task, isOverlay = false }: { task: Task; isOverlay?: boolean
       <div
         ref={setNodeRef}
         style={style}
-        className="opacity-40 bg-gray-100 border-2 border-dashed border-gray-300 rounded-xl h-[120px] mb-3"
+        className="opacity-50 bg-[#2C2C2C] border border-[#3E3E3E] rounded-lg h-[80px] mb-2"
       />
     );
   }
@@ -78,37 +98,31 @@ function TaskCard({ task, isOverlay = false }: { task: Task; isOverlay?: boolean
       {...attributes}
       {...listeners}
       className={`
-        bg-white p-4 rounded-xl border border-gray-200 cursor-grab active:cursor-grabbing 
-        hover:border-[var(--color-primary)] hover:shadow-md transition-all group mb-3 select-none
-        ${isOverlay ? 'shadow-2xl rotate-2 scale-105 cursor-grabbing z-50' : 'shadow-sm'}
+        bg-[#1E1E1E] p-3 rounded-lg border border-[#333] cursor-grab active:cursor-grabbing 
+        hover:bg-[#252525] transition-colors group mb-2 select-none relative
+        ${isOverlay ? 'shadow-2xl scale-105 cursor-grabbing z-50 border-[#444]' : 'shadow-sm'}
       `}
     >
-      <div className="flex justify-between items-start mb-2">
-        <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-md ${
-          task.priority === TaskPriority.URGENT ? 'bg-red-50 text-red-600 border border-red-100' :
-          task.priority === TaskPriority.HIGH ? 'bg-orange-50 text-orange-600 border border-orange-100' :
-          task.priority === TaskPriority.MEDIUM ? 'bg-blue-50 text-blue-600 border border-blue-100' :
-          'bg-gray-50 text-gray-600 border border-gray-100'
-        }`}>
-          {task.priority}
-        </span>
-        <span className="text-[10px] text-gray-400 font-mono">#{task.id}</span>
+      <div className="flex justify-between items-start mb-1.5">
+        <h4 className="text-[#E0E0E0] text-sm font-medium leading-snug pr-6">{task.title}</h4>
+        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5 ${
+          task.priority === TaskPriority.URGENT ? 'bg-red-500' :
+          task.priority === TaskPriority.HIGH ? 'bg-orange-500' :
+          task.priority === TaskPriority.MEDIUM ? 'bg-blue-500' : 'bg-gray-600'
+        }`} />
       </div>
       
-      <h4 className="font-bold text-gray-800 mb-1 leading-snug">{task.title}</h4>
-      <p className="text-xs text-gray-500 mb-3 line-clamp-2">{task.description}</p>
+      {task.description && (
+        <p className="text-[#A0A0A0] text-xs line-clamp-2 mb-2">{task.description}</p>
+      )}
       
-      <div className="flex justify-between items-center text-xs text-gray-400 pt-3 border-t border-gray-50 mt-2">
-        <div className="flex items-center gap-1">
-          <span className={`w-2 h-2 rounded-full ${
-            task.complexity === TaskComplexity.HARD ? 'bg-purple-400' :
-            task.complexity === TaskComplexity.MEDIUM ? 'bg-yellow-400' : 'bg-green-400'
-          }`}></span>
+      <div className="flex items-center gap-2 mt-2">
+        <span className="text-[10px] px-1.5 py-0.5 bg-[#333] text-[#888] rounded border border-[#444]">
           {task.complexity}
-        </div>
-        <div>
-          {new Date(task.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-        </div>
+        </span>
+         <span className="text-[10px] text-[#666] ml-auto">
+          #{task.id}
+        </span>
       </div>
     </div>
   );
@@ -116,10 +130,12 @@ function TaskCard({ task, isOverlay = false }: { task: Task; isOverlay?: boolean
 
 function ColumnContainer({ 
   column, 
-  tasks 
+  tasks,
+  onAddTask
 }: { 
   column: typeof COLUMNS[0]; 
   tasks: Task[];
+  onAddTask: (status: TaskStatus) => void;
 }) {
   const { setNodeRef } = useSortable({
     id: column.id,
@@ -127,35 +143,50 @@ function ColumnContainer({
       type: 'Column',
       column,
     },
-    disabled: true, // Columns are static for now
+    disabled: true,
   });
 
   return (
     <div 
       ref={setNodeRef} 
-      className="flex-shrink-0 flex flex-col h-full w-[300px] select-none"
+      className="flex-shrink-0 flex flex-col h-full w-[350px] select-none rounded-xl overflow-hidden border border-[#333] bg-[#0F0F0F]" // Darker column bg
     >
       {/* Header */}
-      <div className="mb-3 flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full ring-2 ring-opacity-50" style={{ backgroundColor: column.color, '--tw-ring-color': column.color } as any}></div>
-          <h3 className="font-bold text-gray-700 text-sm tracking-wide">{column.title}</h3>
+      <div className="p-4 border-b border-[#222]">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-3">
+            <CircleIcon color={column.color} />
+            <h3 className="font-semibold text-[#E0E0E0] text-sm">{column.title}</h3>
+            <span className="text-[#666] text-xs">{tasks.length}</span>
+            <span className="text-[#444] text-[10px] bg-[#1a1a1a] px-1.5 py-0.5 rounded border border-[#2a2a2a]">
+              Estimate: 0
+            </span>
+          </div>
+          <button className="text-[#666] hover:text-[#999]">
+            <MoreHorizontalIcon />
+          </button>
         </div>
-        <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full text-xs font-medium border border-gray-200">
-          {tasks.length}
-        </span>
+        <p className="text-[#666] text-xs">{column.subtitle}</p>
       </div>
 
       {/* Task List */}
-      <div className="flex-1 overflow-y-auto px-1 pb-4 scrollbar-hide">
+      <div className="flex-1 overflow-y-auto p-3 scrollbar-thin scrollbar-thumb-[#333] scrollbar-track-transparent">
         <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-          <div className="flex flex-col min-h-[150px] rounded-xl transition-colors duration-200" style={{ backgroundColor: tasks.length === 0 ? 'rgba(0,0,0,0.02)' : 'transparent' }}>
+          <div className="flex flex-col min-h-[50px]">
             {tasks.map(task => (
               <TaskCard key={task.id} task={task} />
             ))}
           </div>
         </SortableContext>
       </div>
+
+      {/* Add Item Footer */}
+      <button 
+        onClick={() => onAddTask(column.id as TaskStatus)}
+        className="flex items-center gap-2 p-3 text-[#888] hover:text-[#CCC] hover:bg-[#1A1A1A] transition-colors text-sm font-medium border-t border-[#222]"
+      >
+        <PlusIcon /> Add item
+      </button>
     </div>
   );
 }
@@ -167,21 +198,34 @@ export default function ProjectBoard() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [showModal, setShowModal] = useState(false);
+  
+  // New task state
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDesc, setNewTaskDesc] = useState('');
+  const [newTaskStatus, setNewTaskStatus] = useState<TaskStatus>(TaskStatus.TO_DO);
   const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>(TaskPriority.MEDIUM);
   const [newTaskComplexity, setNewTaskComplexity] = useState<TaskComplexity>(TaskComplexity.MEDIUM);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 3, // Requires 3px movement before drag starts
+        distance: 3,
       },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  const dropAnimation: DropAnimation = {
+    sideEffects: defaultDropAnimationSideEffects({
+      styles: {
+        active: {
+          opacity: '0.4',
+        },
+      },
+    }),
+  };
 
   useEffect(() => {
     loadTasks();
@@ -193,6 +237,34 @@ export default function ProjectBoard() {
       setTasks(data);
     } catch (e) {
       console.error(e);
+    }
+  }
+
+  // --- Actions ---
+
+  const openCreateModal = (status: TaskStatus = TaskStatus.TO_DO) => {
+    setNewTaskStatus(status);
+    setNewTaskTitle('');
+    setNewTaskDesc('');
+    setShowModal(true);
+  };
+
+  async function handleCreateTask(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      await createTask({
+        title: newTaskTitle,
+        description: newTaskDesc,
+        status: newTaskStatus,
+        priority: newTaskPriority,
+        complexity: newTaskComplexity,
+        organization_id: user?.organization_id!,
+        reporter_id: user?.id!,
+      });
+      setShowModal(false);
+      loadTasks();
+    } catch (e) {
+      alert("Failed to create task");
     }
   }
 
@@ -216,15 +288,14 @@ export default function ProjectBoard() {
     const activeTask = tasks.find(t => t.id === activeId);
     if (!activeTask) return;
 
-    // Dropped on a column
     let newStatus = activeTask.status;
     
-    // If dropped on a column directly
-    if (COLUMNS.some(c => c.id === overId)) {
-      newStatus = overId as TaskStatus;
-    } 
-    // If dropped on another task
-    else {
+    // Check if dropped on a column
+    const column = COLUMNS.find(c => c.id === overId);
+    if (column) {
+      newStatus = column.id as TaskStatus;
+    } else {
+      // Check if dropped on a task
       const overTask = tasks.find(t => t.id === overId);
       if (overTask) {
         newStatus = overTask.status;
@@ -232,64 +303,23 @@ export default function ProjectBoard() {
     }
 
     if (activeTask.status !== newStatus) {
-      // Optimistic update
       setTasks(tasks => tasks.map(t => 
         t.id === activeId ? { ...t, status: newStatus } : t
       ));
       
-      // API Call
       try {
         await updateTask(activeTask.id, { status: newStatus });
       } catch (e) {
         console.error("Failed to update task", e);
-        loadTasks(); // Revert on error
+        loadTasks();
       }
     }
   }
 
-  async function handleCreateTask(e: React.FormEvent) {
-    e.preventDefault();
-    try {
-      await createTask({
-        title: newTaskTitle,
-        description: newTaskDesc,
-        status: TaskStatus.BACKLOG, // Default to backlog
-        priority: newTaskPriority,
-        complexity: newTaskComplexity,
-        organization_id: user?.organization_id!,
-        reporter_id: user?.id!,
-      });
-      setShowModal(false);
-      setNewTaskTitle('');
-      setNewTaskDesc('');
-      loadTasks();
-    } catch (e) {
-      alert("Failed to create task");
-    }
-  }
-
-  const isSeniorOrHead = user?.role === 'SENIOR' || user?.role === 'HEAD';
-
   return (
-    <div className="h-[calc(100vh-64px)] flex flex-col bg-[#F8F9FA]">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center shadow-sm z-10">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight" style={{ fontFamily: 'var(--font-display)' }}>Project Board</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage tasks and track progress</p>
-        </div>
-        
-        {isSeniorOrHead && (
-          <button 
-            onClick={() => setShowModal(true)}
-            className="btn-primary flex items-center gap-2 shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5"
-          >
-            <PlusIcon /> New Task
-          </button>
-        )}
-      </div>
-
-      {/* Board */}
+    <div className="h-[calc(100vh-64px)] flex flex-col bg-[#080808] text-[#E0E0E0]"> {/* Main page bg */}
+      {/* Header can be minimal or hidden since visuals focus on board, keeping minimal */}
+      
       <div className="flex-1 overflow-x-auto overflow-y-hidden">
         <DndContext
           sensors={sensors}
@@ -297,92 +327,106 @@ export default function ProjectBoard() {
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}
         >
-          <div className="flex gap-6 h-full p-8 min-w-max">
+          <div className="flex gap-4 h-full p-6 min-w-max">
             {COLUMNS.map(column => (
               <ColumnContainer
                 key={column.id}
                 column={column}
                 tasks={tasks.filter(t => t.status === column.id)}
+                onAddTask={openCreateModal}
               />
             ))}
+            
+            {/* Pseudo "Add Column" button as in screenshot */}
+            <div className="w-[50px] pt-2">
+              <button className="w-10 h-10 flex items-center justify-center rounded bg-[#1A1A1A] text-[#888] hover:bg-[#252525] border border-[#333]">
+                <PlusIcon />
+              </button>
+            </div>
           </div>
 
-          <DragOverlay>
+          <DragOverlay dropAnimation={dropAnimation}>
             {activeTask ? <TaskCard task={activeTask} isOverlay /> : null}
           </DragOverlay>
         </DndContext>
       </div>
 
-      {/* Create Modal */}
+      {/* Create Modal - Styled Dark */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-              <h2 className="text-lg font-bold text-gray-800" style={{ fontFamily: 'var(--font-display)' }}>Create New Task</h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#181818] rounded-xl w-full max-w-lg shadow-2xl border border-[#333] overflow-hidden">
+            <div className="px-6 py-4 border-b border-[#333] flex justify-between items-center bg-[#202020]">
+              <h2 className="text-sm font-bold text-[#E0E0E0] uppercase tracking-wide">Create New Item</h2>
+              <button onClick={() => setShowModal(false)} className="text-[#666] hover:text-[#AAA]">
                 ✕
               </button>
             </div>
             
             <form onSubmit={handleCreateTask} className="p-6 flex flex-col gap-5">
               <div className="form-group">
-                <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5 block">Title</label>
                 <input 
                   value={newTaskTitle}
                   onChange={e => setNewTaskTitle(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent outline-none transition-all"
-                  placeholder="e.g. Draft NDA for Client X"
+                  className="w-full px-4 py-3 bg-[#111] border border-[#333] rounded-lg focus:border-[#555] focus:outline-none text-[#DDD] placeholder-[#555] transition-colors"
+                  placeholder="What needs to be done?"
                   required
+                  autoFocus
                 />
               </div>
               
               <div className="form-group">
-                <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5 block">Description</label>
                 <textarea 
                   value={newTaskDesc}
                   onChange={e => setNewTaskDesc(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent outline-none transition-all min-h-[120px] resize-none"
-                  placeholder="Add details about this task..."
+                  className="w-full px-4 py-3 bg-[#111] border border-[#333] rounded-lg focus:border-[#555] focus:outline-none text-[#DDD] placeholder-[#555] transition-colors min-h-[100px] resize-none text-sm"
+                  placeholder="Add a description..."
                 />
               </div>
               
-              <div className="grid grid-cols-2 gap-5">
-                <div className="form-group">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5 block">Priority</label>
-                  <select 
-                    value={newTaskPriority}
-                    onChange={e => setNewTaskPriority(e.target.value as TaskPriority)}
-                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent outline-none transition-all appearance-none"
-                  >
-                    {Object.values(TaskPriority).map(v => <option key={v} value={v}>{v}</option>)}
-                  </select>
-                </div>
-                
-                <div className="form-group">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5 block">Complexity</label>
-                  <select 
-                    value={newTaskComplexity}
-                    onChange={e => setNewTaskComplexity(e.target.value as TaskComplexity)}
-                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent outline-none transition-all appearance-none"
-                  >
-                    {Object.values(TaskComplexity).map(v => <option key={v} value={v}>{v}</option>)}
-                  </select>
-                </div>
+              <div className="grid grid-cols-2 gap-4">
+                 <div className="form-group">
+                    <label className="text-[10px] uppercase font-bold text-[#555] mb-1.5 block">Priority</label>
+                    <div className="relative">
+                      <select 
+                        value={newTaskPriority}
+                        onChange={e => setNewTaskPriority(e.target.value as TaskPriority)}
+                        className="w-full px-3 py-2 bg-[#111] border border-[#333] rounded text-sm text-[#CCC] appearance-none focus:outline-none"
+                      >
+                         {Object.values(TaskPriority).map(v => <option key={v} value={v}>{v}</option>)}
+                      </select>
+                      {/* Arrow */}
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#555]">▼</div>
+                    </div>
+                 </div>
+                 
+                 <div className="form-group">
+                    <label className="text-[10px] uppercase font-bold text-[#555] mb-1.5 block">Complexity</label>
+                     <div className="relative">
+                      <select 
+                        value={newTaskComplexity}
+                        onChange={e => setNewTaskComplexity(e.target.value as TaskComplexity)}
+                        className="w-full px-3 py-2 bg-[#111] border border-[#333] rounded text-sm text-[#CCC] appearance-none focus:outline-none"
+                      >
+                         {Object.values(TaskComplexity).map(v => <option key={v} value={v}>{v}</option>)}
+                      </select>
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#555]">▼</div>
+                    </div>
+                 </div>
               </div>
               
-              <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-100">
+              <div className="flex justify-end gap-3 mt-2">
                 <button 
                   type="button" 
                   onClick={() => setShowModal(false)}
-                  className="px-5 py-2.5 rounded-lg text-gray-600 font-medium hover:bg-gray-100 transition-colors"
+                  className="px-4 py-2 rounded text-[#888] hover:text-[#EEE] text-sm hover:bg-[#222] transition-colors"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit" 
-                  className="px-6 py-2.5 rounded-lg bg-[var(--color-primary)] text-white font-medium hover:bg-[var(--color-primary-hover)] shadow-md hover:shadow-lg transition-all transform active:scale-95"
+                  className="px-5 py-2 rounded bg-[#007bff] text-white font-medium hover:bg-[#0069d9] shadow-lg text-sm transition-colors"
                 >
-                  Create Task
+                  Create
                 </button>
               </div>
             </form>
