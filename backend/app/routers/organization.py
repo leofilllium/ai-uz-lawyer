@@ -13,9 +13,9 @@ from app.models.organization import Organization
 from app.schemas.organization import (
     OrganizationCreate, 
     OrganizationResponse, 
-    ResultResponse, # Assuming standard result response or just use simple dict
     RoleUpdateRequest
 )
+from app.schemas.auth import UserResponse
 from app.routers.auth import get_current_user
 
 router = APIRouter()
