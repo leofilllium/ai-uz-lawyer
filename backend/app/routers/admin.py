@@ -1,5 +1,4 @@
-"""
-Admin Router
+"""# Admin Router
 Document management endpoints with static admin authentication.
 """
 
@@ -269,3 +268,64 @@ async def delete_document(
         chunks_removed=chunks_removed,
         message=f"Successfully removed {chunks_removed} chunks",
     )
+
+
+# --- Organization Management ---
+
+class CreateOrganizationRequest(BaseModel):
+    name: str
+    head_name: str
+    head_email: str
+    head_password: str
+
+@router.post("/organizations", status_code=201)
+async def admin_create_organization(
+    request: CreateOrganizationRequest,
+    admin: bool = Depends(verify_admin),
+    db: Session = Depends(get_db)
+):
+    """Create a new organization and its Head user (Admin only)."""
+    from app.models.organization import Organization
+    from app.models.user import User, UserRole
+    from app.services.auth_service import AuthService
+    
+    # Check if org exists
+    existing_org = db.query(Organization).filter(Organization.name == request.name).first()
+    if existing_org:
+        raise HTTPException(
+            status_code=400,
+            detail="Organization already exists"
+        )
+    
+    # Check if user email exists
+    existing_user = db.query(User).filter(User.email == request.head_email.lower()).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=400,
+            detail="User with this email already exists"
+        )
+    
+    # Create Organization
+    org = Organization(name=request.name)
+    db.add(org)
+    db.commit()
+    db.refresh(org)
+    
+    # Create Head User
+    head_user = User(
+        name=request.head_name,
+        email=request.head_email.lower(),
+        organization_id=org.id,
+        role=UserRole.HEAD,
+        is_approved=True
+    )
+    head_user.set_password(request.head_password)
+    
+    db.add(head_user)
+    db.commit()
+    db.refresh(head_user)
+    
+    return {
+        "organization": {"id": org.id, "name": org.name},
+        "head_user": {"id": head_user.id, "email": head_user.email}
+    }

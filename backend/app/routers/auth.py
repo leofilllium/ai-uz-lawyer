@@ -65,15 +65,30 @@ async def register(request: UserRegisterRequest, db: Session = Depends(get_db)):
             detail="Пользователь с таким email уже существует"
         )
     
+    # Check if organization exists
+    from app.models.organization import Organization
+    
+    if request.organization_id:
+        org = db.query(Organization).filter(Organization.id == request.organization_id).first()
+        if not org:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Organization not found"
+            )
+
     # Create user
-    user = User(name=request.name, email=request.email.lower())
+    user = User(
+        name=request.name, 
+        email=request.email.lower(),
+        organization_id=request.organization_id,
+        is_approved=False
+    )
     user.set_password(request.password)
     
     db.add(user)
     db.commit()
     db.refresh(user)
     
-    # Generate token
     token = AuthService.generate_token(user)
     
     return TokenResponse(
@@ -95,6 +110,10 @@ async def login(request: UserLoginRequest, db: Session = Depends(get_db)):
             detail="Неверный email или пароль"
         )
     
+    if not user.is_approved:
+        # We allow login but frontend will redirect to Pending page based on is_approved=False
+        pass
+
     # Generate token
     token = AuthService.generate_token(user)
     

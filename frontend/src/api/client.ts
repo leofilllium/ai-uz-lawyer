@@ -43,7 +43,59 @@ export interface User {
   id: number;
   name: string;
   email: string;
+  role?: 'HEAD' | 'SENIOR' | 'EMPLOYEE';
+  is_approved?: boolean;
+  organization_id?: number;
   created_at?: string;
+}
+
+export interface Organization {
+  id: number;
+  name: string;
+  created_at: string;
+}
+
+export const TaskStatus = {
+  BACKLOG: "BACKLOG",
+  TO_DO: "TO_DO",
+  IN_PROGRESS: "IN_PROGRESS",
+  REVIEW: "REVIEW",
+  DONE: "DONE",
+  RE_DO: "RE_DO"
+} as const;
+
+export type TaskStatus = typeof TaskStatus[keyof typeof TaskStatus];
+
+export const TaskPriority = {
+  LOW: "LOW",
+  MEDIUM: "MEDIUM",
+  HIGH: "HIGH",
+  URGENT: "URGENT"
+} as const;
+
+export type TaskPriority = typeof TaskPriority[keyof typeof TaskPriority];
+
+export const TaskComplexity = {
+  EASY: "EASY",
+  MEDIUM: "MEDIUM",
+  HARD: "HARD"
+} as const;
+
+export type TaskComplexity = typeof TaskComplexity[keyof typeof TaskComplexity];
+
+export interface Task {
+  id: number;
+  title: string;
+  description?: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  complexity: TaskComplexity;
+  deadline?: string;
+  organization_id: number;
+  assignee_id?: number;
+  reporter_id: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AuthResponse {
@@ -52,6 +104,7 @@ export interface AuthResponse {
   user: User;
 }
 
+// ... (Chat types remain same)
 export interface ChatSession {
   id: number;
   user_id?: number;
@@ -101,8 +154,10 @@ export interface GeneratedContract {
   template_names: string[];
   sources: Source[];
   created_at?: string;
+  updated_at?: string; // Corrected interface mismatch if any
 }
 
+// ... (History types)
 export interface HistoryItem {
   id: number;
   type: 'chat' | 'validation' | 'generation' | 'document_validation';
@@ -113,6 +168,7 @@ export interface HistoryItem {
   icon: string;
   metadata: any;
 }
+
 
 // Base fetch with auth
 async function fetchWithAuth(
@@ -137,10 +193,10 @@ async function fetchWithAuth(
 }
 
 // Auth API
-export async function register(name: string, email: string, password: string): Promise<AuthResponse> {
+export async function register(name: string, email: string, password: string, organizationId: number): Promise<AuthResponse> {
   const response = await fetchWithAuth('/api/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ name, email, password }),
+    body: JSON.stringify({ name, email, password, organization_id: organizationId }),
   });
   
   if (!response.ok) {
@@ -152,6 +208,25 @@ export async function register(name: string, email: string, password: string): P
   setToken(data.token);
   setStoredUser(data.user);
   return data;
+}
+
+export async function adminCreateOrganization(name: string, username: string, password: string): Promise<Organization> {
+  const authHeader = 'Basic ' + btoa(`${username}:${password}`);
+  const response = await fetch(`${API_BASE_URL}/api/admin/organizations`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': authHeader
+    },
+    body: JSON.stringify({ name })
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to create organization');
+  }
+  
+  return response.json();
 }
 
 export async function login(email: string, password: string): Promise<AuthResponse> {
@@ -184,6 +259,64 @@ export async function getMe(): Promise<User> {
 export function logout(): void {
   removeToken();
 }
+
+// Organization API
+export async function getOrganizations(): Promise<Organization[]> {
+  const response = await fetchWithAuth('/api/organization/');
+  if (!response.ok) throw new Error('Failed to fetch organizations');
+  return response.json();
+}
+
+export async function getOrgUsers(): Promise<User[]> {
+  const response = await fetchWithAuth('/api/organization/my/users');
+  if (!response.ok) throw new Error('Failed to fetch users');
+  return response.json();
+}
+
+export async function approveUser(userId: number): Promise<void> {
+  const response = await fetchWithAuth(`/api/organization/users/${userId}/approve`, { method: 'POST' });
+  if (!response.ok) throw new Error('Failed to approve user');
+}
+
+export async function updateUserRole(userId: number, role: string): Promise<void> {
+  const response = await fetchWithAuth(`/api/organization/users/${userId}/role`, {
+    method: 'PUT',
+    body: JSON.stringify({ user_id: userId, role })
+  });
+  if (!response.ok) throw new Error('Failed to update role');
+}
+
+
+// Tasks API
+export async function getTasks(): Promise<Task[]> {
+  const response = await fetchWithAuth('/api/tasks/');
+  if (!response.ok) throw new Error('Failed to fetch tasks');
+  return response.json();
+}
+
+export async function createTask(task: Partial<Task>): Promise<Task> {
+  const response = await fetchWithAuth('/api/tasks/', {
+    method: 'POST',
+    body: JSON.stringify(task)
+  });
+  if (!response.ok) throw new Error('Failed to create task');
+  return response.json();
+}
+
+export async function updateTask(taskId: number, updates: Partial<Task>): Promise<Task> {
+  const response = await fetchWithAuth(`/api/tasks/${taskId}`, {
+    method: 'PUT',
+    body: JSON.stringify(updates)
+  });
+  if (!response.ok) throw new Error('Failed to update task');
+  return response.json();
+}
+
+export async function deleteTask(taskId: number): Promise<void> {
+  const response = await fetchWithAuth(`/api/tasks/${taskId}`, { method: 'DELETE' });
+  if (!response.ok) throw new Error('Failed to delete task');
+}
+
 
 // Lawyer Chat API
 export async function getChatSessions(skip: number = 0, limit: number = 20): Promise<ChatSession[]> {

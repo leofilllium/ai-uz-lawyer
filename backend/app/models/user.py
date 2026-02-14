@@ -5,10 +5,17 @@ SQLAlchemy model for user accounts with password hashing.
 
 from datetime import datetime
 import bcrypt
-from sqlalchemy import Column, Integer, String, DateTime
+import enum
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+
+
+class UserRole(str, enum.Enum):
+    HEAD = "HEAD"
+    SENIOR = "SENIOR"
+    EMPLOYEE = "EMPLOYEE"
 
 
 class User(Base):
@@ -21,7 +28,14 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     
+    # New Fields
+    role = Column(Enum(UserRole), default=UserRole.EMPLOYEE)
+    is_approved = Column(Boolean, default=False)
+    organization_id = Column(Integer, ForeignKey('organizations.id'), nullable=True)
+
     # Relationships
+    organization = relationship('Organization', back_populates='users')
+    
     chat_sessions = relationship('ChatSession', back_populates='user', lazy='dynamic')
     contract_analyses = relationship('ContractAnalysis', back_populates='user', lazy='dynamic')
     generated_contracts = relationship('GeneratedContract', back_populates='user', lazy='dynamic')
@@ -47,5 +61,8 @@ class User(Base):
             'id': self.id,
             'name': self.name,
             'email': self.email,
+            'role': self.role.value if self.role else None,
+            'is_approved': self.is_approved,
+            'organization_id': self.organization_id,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }

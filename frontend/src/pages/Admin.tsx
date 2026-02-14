@@ -38,6 +38,14 @@ export default function Admin() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(50);
+  
+  // Org state
+  const [newOrgName, setNewOrgName] = useState('');
+  const [headName, setHeadName] = useState('');
+  const [headEmail, setHeadEmail] = useState('');
+  const [headPassword, setHeadPassword] = useState('');
+  const [creatingOrg, setCreatingOrg] = useState(false);
+  const [orgMessage, setOrgMessage] = useState('');
 
   // Get auth header
   const getAuthHeader = useCallback(() => {
@@ -190,6 +198,46 @@ export default function Admin() {
     }
   };
 
+  // Create Organization
+  const handleCreateOrg = async () => {
+    if (!newOrgName.trim() || !headEmail.trim() || !headPassword.trim()) return;
+    
+    setCreatingOrg(true);
+    setOrgMessage('');
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/organizations`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': getAuthHeader(),
+          'Content-Type': 'application/json' 
+        },
+        body: JSON.stringify({ 
+          name: newOrgName,
+          head_name: headName,
+          head_email: headEmail,
+          head_password: headPassword
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setOrgMessage(`✅ Created organization: ${data.organization.name} with Head: ${data.head_user.email}`);
+        setNewOrgName('');
+        setHeadName('');
+        setHeadEmail('');
+        setHeadPassword('');
+      } else {
+        setOrgMessage(`❌ ${data.detail || 'Creation failed'}`);
+      }
+    } catch (err) {
+      setOrgMessage('❌ Creation failed. Please try again.');
+    } finally {
+      setCreatingOrg(false);
+    }
+  };
+
   // Drag and drop handlers
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -319,6 +367,54 @@ export default function Admin() {
           {uploadMessage && (
             <div className={`upload-message ${uploadMessage.startsWith('✅') ? 'success' : 'error'}`}>
               {uploadMessage}
+            </div>
+          )}
+        </section>
+
+        {/* Organization Management */}
+        <section className="org-section">
+          <h2>🏢 Organization Management</h2>
+          <div className="org-create-form" style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '400px' }}>
+            <input
+              type="text"
+              placeholder="Organization Name"
+              value={newOrgName}
+              onChange={(e) => setNewOrgName(e.target.value)}
+              className="org-input"
+            />
+            <input
+              type="text"
+              placeholder="Head User Name"
+              value={headName}
+              onChange={(e) => setHeadName(e.target.value)}
+              className="org-input"
+            />
+            <input
+              type="email"
+              placeholder="Head User Email"
+              value={headEmail}
+              onChange={(e) => setHeadEmail(e.target.value)}
+              className="org-input"
+            />
+            <input
+              type="password"
+              placeholder="Head User Password"
+              value={headPassword}
+              onChange={(e) => setHeadPassword(e.target.value)}
+              className="org-input"
+            />
+            <button 
+              className="btn-create-org"
+              onClick={handleCreateOrg}
+              disabled={creatingOrg || !newOrgName.trim() || !headEmail.trim() || !headPassword.trim()}
+              style={{ marginTop: '10px' }}
+            >
+              {creatingOrg ? 'Creating...' : 'Create Organization & Head'}
+            </button>
+          </div>
+          {orgMessage && (
+            <div className={`upload-message ${orgMessage.startsWith('✅') ? 'success' : 'error'}`}>
+              {orgMessage}
             </div>
           )}
         </section>

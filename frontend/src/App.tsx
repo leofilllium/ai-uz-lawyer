@@ -18,10 +18,12 @@ import History from './pages/History';
 import Admin from './pages/Admin';
 import DocumentValidator from './pages/DocumentValidator';
 import About from './pages/About';
+import PendingApproval from './pages/PendingApproval';
+import ProjectBoard from './pages/ProjectBoard';
 
 // Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     return (
@@ -34,6 +36,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+  
+  // If user is not approved, redirect to pending approval
+  if (user && !user.is_approved && !user.role?.includes('HEAD') && window.location.pathname !== '/pending-approval') {
+    return <Navigate to="/pending-approval" replace />;
   }
 
   return <>{children}</>;
@@ -79,6 +86,25 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/pending-approval"
+        element={
+          <ProtectedRoute>
+            <PendingApproval />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/project-board"
+        element={
+          <ProtectedRoute>
+            <ProjectBoard />
+          </ProtectedRoute>
+        }
+      />
+      
+      {/* ... existing routes ... */}
+      <Route
         path="/"
         element={<About />}
       />
@@ -90,6 +116,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      {/* ... */}
       <Route
         path="/lawyer"
         element={

@@ -8,7 +8,8 @@ from app.models.chat import ChatSession, ChatMessage
 from app.models.contract import ContractAnalysis
 from app.models.generated_contract import GeneratedContract
 from app.models.document import DocumentAnalysis
-from app.models.legal_document import LegalDocument
+from app.models.organization import Organization
+from app.models.task import Task
 
 __all__ = [
     'User',
@@ -17,5 +18,7 @@ __all__ = [
     'ContractAnalysis',
     'GeneratedContract',
     'DocumentAnalysis',
-    'LegalDocument'
+    'LegalDocument',
+    'Organization',
+    'Task'
 ]

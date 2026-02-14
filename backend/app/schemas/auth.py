@@ -12,6 +12,7 @@ class UserRegisterRequest(BaseModel):
     name: str = Field(..., min_length=2, max_length=100)
     email: EmailStr
     password: str = Field(..., min_length=6)
+    organization_id: int | None = None
 
 
 class UserLoginRequest(BaseModel):
@@ -25,6 +26,9 @@ class UserResponse(BaseModel):
     id: int
     name: str
     email: str
+    role: str | None = None
+    is_approved: bool = False
+    organization_id: int | None = None
     created_at: datetime | None = None
     
     class Config:
