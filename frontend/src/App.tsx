@@ -20,6 +20,8 @@ import DocumentValidator from './pages/DocumentValidator';
 import About from './pages/About';
 import PendingApproval from './pages/PendingApproval';
 import ProjectBoard from './pages/ProjectBoard';
+import TaskForm from './pages/TaskForm';
+import TaskDetail from './pages/TaskDetail';
 
 // Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -99,6 +101,30 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <ProjectBoard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/project-board/new"
+        element={
+          <ProtectedRoute>
+            <TaskForm />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/project-board/:id"
+        element={
+          <ProtectedRoute>
+            <TaskDetail />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/project-board/:id/edit"
+        element={
+          <ProtectedRoute>
+            <TaskForm />
           </ProtectedRoute>
         }
       />

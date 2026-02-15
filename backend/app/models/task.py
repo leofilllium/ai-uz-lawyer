@@ -58,6 +58,8 @@ class Task(Base):
     organization = relationship('Organization', back_populates='tasks')
     assignee = relationship('User', foreign_keys=[assignee_id], backref='assigned_tasks')
     reporter = relationship('User', foreign_keys=[reporter_id], backref='reported_tasks')
+    comments = relationship('TaskComment', back_populates='task', cascade='all, delete-orphan', order_by='TaskComment.created_at')
+    attachments = relationship('TaskAttachment', back_populates='task', cascade='all, delete-orphan')
 
     def __repr__(self):
         return f'<Task {self.title}>'

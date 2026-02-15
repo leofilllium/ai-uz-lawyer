@@ -220,16 +220,6 @@ const CARD_META = [
     statLabel: 'анализов',
     sparkData: [0, 1, 2, 1, 3, 2, 4, 3, 5, 6],
   },
-  {
-    key: 'history',
-    to: '/history',
-    icon: Icons.archive,
-    title: 'История',
-    desc: 'Все ваши консультации, проверки и договоры',
-    stat: 0,
-    statLabel: '',
-    sparkData: [],
-  },
 ];
 
 const ACCENT_COLORS: Record<string, string> = {
@@ -238,7 +228,7 @@ const ACCENT_COLORS: Record<string, string> = {
   validator: 'var(--color-success)',
   generator: 'var(--color-warning)',
   'doc-validator': '#6366f1',
-  history: 'var(--color-info)',
+
 };
 
 /* ── Dashboard Component ─────────────────────────── */
@@ -459,7 +449,7 @@ export default function Dashboard() {
             </div>
             {history.length > 0 && (
               <Link to="/history" className="activity-view-all">
-                Все записи {Icons.chevronRight}
+                Вся история {Icons.chevronRight}
               </Link>
             )}
           </div>

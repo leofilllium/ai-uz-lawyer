@@ -3,10 +3,12 @@ FastAPI Application - AI Lawyer Backend
 Main application entry point with CORS and router configuration.
 """
 
+import os
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.database import create_tables
@@ -83,6 +85,11 @@ app.include_router(generator.router, prefix="/api/generator", tags=["Contract Ge
 app.include_router(history.router, prefix="/api/history", tags=["History"])
 app.include_router(contact.router, prefix="/api/contact", tags=["Contact"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
+
+# Static files for uploads
+uploads_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
+os.makedirs(uploads_dir, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 
 @app.get("/health")

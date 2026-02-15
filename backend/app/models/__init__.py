@@ -10,6 +10,8 @@ from app.models.generated_contract import GeneratedContract
 from app.models.document import DocumentAnalysis
 from app.models.organization import Organization
 from app.models.task import Task
+from app.models.comment import TaskComment
+from app.models.attachment import TaskAttachment
 
 __all__ = [
     'User',
@@ -20,5 +22,7 @@ __all__ = [
     'DocumentAnalysis',
     'LegalDocument',
     'Organization',
-    'Task'
+    'Task',
+    'TaskComment',
+    'TaskAttachment',
 ]

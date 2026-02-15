@@ -3,10 +3,12 @@ Task Schemas
 Pydantic models for Task operations.
 """
 
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, Field
 from datetime import datetime
 from app.models.task import TaskStatus, TaskPriority, TaskComplexity
+from app.schemas.comment import CommentResponse
+from app.schemas.attachment import AttachmentResponse
 
 
 class TaskBase(BaseModel):
@@ -37,11 +39,19 @@ class TaskResponse(TaskBase):
     status: TaskStatus
     organization_id: int
     reporter_id: int
+    reporter_name: Optional[str] = None
+    assignee_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     
-    # Nested minimal user info could be added if needed, 
-    # but for now we'll stick to IDs to avoid circular deps or heavy queries
-    
+    class Config:
+        from_attributes = True
+
+
+class TaskDetailResponse(TaskResponse):
+    """Extended response with comments and attachments."""
+    comments: List[CommentResponse] = []
+    attachments: List[AttachmentResponse] = []
+
     class Config:
         from_attributes = True

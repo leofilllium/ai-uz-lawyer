@@ -94,8 +94,34 @@ export interface Task {
   organization_id: number;
   assignee_id?: number;
   reporter_id: number;
+  reporter_name?: string;
+  assignee_name?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface TaskComment {
+  id: number;
+  task_id: number;
+  user_id: number;
+  user_name: string;
+  content: string;
+  created_at: string;
+}
+
+export interface TaskAttachment {
+  id: number;
+  task_id: number;
+  filename: string;
+  file_size: number;
+  content_type?: string;
+  uploaded_by: number;
+  created_at: string;
+}
+
+export interface TaskDetail extends Task {
+  comments: TaskComment[];
+  attachments: TaskAttachment[];
 }
 
 export interface AuthResponse {
@@ -179,6 +205,26 @@ async function fetchWithAuth(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    headers,
+  });
+  
+  return response;
+}
+
+// Fetch with auth for FormData (file uploads — no Content-Type header)
+async function fetchWithAuthFormData(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  const token = getToken();
+  const headers: Record<string, string> = {};
   
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -294,6 +340,12 @@ export async function getTasks(): Promise<Task[]> {
   return response.json();
 }
 
+export async function getTask(taskId: number): Promise<TaskDetail> {
+  const response = await fetchWithAuth(`/api/tasks/${taskId}`);
+  if (!response.ok) throw new Error('Failed to fetch task');
+  return response.json();
+}
+
 export async function createTask(task: Partial<Task>): Promise<Task> {
   const response = await fetchWithAuth('/api/tasks/', {
     method: 'POST',
@@ -315,6 +367,50 @@ export async function updateTask(taskId: number, updates: Partial<Task>): Promis
 export async function deleteTask(taskId: number): Promise<void> {
   const response = await fetchWithAuth(`/api/tasks/${taskId}`, { method: 'DELETE' });
   if (!response.ok) throw new Error('Failed to delete task');
+}
+
+// Task Comments API
+export async function getTaskComments(taskId: number): Promise<TaskComment[]> {
+  const response = await fetchWithAuth(`/api/tasks/${taskId}/comments`);
+  if (!response.ok) throw new Error('Failed to fetch comments');
+  return response.json();
+}
+
+export async function addTaskComment(taskId: number, content: string): Promise<TaskComment> {
+  const response = await fetchWithAuth(`/api/tasks/${taskId}/comments`, {
+    method: 'POST',
+    body: JSON.stringify({ content })
+  });
+  if (!response.ok) throw new Error('Failed to add comment');
+  return response.json();
+}
+
+export async function deleteTaskComment(taskId: number, commentId: number): Promise<void> {
+  const response = await fetchWithAuth(`/api/tasks/${taskId}/comments/${commentId}`, { method: 'DELETE' });
+  if (!response.ok) throw new Error('Failed to delete comment');
+}
+
+// Task Attachments API
+export async function getTaskAttachments(taskId: number): Promise<TaskAttachment[]> {
+  const response = await fetchWithAuth(`/api/tasks/${taskId}/attachments`);
+  if (!response.ok) throw new Error('Failed to fetch attachments');
+  return response.json();
+}
+
+export async function uploadTaskAttachment(taskId: number, file: File): Promise<TaskAttachment> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await fetchWithAuthFormData(`/api/tasks/${taskId}/attachments`, {
+    method: 'POST',
+    body: formData
+  });
+  if (!response.ok) throw new Error('Failed to upload attachment');
+  return response.json();
+}
+
+export async function deleteTaskAttachment(taskId: number, attachmentId: number): Promise<void> {
+  const response = await fetchWithAuth(`/api/tasks/${taskId}/attachments/${attachmentId}`, { method: 'DELETE' });
+  if (!response.ok) throw new Error('Failed to delete attachment');
 }
 
 
