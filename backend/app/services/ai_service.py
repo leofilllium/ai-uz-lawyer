@@ -3605,7 +3605,7 @@ SEARCH_TOOLS = [
                 },
                 "top_k": {
                     "type": "integer",
-                    "description": "Number of results to return (default 5, max 10)"
+                    "description": "Number of results to return (default 10, max 20)"
                 }
             },
             "required": ["query"]
@@ -3731,7 +3731,7 @@ class AIService:
         # Always do an initial search to guarantee baseline context & sources,
         # even if Haiku decides not to use the search tool in the agentic loop.
         logger.info("Running mandatory pre-search for baseline context...")
-        pre_search_results = await self._retrieve_context(question, top_k=10)
+        pre_search_results = await self._retrieve_context(question, top_k=65)
         if pre_search_results:
             pre_context = self._format_context(pre_search_results)
             all_context_parts.append(pre_context)
@@ -3783,7 +3783,7 @@ class AIService:
                 for block in assistant_content:
                     if block.type == "tool_use" and block.name == "search_legal_database":
                         query = block.input.get("query", "")
-                        search_top_k = min(block.input.get("top_k", 5), 10)
+                        search_top_k = min(block.input.get("top_k", 10), 20)
                         
                         logger.info(f"  Tool call: search_legal_database(query='{query}', top_k={search_top_k})")
                         
@@ -3964,9 +3964,9 @@ class AIService:
         logger.info(f"Using simple mode for chat_mode='{chat_mode}'")
         
         # Quick context retrieval
-        results = await self._retrieve_context(question, top_k=40)
+        results = await self._retrieve_context(question, top_k=65)
         context = self._format_context(results)
-        sources = self._format_sources(results[:60])
+        sources = self._format_sources(results)
         
         messages = []
         if history:
@@ -4012,7 +4012,7 @@ class AIService:
             "query": question,
         }
     
-    async def analyze_contract(self, contract_text: str, top_k: int = 40) -> Dict[str, Any]:
+    async def analyze_contract(self, contract_text: str, top_k: int = 65) -> Dict[str, Any]:
         """
         Analyze a contract for legal compliance.
         Returns structured audit result with validity score.
@@ -4049,7 +4049,7 @@ class AIService:
             ]
             
             for broad_query in broad_searches:
-                results = await self.vector_store.asearch(broad_query, top_k=5)
+                results = await self.vector_store.asearch(broad_query, top_k=15)
                 for result in results:
                     article_key = f"{result.get('metadata', {}).get('source')}_{result.get('metadata', {}).get('article_display')}"
                     if article_key not in seen_articles:
@@ -4123,7 +4123,7 @@ class AIService:
         category: str,
         requirements: str,
         template_context: str,
-        top_k: int = 40
+        top_k: int = 65
     ) -> Dict[str, Any]:
         """
         Generate a contract based on templates, legal context, and user requirements.
@@ -4194,7 +4194,7 @@ class AIService:
             "requirements": requirements,
         }
     
-    async def _retrieve_context(self, query: str, top_k: int = 60) -> List[Dict[str, Any]]:
+    async def _retrieve_context(self, query: str, top_k: int = 65) -> List[Dict[str, Any]]:
         """Retrieve relevant legal context for a query."""
         return await self.vector_store.asearch(query, top_k=top_k)
     
@@ -4403,7 +4403,7 @@ class AIService:
                 "summary": response_text[:500] if response_text else "No response received"
             }
 
-    async def analyze_document(self, document_text: str, document_type: Optional[str] = None, top_k: int = 50) -> Dict[str, Any]:
+    async def analyze_document(self, document_text: str, document_type: Optional[str] = None, top_k: int = 65) -> Dict[str, Any]:
         """
         Analyze a legal document for validity, compliance, and provide improvements.
         Returns comprehensive audit with formal validity, legal validity, up-to-dateness,
@@ -4460,7 +4460,7 @@ class AIService:
             ]
             
             for broad_query in broad_searches:
-                results = await self.vector_store.asearch(broad_query, top_k=20)
+                results = await self.vector_store.asearch(broad_query, top_k=25)
                 for result in results:
                     article_key = f"{result.get('metadata', {}).get('source')}_{result.get('metadata', {}).get('article_display')}"
                     if article_key not in seen_articles:
