@@ -414,6 +414,20 @@ export async function deleteTaskAttachment(taskId: number, attachmentId: number)
   if (!response.ok) throw new Error('Failed to delete attachment');
 }
 
+export async function downloadTaskAttachment(taskId: number, attachmentId: number, filename: string): Promise<void> {
+  const response = await fetchWithAuth(`/api/tasks/${taskId}/attachments/${attachmentId}/download`);
+  if (!response.ok) throw new Error('Failed to download attachment');
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 
 // Lawyer Chat API
 export async function getChatSessions(skip: number = 0, limit: number = 20): Promise<ChatSession[]> {

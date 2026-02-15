@@ -7,6 +7,7 @@ import os
 import uuid
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
@@ -392,3 +393,38 @@ def delete_attachment(
     db.delete(att)
     db.commit()
     return {"message": "Attachment deleted"}
+
+
+@router.get("/{task_id}/attachments/{attachment_id}/download")
+def download_attachment(
+    task_id: int,
+    attachment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Download an attachment file."""
+    att = db.query(TaskAttachment).filter(
+        TaskAttachment.id == attachment_id,
+        TaskAttachment.task_id == task_id,
+    ).first()
+    if not att:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if not task or task.organization_id != current_user.organization_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Handle both absolute and relative file paths
+    file_path = att.file_path
+    if not os.path.isabs(file_path):
+        # Resolve relative path from project root
+        file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), file_path)
+
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found on disk")
+
+    return FileResponse(
+        path=file_path,
+        filename=att.filename,
+        media_type=att.content_type or "application/octet-stream",
+    )

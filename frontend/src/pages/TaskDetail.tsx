@@ -13,8 +13,8 @@ import {
   addTaskComment,
   deleteTaskComment,
   deleteTaskAttachment,
+  downloadTaskAttachment,
   getMe,
-  API_BASE_URL,
   type User,
   type TaskDetail as TaskDetailType,
   TaskStatus,
@@ -303,16 +303,13 @@ export default function TaskDetail() {
                       <div className="attachment-size">{formatBytes(a.file_size)}</div>
                     </div>
                     <div className="attachment-actions">
-                      <a
+                      <button
                         className="attachment-download"
-                        href={`${API_BASE_URL}/${a.file_path}`}
-                        download={a.filename}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        onClick={() => downloadTaskAttachment(task.id, a.id, a.filename)}
                         title="Скачать"
                       >
                         ⬇
-                      </a>
+                      </button>
                       {(user?.id === a.uploaded_by || user?.role === 'HEAD') && (
                         <button className="attachment-delete" onClick={() => handleDeleteAttachment(a.id)}>
                           ✕
