@@ -3278,8 +3278,6 @@ OUTPUT FORMAT:
 
 CHAT_MODE_PROMPTS = {
     'lawyer': LAWYER_PROMPT,
-    'consultant': LAWYER_PROMPT,
-    'risk-manager': RISK_MANAGER_PROMPT,
     'draft-result': DRAFT_RESULT_PROMPT,
     # ─── CORE ─────────────────────────────────
     'risk-manager': LAWYER_PROMPT,
