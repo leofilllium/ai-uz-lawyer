@@ -60,3 +60,9 @@ class StreamChunk(BaseModel):
     session_id: int | None = None
     sources: list[dict] | None = None
     error: str | None = None
+
+
+class DraftResultRequest(BaseModel):
+    """Request to draft a task result."""
+    task_id: int
+    user_instructions: str | None = None

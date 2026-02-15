@@ -13,8 +13,9 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
 from app.models.chat import ChatSession, ChatMessage
+from app.models.task import Task
 from app.routers.auth import get_current_user
-from app.schemas.chat import ChatRequest, ChatSessionResponse, ChatSessionDetailResponse, ChatMessageResponse
+from app.schemas.chat import ChatRequest, ChatSessionResponse, ChatSessionDetailResponse, ChatMessageResponse, DraftResultRequest
 from app.services.ai_service import AIService
 
 # Configure logging
@@ -212,3 +213,49 @@ async def get_session(
     session_dict['messages'] = [ChatMessageResponse.model_validate(m.to_dict()) for m in messages]
     
     return ChatSessionDetailResponse.model_validate(session_dict)
+
+
+@router.post("/draft-result")
+async def draft_result(
+    request: DraftResultRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Draft a legal conclusion for a task using AI."""
+    # Fetch task
+    task = db.query(Task).filter(Task.id == request.task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+        
+    # Build context
+    context = f"Task Title: {task.title}\nDescription: {task.description}\n"
+    if request.user_instructions:
+        context += f"\nUser Instructions: {request.user_instructions}"
+        
+    # Call AI
+    ai_service = AIService(mode='lawyer')
+    try:
+        result = await ai_service.query_with_rag(
+            question="Draft a professional legal conclusion for this task based on the provided context.",
+            chat_mode='draft-result',
+            extra_context=context
+        )
+        
+        # Return streaming response
+        async def generate():
+            async for chunk in result['response']:
+                yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+            yield f"data: {json.dumps({'done': True})}\n\n"
+                
+        return StreamingResponse(
+            generate(),
+            media_type='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'X-Accel-Buffering': 'no'
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error in draft-result: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))

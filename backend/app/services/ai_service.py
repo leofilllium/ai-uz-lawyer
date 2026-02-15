@@ -3252,7 +3252,35 @@ QUICK_ANSWER_PROMPT = """Вы — юрист, дающий быстрые одн
 # ═══════════════════════════════════════════════════════════════
 
 # Mapping of chat modes to prompts
+
+DRAFT_RESULT_PROMPT = """You are an EXPERT AI LEGAL ASSISTANT. Your task is to draft a PROFESSIONAL LEGAL CONCLUSION (RESULT) for a specific task.
+
+CONTEXT:
+The user is a lawyer working on a task.
+You will be provided with:
+1. Task Title and Description.
+2. Retrieved Laws/Codes from the database (RAG Context).
+
+INSTRUCTIONS:
+- Draft a clear, concise, and professional result for the task.
+- EXPLICITLY REFERENCE the relevant articles/laws from the provided context.
+- Use a formal legal tone.
+- Do not make up laws. If no relevant laws are found in the context, state that general legal principles apply but specific database matches were not found.
+- Format the output in Markdown (using bolding for key terms and lists for structured data).
+
+OUTPUT FORMAT:
+**Legal Conclusion**
+[Conclusion text]
+
+**Legal Basis**
+- **[Law Name], Article [X]**: [Brief explanation]
+"""
+
 CHAT_MODE_PROMPTS = {
+    'lawyer': LAWYER_PROMPT,
+    'consultant': LAWYER_PROMPT,
+    'risk-manager': RISK_MANAGER_PROMPT,
+    'draft-result': DRAFT_RESULT_PROMPT,
     # ─── CORE ─────────────────────────────────
     'risk-manager': LAWYER_PROMPT,
     'smalltalk': SMALLTALK_PROMPT,

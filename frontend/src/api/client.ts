@@ -524,6 +524,64 @@ export async function sendChatMessage(
   }
 }
 
+export async function draftTaskResult(
+  taskId: number,
+  instructions?: string,
+  onChunk?: (chunk: string) => void,
+  onDone?: () => void
+): Promise<void> {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  const response = await fetch(`${API_BASE_URL}/api/lawyer/draft-result`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ task_id: taskId, user_instructions: instructions }),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Drafting failed');
+  }
+  
+  // Parse SSE stream
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error('No response body');
+  
+  const decoder = new TextDecoder();
+  let buffer = '';
+  
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.chunk && onChunk) {
+            onChunk(data.chunk);
+          }
+          if (data.done && onDone) {
+            onDone();
+          }
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+    }
+  }
+}
+
 // Validator API
 export async function analyzeContract(contract: string): Promise<ContractAnalysis> {
   const response = await fetchWithAuth('/api/validator/analyze', {

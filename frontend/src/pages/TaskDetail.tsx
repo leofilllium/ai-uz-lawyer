@@ -16,6 +16,7 @@ import {
   deleteTaskAttachment,
   downloadTaskAttachment,
   uploadTaskAttachment,
+  draftTaskResult,
   getMe,
   type User,
   type TaskDetail as TaskDetailType,
@@ -74,6 +75,7 @@ export default function TaskDetail() {
   const [commentFiles, setCommentFiles] = useState<File[]>([]);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [draftLoading, setDraftLoading] = useState(false);
 
   const [time, setTime] = useState(new Date());
   useEffect(() => {
@@ -133,6 +135,23 @@ export default function TaskDetail() {
       alert('Ошибка при добавлении комментария');
     } finally {
       setSubmittingComment(false);
+    }
+  };
+
+  const handleDraftResult = async () => {
+    if (!task) return;
+    // If text exists, ask to append or clear? Just append.
+    setDraftLoading(true);
+    try {
+      await draftTaskResult(
+        task.id, 
+        undefined, 
+        (chunk) => setCommentText(prev => prev + chunk),
+        () => setDraftLoading(false)
+      );
+    } catch (e) {
+      alert("Ошибка генерации: " + e);
+      setDraftLoading(false);
     }
   };
 
@@ -503,10 +522,30 @@ export default function TaskDetail() {
                       if (e.target.files) {
                         setCommentFiles(prev => [...prev, ...Array.from(e.target.files!)]);
                       }
-                      // Reset value to allow selecting same file again if needed
                       e.target.value = '';
                     }}
                   />
+                  
+                  <button
+                    type="button"
+                    onClick={handleDraftResult}
+                    disabled={draftLoading || submittingComment}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '4px',
+                      color: draftLoading ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontSize: '13px',
+                      transition: 'color 0.2s'
+                    }}
+                    title="Сгенерировать черновик с ИИ"
+                  >
+                    <span>{draftLoading ? '✨ Генерирую...' : '✨ Черновик с ИИ'}</span>
+                  </button>
                 </div>
                 
                 <div style={{

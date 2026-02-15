@@ -10,7 +10,7 @@ from app.schemas.attachment import AttachmentResponse
 
 
 class CommentCreate(BaseModel):
-    content: str = Field(..., min_length=1, max_length=5000)
+    content: str = Field(..., min_length=1, max_length=100000)
 
 
 class CommentResponse(BaseModel):
