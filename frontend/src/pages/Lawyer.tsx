@@ -8,7 +8,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
-import { sendChatMessage, getChatSessions, getChatSession, deleteHistoryItem, type ChatSession, type Source } from '../api/client';
+import { sendChatMessage, getChatSessions, getChatSession, deleteHistoryItem, getTasks, type ChatSession, type Source, type Task } from '../api/client';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -33,11 +33,18 @@ export default function Lawyer() {
   
   // Task context state
   const [showTaskContext, setShowTaskContext] = useState(false);
-  const [taskContextName, setTaskContextName] = useState('');
-  const [taskContextDesc, setTaskContextDesc] = useState('');
+  const [availableTasks, setAvailableTasks] = useState<Task[]>([]);
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [taskContextFile, setTaskContextFile] = useState<File | null>(null);
   const [taskContextFileText, setTaskContextFileText] = useState('');
   const [fileError, setFileError] = useState('');
+  
+  // Load available tasks when context panel is opened
+  useEffect(() => {
+    if (showTaskContext && availableTasks.length === 0) {
+      getTasks().then(setAvailableTasks).catch(() => setAvailableTasks([]));
+    }
+  }, [showTaskContext]);
 
   // Load session from URL parameter on mount
   useEffect(() => {
@@ -230,9 +237,10 @@ export default function Lawyer() {
     let assistantContent = '';
     
     // Build task context if provided
-    const taskContext = (taskContextName || taskContextDesc || taskContextFileText) ? {
-      name: taskContextName || undefined,
-      description: taskContextDesc || undefined,
+    const selectedTask = availableTasks.find(t => t.id === selectedTaskId);
+    const taskContext = (selectedTask || taskContextFileText) ? {
+      name: selectedTask?.title || undefined,
+      description: selectedTask?.description || undefined,
       fileText: taskContextFileText || undefined,
     } : undefined;
 
@@ -627,20 +635,26 @@ export default function Lawyer() {
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '18px' }}
               >✕</button>
             </div>
-            <input
-              type="text"
-              value={taskContextName}
-              onChange={(e) => setTaskContextName(e.target.value)}
-              placeholder="Название задачи"
+            <select
+              value={selectedTaskId ?? ''}
+              onChange={(e) => setSelectedTaskId(e.target.value ? Number(e.target.value) : null)}
               style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '13px' }}
-            />
-            <textarea
-              value={taskContextDesc}
-              onChange={(e) => setTaskContextDesc(e.target.value)}
-              placeholder="Описание задачи (необязательно)"
-              rows={2}
-              style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '13px', resize: 'vertical' }}
-            />
+            >
+              <option value="">— Выберите задачу —</option>
+              {availableTasks.map(task => (
+                <option key={task.id} value={task.id}>
+                  {task.title} ({task.status})
+                </option>
+              ))}
+            </select>
+            {selectedTaskId && (() => {
+              const task = availableTasks.find(t => t.id === selectedTaskId);
+              return task?.description ? (
+                <div style={{ padding: '6px 12px', borderRadius: '8px', background: 'var(--bg-primary)', fontSize: '12px', color: 'var(--text-secondary)', maxHeight: '60px', overflow: 'auto' }}>
+                  {task.description}
+                </div>
+              ) : null;
+            })()}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <label style={{
                 padding: '6px 12px',
@@ -672,35 +686,32 @@ export default function Lawyer() {
         )}
 
         <form onSubmit={handleSubmit} className="chat-input-form">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
-            <button
-              type="button"
-              onClick={() => setShowTaskContext(!showTaskContext)}
-              title="Добавить контекст задачи"
-              style={{
-                background: showTaskContext || taskContextName || taskContextDesc || taskContextFileText ? 'var(--accent-color, #6c5ce7)' : 'var(--bg-secondary)',
-                color: showTaskContext || taskContextName || taskContextDesc || taskContextFileText ? '#fff' : 'var(--text-secondary)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '8px',
-                padding: '8px 10px',
-                cursor: 'pointer',
-                fontSize: '16px',
-                flexShrink: 0,
-                transition: 'all 0.2s ease',
-              }}
-            >📋</button>
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Задайте юридический вопрос..."
-              disabled={loading}
-              style={{ flex: 1 }}
-            />
-            <button type="submit" disabled={loading || !input.trim()}>
-              Отправить
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setShowTaskContext(!showTaskContext)}
+            title="Добавить контекст задачи"
+            style={{
+              background: showTaskContext || selectedTaskId || taskContextFileText ? 'var(--accent-color, #6c5ce7)' : 'var(--bg-secondary)',
+              color: showTaskContext || selectedTaskId || taskContextFileText ? '#fff' : 'var(--text-secondary)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '8px',
+              padding: '8px 10px',
+              cursor: 'pointer',
+              fontSize: '16px',
+              flexShrink: 0,
+              transition: 'all 0.2s ease',
+            }}
+          >📋</button>
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Задайте юридический вопрос..."
+            disabled={loading}
+          />
+          <button type="submit" disabled={loading || !input.trim()}>
+            Отправить
+          </button>
         </form>
       </main>
     </div>
