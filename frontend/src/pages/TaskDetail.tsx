@@ -16,7 +16,6 @@ import {
   deleteTaskAttachment,
   downloadTaskAttachment,
   uploadTaskAttachment,
-  draftTaskResult,
   getMe,
   type User,
   type TaskDetail as TaskDetailType,
@@ -75,7 +74,6 @@ export default function TaskDetail() {
   const [commentFiles, setCommentFiles] = useState<File[]>([]);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const [draftLoading, setDraftLoading] = useState(false);
 
   const [time, setTime] = useState(new Date());
   useEffect(() => {
@@ -135,23 +133,6 @@ export default function TaskDetail() {
       alert('Ошибка при добавлении комментария');
     } finally {
       setSubmittingComment(false);
-    }
-  };
-
-  const handleDraftResult = async () => {
-    if (!task) return;
-    // If text exists, ask to append or clear? Just append.
-    setDraftLoading(true);
-    try {
-      await draftTaskResult(
-        task.id, 
-        undefined, 
-        (chunk) => setCommentText(prev => prev + chunk),
-        () => setDraftLoading(false)
-      );
-    } catch (e) {
-      alert("Ошибка генерации: " + e);
-      setDraftLoading(false);
     }
   };
 
@@ -425,7 +406,7 @@ export default function TaskDetail() {
             )}
 
             <form className="comment-form" onSubmit={handleAddComment}>
-              <div style={{ position: 'relative' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <textarea
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
@@ -435,7 +416,6 @@ export default function TaskDetail() {
                     width: '100%',
                     minHeight: '120px',
                     padding: '12px',
-                    paddingBottom: '50px', // Space for actions
                     resize: 'vertical',
                     borderRadius: 'var(--radius-md)',
                     border: '1px solid var(--color-border)',
@@ -449,31 +429,26 @@ export default function TaskDetail() {
                 {/* File List */}
                 {commentFiles.length > 0 && (
                   <div style={{ 
-                    position: 'absolute', 
-                    bottom: '50px', 
-                    left: '12px', 
-                    right: '12px',
                     display: 'flex',
                     flexWrap: 'wrap',
                     gap: '8px',
-                    pointerEvents: 'none' // Click through to textarea
                   }}>
                     {commentFiles.map((f, i) => (
                       <div key={i} style={{
                         background: 'rgba(108, 92, 231, 0.1)',
                         border: '1px solid rgba(108, 92, 231, 0.2)',
                         borderRadius: '4px',
-                        padding: '2px 6px',
-                        fontSize: '11px',
+                        padding: '4px 8px',
+                        fontSize: '12px',
                         color: 'var(--color-primary)',
-                        pointerEvents: 'auto',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '4px'
+                        gap: '6px'
                       }}>
+                        <span>📎</span>
                         {f.name}
                         <span 
-                          style={{ cursor: 'pointer', fontWeight: 'bold' }}
+                          style={{ cursor: 'pointer', fontWeight: 'bold', marginLeft: '4px' }}
                           onClick={(e) => {
                             e.preventDefault(); 
                             setCommentFiles(prev => prev.filter((_, idx) => idx !== i));
@@ -485,79 +460,56 @@ export default function TaskDetail() {
                 )}
 
                 <div style={{
-                  position: 'absolute',
-                  bottom: '12px',
-                  left: '12px',
                   display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px'
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
                 }}>
-                  <button 
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      padding: '4px',
-                      color: 'var(--color-text-secondary)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      fontSize: '13px'
-                    }}
-                    title="Прикрепить файл"
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                    </svg>
-                    {commentFiles.length === 0 && <span>Прикрепить файл</span>}
-                  </button>
-                  <input
-                    type="file"
-                    multiple
-                    ref={fileInputRef}
-                    style={{ display: 'none' }}
-                    onChange={(e) => {
-                      if (e.target.files) {
-                        setCommentFiles(prev => [...prev, ...Array.from(e.target.files!)]);
-                      }
-                      e.target.value = '';
-                    }}
-                  />
+                  {/* Left Actions (Attach) */}
+                  <div>
+                    <button 
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      style={{
+                        background: 'none',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        padding: '6px 12px',
+                        color: 'var(--color-text-secondary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '13px',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.borderColor = 'var(--color-text-primary)'}
+                      onMouseOut={(e) => e.currentTarget.style.borderColor = 'var(--color-border)'}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                      </svg>
+                      <span>Прикрепить файл</span>
+                    </button>
+                    <input
+                      type="file"
+                      multiple
+                      ref={fileInputRef}
+                      style={{ display: 'none' }}
+                      onChange={(e) => {
+                        if (e.target.files) {
+                          setCommentFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+                        }
+                        e.target.value = '';
+                      }}
+                    />
+                  </div>
                   
-                  <button
-                    type="button"
-                    onClick={handleDraftResult}
-                    disabled={draftLoading || submittingComment}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      padding: '4px',
-                      color: draftLoading ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      fontSize: '13px',
-                      transition: 'color 0.2s'
-                    }}
-                    title="Сгенерировать черновик с ИИ"
-                  >
-                    <span>{draftLoading ? '✨ Генерирую...' : '✨ Черновик с ИИ'}</span>
-                  </button>
-                </div>
-                
-                <div style={{
-                  position: 'absolute',
-                  bottom: '12px',
-                  right: '12px'
-                }}>
+                  {/* Right Actions (Send) */}
                   <button 
                     type="submit" 
                     disabled={(!commentText.trim() && commentFiles.length === 0) || submittingComment}
                     className="btn btn-primary"
-                    style={{ padding: '6px 16px', fontSize: '13px' }}
+                    style={{ padding: '8px 20px', fontSize: '14px' }}
                   >
                     {submittingComment ? 'Отправка...' : 'Отправить'}
                   </button>
