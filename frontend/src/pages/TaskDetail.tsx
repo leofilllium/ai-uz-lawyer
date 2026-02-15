@@ -382,6 +382,35 @@ export default function TaskDetail() {
 
         {/* Sidebar */}
         <div className="task-detail-sidebar">
+          {/* AI Help Button for Assignee */}
+          {user?.id === task.assignee_id && (
+            <button
+              onClick={() => navigate(`/lawyer?taskId=${task.id}`)}
+              style={{
+                width: '100%',
+                marginBottom: '20px',
+                background: 'linear-gradient(135deg, #6c5ce7 0%, #a55eea 100%)',
+                color: 'white',
+                border: 'none',
+                padding: '12px',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 15px rgba(108, 92, 231, 0.35)',
+                transition: 'transform 0.2s',
+              }}
+              onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              ✨ ИИ в помощь
+            </button>
+          )}
+
+
           <div className="sidebar-field">
             <span className="sidebar-field__label">Статус</span>
             <span className={`status-badge status-badge--${task.status}`}>

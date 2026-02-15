@@ -8,7 +8,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
-import { sendChatMessage, getChatSessions, getChatSession, deleteHistoryItem, getTasks, getMe, getTask, getTaskAttachmentContent, type ChatSession, type Source, type Task, type User, type TaskDetail, type TaskAttachment, TaskStatus } from '../api/client';
+import { sendChatMessage, getChatSessions, getChatSession, deleteHistoryItem, getTasks, getMe, getTask, getTaskAttachmentContent, type ChatSession, type Source, type Task, type User, TaskStatus } from '../api/client';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -123,9 +123,11 @@ export default function Lawyer() {
     fetchTaskAndAttachment();
   }, [selectedTaskId]);
 
-  // Load session from URL parameter on mount
+  // Load session or taskId from URL parameter on mount
   useEffect(() => {
     const sessionParam = searchParams.get('session');
+    const taskIdParam = searchParams.get('taskId');
+
     if (sessionParam) {
       const sessionIdFromUrl = parseInt(sessionParam, 10);
       if (!isNaN(sessionIdFromUrl)) {
@@ -142,6 +144,14 @@ export default function Lawyer() {
           .catch((err) => {
             console.error('Failed to load session from URL:', err);
           });
+      }
+    }
+
+    if (taskIdParam) {
+      const tid = Number(taskIdParam);
+      if (!isNaN(tid)) {
+        setSelectedTaskId(tid);
+        setShowTaskContext(true);
       }
     }
   }, [searchParams]);
