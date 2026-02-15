@@ -22,6 +22,7 @@ import PendingApproval from './pages/PendingApproval';
 import ProjectBoard from './pages/ProjectBoard';
 import TaskForm from './pages/TaskForm';
 import TaskDetail from './pages/TaskDetail';
+import TeamManagement from './pages/TeamManagement';
 
 // Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -129,6 +130,15 @@ function AppRoutes() {
         }
       />
       
+      <Route
+        path="/team"
+        element={
+          <ProtectedRoute>
+            <TeamManagement />
+          </ProtectedRoute>
+        }
+      />
+
       {/* ... existing routes ... */}
       <Route
         path="/"
