@@ -35,12 +35,12 @@ import {
 
 /* ───── constants ───── */
 const COLUMNS = [
-  { id: TaskStatus.BACKLOG, title: 'Backlog', color: '#8b949e' },
+  { id: TaskStatus.BACKLOG, title: 'Бэклог', color: '#8b949e' },
   { id: TaskStatus.TO_DO, title: 'To Do', color: '#3fb950' },
-  { id: TaskStatus.IN_PROGRESS, title: 'In Progress', color: '#d29922' },
-  { id: TaskStatus.REVIEW, title: 'Review', color: '#58a6ff' },
-  { id: TaskStatus.DONE, title: 'Done', color: '#a371f7' },
-  { id: TaskStatus.RE_DO, title: 'Re-Do', color: '#da3633' },
+  { id: TaskStatus.IN_PROGRESS, title: 'В процессе', color: '#d29922' },
+  { id: TaskStatus.REVIEW, title: 'На проверке', color: '#58a6ff' },
+  { id: TaskStatus.DONE, title: 'Завершено', color: '#a371f7' },
+  { id: TaskStatus.RE_DO, title: 'Переделать', color: '#da3633' },
 ];
 
 /* ───── Task Card (sortable) ───── */
