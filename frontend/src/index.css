@@ -86,7 +86,7 @@
   --color-info-light: #E3F2FD;
 
   /* Typography */
-  --font-display: 'Involve', 'Playfair Display', Georgia, serif;
+  --font-display: 'Involve','DM Sans',-apple-system,BlinkMacSystemFont,sans-serif;
   --font-body: 'Involve', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 
   /* Spacing (4px base, mathematical scaling) */
