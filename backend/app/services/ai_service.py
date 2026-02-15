@@ -3727,6 +3727,20 @@ class AIService:
         all_sources = []       # Accumulated from all search rounds
         all_context_parts = [] # Raw context strings from all rounds
         
+        # ─── MANDATORY PRE-SEARCH ─────────────────────────────────────
+        # Always do an initial search to guarantee baseline context & sources,
+        # even if Haiku decides not to use the search tool in the agentic loop.
+        logger.info("Running mandatory pre-search for baseline context...")
+        pre_search_results = await self._retrieve_context(question, top_k=10)
+        if pre_search_results:
+            pre_context = self._format_context(pre_search_results)
+            all_context_parts.append(pre_context)
+            pre_sources = self._format_sources(pre_search_results)
+            all_sources.extend(pre_sources)
+            logger.info(f"Pre-search found {len(pre_search_results)} results, {len(pre_sources)} sources")
+        else:
+            logger.info("Pre-search found no results")
+        
         # Build conversation messages
         messages = []
         if history:
@@ -3975,7 +3989,7 @@ class AIService:
                 async with self.client.messages.stream(
                     model=self.settings.claude_opus_model,
                     max_tokens=8000,
-                    system=system_prompt,
+                    system=system_prompt + KB_ENFORCEMENT_INSTRUCTION,
                     messages=messages,
                 ) as stream:
                     chunk_count = 0
