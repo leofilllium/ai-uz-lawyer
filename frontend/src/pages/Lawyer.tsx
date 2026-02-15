@@ -14,6 +14,10 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   sources?: Source[];
+  attachedTask?: {
+    id: number;
+    title: string;
+  };
 }
 
 export default function Lawyer() {
@@ -260,12 +264,6 @@ export default function Lawyer() {
     if (!input.trim() || loading) return;
 
     const userMessage = input.trim();
-    setInput('');
-    setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
-    setLoading(true);
-
-    let assistantContent = '';
-    
     // Build task context if provided
     const selectedTask = availableTasks.find(t => t.id === selectedTaskId);
     const taskContext = (selectedTask || taskContextFileText) ? {
@@ -273,6 +271,16 @@ export default function Lawyer() {
       description: selectedTask?.description || undefined,
       fileText: taskContextFileText || undefined,
     } : undefined;
+
+    setInput('');
+    setMessages((prev) => [...prev, { 
+      role: 'user', 
+      content: userMessage,
+      attachedTask: selectedTask ? { id: selectedTask.id, title: selectedTask.title } : undefined
+    }]);
+    setLoading(true);
+
+    let assistantContent = '';
 
     try {
       await sendChatMessage(
@@ -607,6 +615,31 @@ export default function Lawyer() {
               <div key={idx} className={`message ${msg.role}`}>
                 <div className="message-avatar">{msg.role === 'user' ? '👤' : '⚖️'}</div>
                 <div className="message-content">
+                  {msg.attachedTask && (
+                    <div className="attached-task-badge" style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      padding: '4px 8px',
+                      borderRadius: '12px',
+                      marginBottom: '8px',
+                      fontSize: '12px',
+                      color: 'rgba(255, 255, 255, 0.9)',
+                      maxWidth: '100%'
+                    }}>
+                      <span style={{ fontSize: '14px' }}>📎</span>
+                      <span style={{ 
+                        whiteSpace: 'nowrap', 
+                        overflow: 'hidden', 
+                        textOverflow: 'ellipsis',
+                        maxWidth: '200px'
+                      }}>
+                        Контекст: <strong>{msg.attachedTask.title}</strong>
+                      </span>
+                    </div>
+                  )}
                   <ReactMarkdown 
                     remarkPlugins={[remarkGfm]}
                     components={msg.role === 'assistant' ? components : undefined}
