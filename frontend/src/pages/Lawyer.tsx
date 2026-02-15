@@ -620,25 +620,15 @@ export default function Lawyer() {
 
         {/* Task Context Panel */}
         {showTaskContext && (
-          <div className="task-context-panel" style={{
-            padding: '12px 16px',
-            borderTop: '1px solid var(--border-color)',
-            background: 'var(--bg-secondary)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>📋 Контекст задачи</span>
-              <button 
-                onClick={() => setShowTaskContext(false)} 
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '18px' }}
-              >✕</button>
+          <div className="task-context-panel">
+            <div className="task-context-header">
+              <span>📋 Контекст задачи</span>
+              <button onClick={() => setShowTaskContext(false)}>✕</button>
             </div>
             <select
+              className="task-context-select"
               value={selectedTaskId ?? ''}
               onChange={(e) => setSelectedTaskId(e.target.value ? Number(e.target.value) : null)}
-              style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '13px' }}
             >
               <option value="">— Выберите задачу —</option>
               {availableTasks.map(task => (
@@ -650,21 +640,13 @@ export default function Lawyer() {
             {selectedTaskId && (() => {
               const task = availableTasks.find(t => t.id === selectedTaskId);
               return task?.description ? (
-                <div style={{ padding: '6px 12px', borderRadius: '8px', background: 'var(--bg-primary)', fontSize: '12px', color: 'var(--text-secondary)', maxHeight: '60px', overflow: 'auto' }}>
+                <div className="task-context-desc-preview">
                   {task.description}
                 </div>
               ) : null;
             })()}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <label style={{
-                padding: '6px 12px',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
-                background: 'var(--bg-primary)',
-                cursor: 'pointer',
-                fontSize: '13px',
-                color: 'var(--text-secondary)',
-              }}>
+            <div className="task-context-file-row">
+              <label className={`task-context-file-label ${taskContextFile ? 'has-file' : ''}`}>
                 📎 {taskContextFile ? taskContextFile.name : 'Прикрепить файл (.txt, .docx, .doc)'}
                 <input
                   type="file"
@@ -675,32 +657,22 @@ export default function Lawyer() {
               </label>
               {taskContextFile && (
                 <button 
+                  className="task-context-remove-btn"
                   onClick={() => { setTaskContextFile(null); setTaskContextFileText(''); setFileError(''); }}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e74c3c', fontSize: '14px' }}
                 >🗑️</button>
               )}
             </div>
-            {fileError && <span style={{ color: '#e74c3c', fontSize: '12px' }}>⚠️ {fileError}</span>}
-            {taskContextFileText && <span style={{ color: '#2ecc71', fontSize: '12px' }}>✅ Текст извлечён ({(taskContextFileText.length / 1024).toFixed(1)}KB)</span>}
+            {fileError && <span className="task-context-status error">⚠️ {fileError}</span>}
+            {taskContextFileText && <span className="task-context-status success">✅ Текст извлечён ({(taskContextFileText.length / 1024).toFixed(1)}KB)</span>}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="chat-input-form">
           <button
             type="button"
+            className={`btn-task-context ${showTaskContext || selectedTaskId || taskContextFileText ? 'active' : ''}`}
             onClick={() => setShowTaskContext(!showTaskContext)}
             title="Добавить контекст задачи"
-            style={{
-              background: showTaskContext || selectedTaskId || taskContextFileText ? 'var(--accent-color, #6c5ce7)' : 'var(--bg-secondary)',
-              color: showTaskContext || selectedTaskId || taskContextFileText ? '#fff' : 'var(--text-secondary)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '8px',
-              padding: '8px 10px',
-              cursor: 'pointer',
-              fontSize: '16px',
-              flexShrink: 0,
-              transition: 'all 0.2s ease',
-            }}
           >📋</button>
           <input
             type="text"

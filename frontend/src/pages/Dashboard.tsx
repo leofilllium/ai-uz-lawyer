@@ -393,7 +393,7 @@ export default function Dashboard() {
               </svg>
             </div>
             <div>
-              <h1 className="dash-header__title">AI Юрист</h1>
+              <h1 className="dash-header__title">Юридическая платформа</h1>
               <span className="dash-header__subtitle">Правовой помощник Узбекистана</span>
             </div>
           </div>
