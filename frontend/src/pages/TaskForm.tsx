@@ -165,35 +165,59 @@ export default function TaskForm() {
     <div className="task-form-page">
       {/* Header */}
       <header className="dash-header">
-        <div className="header-brand">
-          <div className="header-logo-icon">⚖</div>
-          <div className="header-brand-text">
-            <span className="header-title-main" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>
-              AI Lawyer
+        <div className="dash-header__left">
+          <div className="dash-header__brand">
+            <div className="brand-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3v18" />
+                <path d="M4 7h16" />
+                <path d="M4 7l3 8a4 4 0 0 0 4-4L7 7" />
+                <path d="M20 7l-3 8a4 4 0 0 1-4-4l4-4" />
+                <circle cx="12" cy="3" r="1" fill="currentColor" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="dash-header__title" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>
+                AI Юрист
+              </h1>
+              <span className="dash-header__subtitle">{isEdit ? 'Редактирование задачи' : 'Новая задача'}</span>
+            </div>
+          </div>
+          <div className="dash-header__meta">
+            <span className="system-status">
+              <span className="status-dot" />
+              Все системы работают
             </span>
-            <span className="header-title-sub">{isEdit ? 'Редактирование' : 'Новая задача'}</span>
+            <span className="header-divider" />
+            <span className="header-time">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}>
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+              <span>{time.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
+              <span className="header-date">
+                {time.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+              </span>
+            </span>
           </div>
         </div>
-        <div className="header-center">
-          <div className="header-system-status">
-            <div className="status-indicator" />
-            <span>Система активна</span>
-          </div>
-          <div className="header-time">
-            {time.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-          </div>
-        </div>
-        <div className="header-right">
+        <div className="dash-header__right">
           {user && (
-            <div className="header-user-badge">
-              <div className="user-badge-avatar">{user.name?.charAt(0).toUpperCase() || 'U'}</div>
-              <div className="user-badge-info">
-                <span className="user-badge-name">{user.name}</span>
-                <span className="user-badge-role">{user.role}</span>
-              </div>
+            <div className="user-badge" title={user.name || ''}>
+              <span className="user-initial">
+                {user.name?.charAt(0).toUpperCase() || 'U'}
+              </span>
+              <span className="user-badge__name">{user.name}</span>
             </div>
           )}
-          <button className="header-theme-toggle" onClick={handleLogout} title="Выйти">⎋</button>
+          <button onClick={handleLogout} className="btn-logout-premium" title="Выйти">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            <span>Выход</span>
+          </button>
         </div>
         <div className="header-underline" aria-hidden="true" />
       </header>
