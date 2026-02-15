@@ -23,6 +23,7 @@ import ProjectBoard from './pages/ProjectBoard';
 import TaskForm from './pages/TaskForm';
 import TaskDetail from './pages/TaskDetail';
 import TeamManagement from './pages/TeamManagement';
+import Calendar from './pages/Calendar';
 
 // Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -135,6 +136,15 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <TeamManagement />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/calendar"
+        element={
+          <ProtectedRoute>
+            <Calendar />
           </ProtectedRoute>
         }
       />

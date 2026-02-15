@@ -220,6 +220,23 @@ const CARD_META = [
     statLabel: 'анализов',
     sparkData: [0, 1, 2, 1, 3, 2, 4, 3, 5, 6],
   },
+  {
+    key: 'calendar',
+    to: '/calendar',
+    icon: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2" />
+        <line x1="16" y1="2" x2="16" y2="6" />
+        <line x1="8" y1="2" x2="8" y2="6" />
+        <line x1="3" y1="10" x2="21" y2="10" />
+      </svg>
+    ),
+    title: 'Календарь',
+    desc: 'Дедлайны задач и события организации',
+    stat: 0,
+    statLabel: 'событий',
+    sparkData: [1, 2, 3, 2, 4, 3, 5, 4, 6, 5],
+  },
 ];
 
 const ACCENT_COLORS: Record<string, string> = {
@@ -228,7 +245,7 @@ const ACCENT_COLORS: Record<string, string> = {
   validator: 'var(--color-success)',
   generator: 'var(--color-warning)',
   'doc-validator': '#6366f1',
-
+  calendar: '#0ea5e9',
 };
 
 /* ── Dashboard Component ─────────────────────────── */

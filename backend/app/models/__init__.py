@@ -12,6 +12,7 @@ from app.models.organization import Organization
 from app.models.task import Task
 from app.models.comment import TaskComment
 from app.models.attachment import TaskAttachment
+from app.models.calendar_event import CalendarEvent
 
 __all__ = [
     'User',

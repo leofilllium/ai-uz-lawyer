@@ -22,7 +22,8 @@ from app.routers import (
     doc_validator, 
     organization, 
     tasks,
-    contact
+    contact,
+    calendar
 )
 
 # Configure logging
@@ -85,6 +86,7 @@ app.include_router(generator.router, prefix="/api/generator", tags=["Contract Ge
 app.include_router(history.router, prefix="/api/history", tags=["History"])
 app.include_router(contact.router, prefix="/api/contact", tags=["Contact"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
+app.include_router(calendar.router, prefix="/api/calendar", tags=["Calendar"])
 
 # Static files for uploads
 uploads_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")

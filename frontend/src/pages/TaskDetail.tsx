@@ -10,6 +10,7 @@ import remarkGfm from 'remark-gfm';
 import {
   getTask,
   updateTask,
+  deleteTask,
   addTaskComment,
   deleteTaskComment,
   deleteTaskAttachment,
@@ -244,22 +245,29 @@ export default function TaskDetail() {
             ← Доска
           </button>
           {isSeniorOrHead && (
-            <button
-              onClick={() => navigate(`/project-board/${task.id}/edit`)}
-              style={{
-                background: 'var(--color-surface)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-md)',
-                padding: '8px 16px',
-                color: 'var(--color-text-primary)',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: 500,
-                fontFamily: 'var(--font-body)',
-              }}
-            >
-              ✎ Редактировать
-            </button>
+            <>
+              <button
+                onClick={() => navigate(`/project-board/${task.id}/edit`)}
+                className="btn btn-secondary"
+                style={{ padding: '8px 16px', height: 'auto', fontSize: '13px' }}
+              >
+                ✎ Редактировать
+              </button>
+              <button
+                className="btn-task-delete"
+                onClick={async () => {
+                  if (!window.confirm('Вы уверены, что хотите удалить эту задачу?')) return;
+                  try {
+                    await deleteTask(task.id);
+                    navigate('/project-board');
+                  } catch {
+                    alert('Ошибка при удалении задачи');
+                  }
+                }}
+              >
+                🗑 Удалить
+              </button>
+            </>
           )}
         </div>
       </div>

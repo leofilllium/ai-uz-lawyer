@@ -783,3 +783,40 @@ export async function getDocumentValidationById(id: number): Promise<DocumentAna
   if (!response.ok) throw new Error('Document analysis not found');
   return response.json();
 }
+
+
+// Calendar Events API
+export interface CalendarEvent {
+  id: number;
+  title: string;
+  description?: string;
+  event_datetime: string;
+  organization_id: number;
+  created_by: number;
+  created_at: string;
+  creator_name?: string;
+}
+
+export async function getCalendarEvents(year?: number, month?: number): Promise<CalendarEvent[]> {
+  const params = new URLSearchParams();
+  if (year) params.set('year', String(year));
+  if (month) params.set('month', String(month));
+  const qs = params.toString();
+  const response = await fetchWithAuth(`/api/calendar/${qs ? '?' + qs : ''}`);
+  if (!response.ok) throw new Error('Failed to load calendar events');
+  return response.json();
+}
+
+export async function createCalendarEvent(data: { title: string; description?: string; event_datetime: string }): Promise<CalendarEvent> {
+  const response = await fetchWithAuth('/api/calendar/', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error('Failed to create event');
+  return response.json();
+}
+
+export async function deleteCalendarEvent(eventId: number): Promise<void> {
+  const response = await fetchWithAuth(`/api/calendar/${eventId}`, { method: 'DELETE' });
+  if (!response.ok) throw new Error('Failed to delete event');
+}

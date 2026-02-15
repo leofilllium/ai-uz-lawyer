@@ -194,7 +194,7 @@ def delete_task(
     if db_task.organization_id != current_user.organization_id:
         raise HTTPException(status_code=403, detail="Task belongs to another organization")
         
-    if current_user.role != UserRole.HEAD and db_task.reporter_id != current_user.id:
+    if current_user.role not in (UserRole.HEAD, UserRole.SENIOR) and db_task.reporter_id != current_user.id:
         raise HTTPException(status_code=403, detail="You do not have permission to delete this task")
         
     db.delete(db_task)
