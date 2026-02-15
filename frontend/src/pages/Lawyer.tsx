@@ -123,16 +123,6 @@ export default function Lawyer() {
     fetchTaskAndAttachment();
   }, [selectedTaskId]);
 
-  // When task name changes (loaded), update input if it's empty
-  useEffect(() => {
-    if (selectedTaskId && availableTasks.length > 0) {
-      const task = availableTasks.find(t => t.id === selectedTaskId);
-      if (task && !input) {
-        setInput(`Выполни задачу: ${task.title}`);
-      }
-    }
-  }, [selectedTaskId, availableTasks]);
-
   // Load session or taskId from URL parameter on mount
   useEffect(() => {
     const sessionParam = searchParams.get('session');
