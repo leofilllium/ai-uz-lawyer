@@ -388,7 +388,6 @@ async def upload_attachment(
         filename=file.filename or "unnamed",
         file_path=relative_path,
         file_size=len(contents),
-        file_size=len(contents),
         content_type=file.content_type,
         comment_id=comment_id,
     )
