@@ -133,7 +133,7 @@ async def chat(
             logger.info(f"Total chunks: {chunk_count}, Response length: {len(full_response)}")
             
             sources = result.get('sources', [])
-            logger.info(f"Sources retrieved: {len(sources)}")
+            logger.info(f"Sources in SSE done event: {len(sources)} items")
             
             # Save assistant message with sources
             logger.info(f"Saving assistant message to database...")

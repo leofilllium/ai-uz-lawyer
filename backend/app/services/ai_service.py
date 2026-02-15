@@ -3904,6 +3904,8 @@ class AIService:
                 logger.error(f"Traceback:\n{traceback.format_exc()}")
                 raise
         
+        logger.info(f"Returning {len(unique_sources)} unique sources for chat_mode='{chat_mode}'")
+        
         return {
             "response": stream_response(),
             "sources": unique_sources,

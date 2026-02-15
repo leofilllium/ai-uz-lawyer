@@ -305,9 +305,10 @@ export default function Lawyer() {
             const newMessages = [...prev];
             const lastMessage = newMessages[newMessages.length - 1];
             if (lastMessage?.role === 'assistant') {
-              lastMessage.sources = sources;
+              // Create a new object so React detects the change
+              newMessages[newMessages.length - 1] = { ...lastMessage, sources };
             }
-            return [...newMessages];
+            return newMessages;
           });
           loadSessions();
         },
