@@ -8,7 +8,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
-import { sendChatMessage, getChatSessions, getChatSession, deleteHistoryItem, getTasks, type ChatSession, type Source, type Task } from '../api/client';
+import { sendChatMessage, getChatSessions, getChatSession, deleteHistoryItem, getTasks, getMe, type ChatSession, type Source, type Task, type User, TaskStatus } from '../api/client';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -32,6 +32,7 @@ export default function Lawyer() {
   const [searchParams] = useSearchParams();
   
   // Task context state
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [showTaskContext, setShowTaskContext] = useState(false);
   const [availableTasks, setAvailableTasks] = useState<Task[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
@@ -39,12 +40,21 @@ export default function Lawyer() {
   const [taskContextFileText, setTaskContextFileText] = useState('');
   const [fileError, setFileError] = useState('');
   
-  // Load available tasks when context panel is opened
+  // Load current user on mount
   useEffect(() => {
-    if (showTaskContext && availableTasks.length === 0) {
-      getTasks().then(setAvailableTasks).catch(() => setAvailableTasks([]));
+    getMe().then(setCurrentUser).catch(console.error);
+  }, []);
+
+  // Load available tasks for current user when context panel is opened
+  useEffect(() => {
+    if (showTaskContext && currentUser) {
+      getTasks().then(tasks => {
+        // Filter tasks assigned to current user
+        const myTasks = tasks.filter(t => t.assignee_id === currentUser.id);
+        setAvailableTasks(myTasks);
+      }).catch(() => setAvailableTasks([]));
     }
-  }, [showTaskContext]);
+  }, [showTaskContext, currentUser]);
 
   // Load session from URL parameter on mount
   useEffect(() => {
@@ -631,11 +641,33 @@ export default function Lawyer() {
               onChange={(e) => setSelectedTaskId(e.target.value ? Number(e.target.value) : null)}
             >
               <option value="">— Выберите задачу —</option>
-              {availableTasks.map(task => (
-                <option key={task.id} value={task.id}>
-                  {task.title} ({task.status})
-                </option>
-              ))}
+              {availableTasks.length > 0 ? (
+                <>
+                  <optgroup label="В работе">
+                    {availableTasks.filter(t => t.status === TaskStatus.IN_PROGRESS).map(task => (
+                      <option key={task.id} value={task.id}>
+                        {task.title}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="К выполнению">
+                    {availableTasks.filter(t => t.status === TaskStatus.TO_DO).map(task => (
+                      <option key={task.id} value={task.id}>
+                        {task.title}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Другие">
+                    {availableTasks.filter(t => t.status !== TaskStatus.IN_PROGRESS && t.status !== TaskStatus.TO_DO).map(task => (
+                      <option key={task.id} value={task.id}>
+                        {task.title} ({task.status})
+                      </option>
+                    ))}
+                  </optgroup>
+                </>
+              ) : (
+                <option value="" disabled>Нет назначенных задач</option>
+              )}
             </select>
             {selectedTaskId && (() => {
               const task = availableTasks.find(t => t.id === selectedTaskId);
