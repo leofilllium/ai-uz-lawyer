@@ -214,7 +214,7 @@ export default function TaskForm() {
             </div>
             <div>
               <h1 className="dash-header__title" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>
-                AI Юрист
+                Юридическая платформа
               </h1>
               <span className="dash-header__subtitle">{isEdit ? 'Редактирование задачи' : 'Новая задача'}</span>
             </div>

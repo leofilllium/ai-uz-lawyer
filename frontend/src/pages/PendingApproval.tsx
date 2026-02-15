@@ -10,7 +10,7 @@ export default function PendingApproval() {
     <div className="auth-container">
       <div className="auth-card" style={{ textAlign: 'center' }}>
         <div className="auth-header">
-          <h1>⚖️ AI Юрист</h1>
+          <h1>⚖️ Юридическая платформа</h1>
           <p className="text-xl font-semibold mt-4">Ожидание подтверждения</p>
         </div>
 

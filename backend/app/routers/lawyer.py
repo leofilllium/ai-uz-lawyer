@@ -93,6 +93,18 @@ async def chat(
     current_session_id = session.id
     chat_mode = request.chat_mode
     
+    # Build extra context from task fields if provided
+    extra_context = None
+    context_parts = []
+    if request.task_context_name:
+        context_parts.append(f"📌 Название задачи: {request.task_context_name}")
+    if request.task_context_description:
+        context_parts.append(f"📝 Описание задачи: {request.task_context_description}")
+    if request.task_context_text:
+        context_parts.append(f"📄 Текст из прикреплённого файла:\n{request.task_context_text}")
+    if context_parts:
+        extra_context = "\n\n".join(context_parts)
+    
     async def generate():
         full_response = ""
         sources = []
@@ -105,7 +117,7 @@ async def chat(
             
             logger.info(f"Calling query_with_rag with chat_mode='{chat_mode}'")
             logger.info(f"Question length: {len(user_message)} chars")
-            result = await ai_service.query_with_rag(user_message, history, chat_mode=chat_mode)
+            result = await ai_service.query_with_rag(user_message, history, chat_mode=chat_mode, extra_context=extra_context)
             logger.info(f"query_with_rag returned. Starting to stream response...")
             
             # Stream the response

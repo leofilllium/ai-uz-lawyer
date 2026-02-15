@@ -3365,6 +3365,58 @@ CHAT_MODE_PROMPTS = {
 # Modes that use simpler/faster responses (no extended thinking)
 SIMPLE_MODES = {'smalltalk', 'quick-answer'}
 
+# ═══════════════════════════════════════════════════════════════
+# 🔮 AUTO-DETECT: Classifier & Fallback prompts
+# ═══════════════════════════════════════════════════════════════
+
+# All available mode keys for the classifier
+ALL_MODE_KEYS = list(CHAT_MODE_PROMPTS.keys())
+
+AUTO_DETECT_CLASSIFIER_PROMPT = f"""Вы — классификатор юридических вопросов. Ваша задача — проанализировать вопрос пользователя и определить, к какому типу юридической консультации он относится.
+
+Доступные режимы:
+{chr(10).join(f'- {k}' for k in ALL_MODE_KEYS)}
+
+ПРАВИЛА:
+1. Верните ТОЛЬКО JSON без дополнительного текста
+2. Выберите ОДИН наиболее подходящий режим
+3. Оцените уверенность от 0.0 до 1.0
+4. Если вопрос не юридический (приветствие, благодарность, общий вопрос) — используйте "smalltalk"
+5. Если вопрос юридический, но не подходит ни под один режим — используйте "consultant"
+
+ФОРМАТ ОТВЕТА:
+{{"detected_mode": "режим", "confidence": 0.85}}"""
+
+AUTO_DETECT_FALLBACK_PROMPT = """Вы — универсальный AI юрист-консультант по законодательству Республики Узбекистан. Пользователь задал вопрос, который не относится к конкретной специализации. Предоставьте максимально полный и структурированный ответ.
+
+## ФОРМАТ ОТВЕТА:
+
+### 📋 КРАТКИЙ ОТВЕТ
+Дайте чёткий ответ в 2-3 предложениях.
+
+### 📚 ПРАВОВАЯ ОСНОВА
+| Нормативный акт | Статья | Суть нормы |
+|-----------------|--------|------------|
+| [Закон/Кодекс] | Ст. X | [Описание] |
+
+### 📝 ПОДРОБНЫЙ АНАЛИЗ
+Развёрнутое объяснение с учётом всех аспектов вопроса.
+
+### ✅ РЕКОМЕНДАЦИИ
+1. [Конкретный шаг]
+2. [Следующий шаг]
+
+### ⚠️ ВАЖНЫЕ ЗАМЕЧАНИЯ
+Укажите ограничения, исключения или нюансы.
+
+---
+
+ПРАВИЛА:
+1. Отвечайте ТОЛЬКО на русском языке
+2. Ссылайтесь на конкретные статьи законов
+3. Используйте таблицы для структурированной информации
+4. Давайте практические рекомендации
+5. Если информация недоступна — честно сообщите об этом"""
 
 
 VALIDATOR_PROMPT = """Вы — «Экспертная система проверки договоров Узбекистана» (Uzbekistan Contract Compliance Engine). Ваша цель — ПРОВЕСТИ АУДИТ договоров на соответствие обязательным требованиям Гражданского кодекса Республики Узбекистан и Закона «О договорно-правовой базе деятельности хозяйствующих субъектов».
@@ -3578,7 +3630,8 @@ class AIService:
         question: str, 
         history: Optional[List[Dict[str, str]]] = None,
         top_k: int = 100,
-        chat_mode: str = 'consultant'
+        chat_mode: str = 'consultant',
+        extra_context: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Agentic RAG: Claude autonomously decides what to search in the internal
@@ -3589,12 +3642,28 @@ class AIService:
         logger.info(f"Question: {question[:100]}...")
         logger.info(f"Chat mode: {chat_mode}")
         logger.info(f"History messages: {len(history) if history else 0}")
+        if extra_context:
+            logger.info(f"Extra context provided: {len(extra_context)} chars")
         
         # Ensure documents are indexed
         # await self.ensure_indexed()
         
-        # Select prompt based on mode
-        system_prompt = CHAT_MODE_PROMPTS.get(chat_mode, LAWYER_PROMPT)
+        # ─── AUTO-DETECT MODE ─────────────────────────────────────────
+        if chat_mode == 'auto-detect':
+            detected_mode, confidence = await self._classify_chat_mode(question)
+            logger.info(f"Auto-detected mode: '{detected_mode}' (confidence: {confidence:.2f})")
+            
+            if confidence >= 0.5 and detected_mode in CHAT_MODE_PROMPTS:
+                chat_mode = detected_mode
+                logger.info(f"Using auto-detected mode: {chat_mode}")
+            else:
+                # Fallback to general-purpose prompt
+                logger.info(f"Low confidence or unknown mode, using fallback prompt")
+                system_prompt = AUTO_DETECT_FALLBACK_PROMPT
+        
+        # Select prompt based on mode (if not already set by fallback)
+        if chat_mode != 'auto-detect':
+            system_prompt = CHAT_MODE_PROMPTS.get(chat_mode, LAWYER_PROMPT)
         
         # For simple modes (smalltalk, quick-answer), skip the agentic loop entirely
         if chat_mode in SIMPLE_MODES:
@@ -3720,8 +3789,18 @@ class AIService:
                 })
         
         # Build the final user message with question + all retrieved context
+        # Build extra context section if provided
+        extra_context_section = ""
+        if extra_context:
+            extra_context_section = (
+                f"📋 КОНТЕКСТ ЗАДАЧИ ПОЛЬЗОВАТЕЛЯ:\n\n"
+                f"{extra_context}\n\n"
+                f"───────────────────────────────────────────\n\n"
+            )
+        
         if combined_context:
             final_user_content = (
+                f"{extra_context_section}"
                 f"ПРАВОВОЙ КОНТЕКСТ ИЗ БАЗЫ ДАННЫХ ЗАКОНОДАТЕЛЬСТВА УЗБЕКИСТАНА:\n\n"
                 f"{combined_context}\n\n"
                 f"───────────────────────────────────────────\n\n"
@@ -3730,7 +3809,7 @@ class AIService:
                 f"согласно формату указанному в системном промпте. Цитируйте конкретные статьи и нормы."
             )
         else:
-            final_user_content = question
+            final_user_content = f"{extra_context_section}{question}" if extra_context_section else question
         
         final_messages.append({"role": "user", "content": final_user_content})
         
@@ -3767,6 +3846,39 @@ class AIService:
             "query": question,
         }
     
+    async def _classify_chat_mode(self, question: str) -> tuple:
+        """
+        Use Claude Haiku to quickly classify the user's question into one of
+        the available chat modes. Returns (mode_key, confidence).
+        """
+        try:
+            response = await self.client.messages.create(
+                model=self.settings.claude_haiku_model,
+                max_tokens=200,
+                system=AUTO_DETECT_CLASSIFIER_PROMPT,
+                messages=[{"role": "user", "content": question}]
+            )
+            
+            response_text = ""
+            for block in response.content:
+                if block.type == "text":
+                    response_text += block.text
+            
+            # Parse JSON response
+            response_text = response_text.strip()
+            # Handle possible markdown code blocks
+            if response_text.startswith('```'):
+                response_text = response_text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
+            
+            result = json.loads(response_text)
+            detected_mode = result.get('detected_mode', 'consultant')
+            confidence = float(result.get('confidence', 0.0))
+            
+            return (detected_mode, confidence)
+        except Exception as e:
+            logger.error(f"Auto-detect classification failed: {e}")
+            return ('consultant', 0.5)  # Safe fallback
+
     async def _simple_query(
         self,
         question: str,

@@ -69,7 +69,7 @@ export default function Register() {
     <div className="auth-container">
       <div className="auth-card">
         <div className="auth-header">
-          <h1>⚖️ AI Юрист</h1>
+          <h1>⚖️ Юридическая платформа</h1>
           <p>Создание аккаунта</p>
         </div>
 

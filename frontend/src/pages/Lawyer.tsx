@@ -23,13 +23,21 @@ export default function Lawyer() {
   const [sessionId, setSessionId] = useState<number | undefined>();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [showSidebar, setShowSidebar] = useState(window.innerWidth > 768);
-  const [chatMode, setChatMode] = useState<'risk-manager' | 'smalltalk' | 'consultant' | 'practitioner' | 'litigator' | 'legal-audit' | 'compliance' | 'tax' | 'corporate' | 'commercial' | 'negotiator' | 'startup' | 'procedural' | 'deadlines' | 'hr' | 'worker-protection' | 'analyst' | 'skeptic' | 'judge-questions' | 'odds' | 'strategist' | 'what-if' | 'interview-practice' | 'family' | 'real-estate' | 'notary' | 'ip' | 'criminal-defense' | 'criminal-prosecution' | 'admin-defense' | 'admin-procedure' | 'customs' | 'procurement' | 'enforcement' | 'arbitration' | 'constitutional' | 'consumer-protection' | 'housing' | 'land-disputes' | 'digital-law' | 'environmental' | 'antitrust' | 'insurance' | 'banking' | 'securities' | 'investor-protection' | 'mediation' | 'doc-review' | 'legal-letter' | 'compliance-hr' | 'debt-collection' | 'bankruptcy' | 'merger-acquisition' | 'licensing' | 'regulatory' | 'cross-border' | 'forensic-legal' | 'quick-answer'>('consultant');
+  const [chatMode, setChatMode] = useState<'auto-detect' | 'risk-manager' | 'smalltalk' | 'consultant' | 'practitioner' | 'litigator' | 'legal-audit' | 'compliance' | 'tax' | 'corporate' | 'commercial' | 'negotiator' | 'startup' | 'procedural' | 'deadlines' | 'hr' | 'worker-protection' | 'analyst' | 'skeptic' | 'judge-questions' | 'odds' | 'strategist' | 'what-if' | 'interview-practice' | 'family' | 'real-estate' | 'notary' | 'ip' | 'criminal-defense' | 'criminal-prosecution' | 'admin-defense' | 'admin-procedure' | 'customs' | 'procurement' | 'enforcement' | 'arbitration' | 'constitutional' | 'consumer-protection' | 'housing' | 'land-disputes' | 'digital-law' | 'environmental' | 'antitrust' | 'insurance' | 'banking' | 'securities' | 'investor-protection' | 'mediation' | 'doc-review' | 'legal-letter' | 'compliance-hr' | 'debt-collection' | 'bankruptcy' | 'merger-acquisition' | 'licensing' | 'regulatory' | 'cross-border' | 'forensic-legal' | 'quick-answer'>('auto-detect');
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const LIMIT = 20;
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  
+  // Task context state
+  const [showTaskContext, setShowTaskContext] = useState(false);
+  const [taskContextName, setTaskContextName] = useState('');
+  const [taskContextDesc, setTaskContextDesc] = useState('');
+  const [taskContextFile, setTaskContextFile] = useState<File | null>(null);
+  const [taskContextFileText, setTaskContextFileText] = useState('');
+  const [fileError, setFileError] = useState('');
 
   // Load session from URL parameter on mount
   useEffect(() => {
@@ -115,6 +123,101 @@ export default function Lawyer() {
     }
   };
 
+  // Handle file selection and text extraction
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    setFileError('');
+    setTaskContextFileText('');
+    
+    if (!file) {
+      setTaskContextFile(null);
+      return;
+    }
+    
+    const ext = file.name.toLowerCase().split('.').pop();
+    if (!['txt', 'docx', 'doc'].includes(ext || '')) {
+      setFileError('Поддерживаются только .txt, .docx и .doc файлы');
+      setTaskContextFile(null);
+      return;
+    }
+    
+    if (file.size > 10 * 1024 * 1024) {
+      setFileError('Файл слишком большой (макс. 10МБ)');
+      setTaskContextFile(null);
+      return;
+    }
+    
+    setTaskContextFile(file);
+    
+    // Extract text from file
+    try {
+      if (ext === 'txt') {
+        const text = await file.text();
+        if (text.length > 50000) {
+          setFileError('Текст файла слишком большой (>50KB), контекст не будет использован');
+          setTaskContextFileText('');
+        } else {
+          setTaskContextFileText(text);
+        }
+      } else if (ext === 'docx' || ext === 'doc') {
+        // Read as ArrayBuffer and extract text from docx XML
+        const buffer = await file.arrayBuffer();
+        try {
+          // Use JSZip-like approach: read the docx as a zip and extract word/document.xml
+          const blob = new Blob([buffer]);
+          const text = await extractDocxText(blob);
+          if (text.length > 50000) {
+            setFileError('Текст файла слишком большой (>50KB), контекст не будет использован');
+            setTaskContextFileText('');
+          } else {
+            setTaskContextFileText(text);
+          }
+        } catch {
+          setFileError('Не удалось извлечь текст из файла');
+          setTaskContextFileText('');
+        }
+      }
+    } catch {
+      setFileError('Ошибка при чтении файла');
+    }
+  };
+  
+  // Simple docx text extraction using browser APIs
+  const extractDocxText = async (blob: Blob): Promise<string> => {
+    // A .docx file is a ZIP archive. We can use the browser's built-in
+    // decompression to read the XML content.
+    const arrayBuffer = await blob.arrayBuffer();
+    const uint8 = new Uint8Array(arrayBuffer);
+    
+    // Find the PK signature (ZIP file)
+    if (uint8[0] !== 0x50 || uint8[1] !== 0x4B) {
+      throw new Error('Not a valid docx file');
+    }
+    
+    // Use the Response API to decompress
+    const response = await fetch(URL.createObjectURL(blob));
+    const ab = await response.arrayBuffer();
+    
+    // Simple approach: convert to text and extract from XML tags
+    const decoder = new TextDecoder('utf-8', { fatal: false });
+    const rawText = decoder.decode(ab);
+    
+    // Look for word/document.xml content between <w:t> tags
+    const textParts: string[] = [];
+    const regex = /<w:t[^>]*>([^<]*)<\/w:t>/g;
+    let match;
+    while ((match = regex.exec(rawText)) !== null) {
+      textParts.push(match[1]);
+    }
+    
+    if (textParts.length > 0) {
+      return textParts.join(' ');
+    }
+    
+    // Fallback: strip all XML/HTML tags
+    return rawText.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 50000);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || loading) return;
@@ -125,6 +228,13 @@ export default function Lawyer() {
     setLoading(true);
 
     let assistantContent = '';
+    
+    // Build task context if provided
+    const taskContext = (taskContextName || taskContextDesc || taskContextFileText) ? {
+      name: taskContextName || undefined,
+      description: taskContextDesc || undefined,
+      fileText: taskContextFileText || undefined,
+    } : undefined;
 
     try {
       await sendChatMessage(
@@ -155,7 +265,8 @@ export default function Lawyer() {
           });
           loadSessions();
         },
-        chatMode
+        chatMode,
+        taskContext
       );
       // Refresh list to update message count/title, resetting the list
       loadSessions(true);
@@ -221,13 +332,17 @@ export default function Lawyer() {
           <button onClick={() => setShowSidebar(!showSidebar)} className="btn-toggle-sidebar">
             {showSidebar ? '◀' : '▶'}
           </button>
-          <h1>{chatMode === 'smalltalk' ? '🗣️ Простые вопросы' : '💬 AI Юрист'}</h1>
+          <h1>{chatMode === 'smalltalk' ? '🗣️ Простые вопросы' : chatMode === 'auto-detect' ? '🔮 Авто-определение' : '💬 AI Юрист'}</h1>
           <div className="mode-selector">
             <select 
               value={chatMode} 
               onChange={(e) => setChatMode(e.target.value as typeof chatMode)}
               className="mode-dropdown"
             >
+              <optgroup label="🔮 Авто">
+                <option value="auto-detect">🔮 Авто-определение</option>
+              </optgroup>
+              
               <optgroup label="📚 Базовые режимы">
                 <option value="consultant">📚 Юрист-консультант</option>
                 <option value="risk-manager">🛡️ Риск-менеджер</option>
@@ -327,9 +442,9 @@ export default function Lawyer() {
 
         <div className="messages-container">
           {messages.length === 0 && (
-            <div className={`welcome-message ${chatMode === 'smalltalk' ? 'smalltalk-mode' : ''}`}>
-              <h2>{chatMode === 'smalltalk' ? '👋 Привет! Задай простой вопрос' : '⚖️ Добро пожаловать в AI Юрист'}</h2>
-              <p>{chatMode === 'smalltalk' ? 'Быстрые ответы на простые юридические вопросы' : 'Детальный анализ рисков по законодательству Узбекистана'}</p>
+            <div className={`welcome-message ${chatMode === 'smalltalk' ? 'smalltalk-mode' : chatMode === 'auto-detect' ? 'auto-detect-mode' : ''}`}>
+              <h2>{chatMode === 'smalltalk' ? '👋 Привет! Задай простой вопрос' : chatMode === 'auto-detect' ? '🔮 Авто-определение режима' : '⚖️ Добро пожаловать в AI Юрист'}</h2>
+              <p>{chatMode === 'smalltalk' ? 'Быстрые ответы на простые юридические вопросы' : chatMode === 'auto-detect' ? 'AI автоматически определит тип вашего вопроса и выберет лучший режим консультации' : 'Детальный анализ рисков по законодательству Узбекистана'}</p>
               <div className="example-questions">
                 {chatMode === 'smalltalk' ? (
                   <>
@@ -495,17 +610,97 @@ export default function Lawyer() {
           <div ref={messagesEndRef} />
         </div>
 
+        {/* Task Context Panel */}
+        {showTaskContext && (
+          <div className="task-context-panel" style={{
+            padding: '12px 16px',
+            borderTop: '1px solid var(--border-color)',
+            background: 'var(--bg-secondary)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>📋 Контекст задачи</span>
+              <button 
+                onClick={() => setShowTaskContext(false)} 
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '18px' }}
+              >✕</button>
+            </div>
+            <input
+              type="text"
+              value={taskContextName}
+              onChange={(e) => setTaskContextName(e.target.value)}
+              placeholder="Название задачи"
+              style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '13px' }}
+            />
+            <textarea
+              value={taskContextDesc}
+              onChange={(e) => setTaskContextDesc(e.target.value)}
+              placeholder="Описание задачи (необязательно)"
+              rows={2}
+              style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '13px', resize: 'vertical' }}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                background: 'var(--bg-primary)',
+                cursor: 'pointer',
+                fontSize: '13px',
+                color: 'var(--text-secondary)',
+              }}>
+                📎 {taskContextFile ? taskContextFile.name : 'Прикрепить файл (.txt, .docx, .doc)'}
+                <input
+                  type="file"
+                  accept=".txt,.docx,.doc"
+                  onChange={handleFileChange}
+                  style={{ display: 'none' }}
+                />
+              </label>
+              {taskContextFile && (
+                <button 
+                  onClick={() => { setTaskContextFile(null); setTaskContextFileText(''); setFileError(''); }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e74c3c', fontSize: '14px' }}
+                >🗑️</button>
+              )}
+            </div>
+            {fileError && <span style={{ color: '#e74c3c', fontSize: '12px' }}>⚠️ {fileError}</span>}
+            {taskContextFileText && <span style={{ color: '#2ecc71', fontSize: '12px' }}>✅ Текст извлечён ({(taskContextFileText.length / 1024).toFixed(1)}KB)</span>}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="chat-input-form">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Задайте юридический вопрос..."
-            disabled={loading}
-          />
-          <button type="submit" disabled={loading || !input.trim()}>
-            Отправить
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+            <button
+              type="button"
+              onClick={() => setShowTaskContext(!showTaskContext)}
+              title="Добавить контекст задачи"
+              style={{
+                background: showTaskContext || taskContextName || taskContextDesc || taskContextFileText ? 'var(--accent-color, #6c5ce7)' : 'var(--bg-secondary)',
+                color: showTaskContext || taskContextName || taskContextDesc || taskContextFileText ? '#fff' : 'var(--text-secondary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '8px',
+                padding: '8px 10px',
+                cursor: 'pointer',
+                fontSize: '16px',
+                flexShrink: 0,
+                transition: 'all 0.2s ease',
+              }}
+            >📋</button>
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Задайте юридический вопрос..."
+              disabled={loading}
+              style={{ flex: 1 }}
+            />
+            <button type="submit" disabled={loading || !input.trim()}>
+              Отправить
+            </button>
+          </div>
         </form>
       </main>
     </div>

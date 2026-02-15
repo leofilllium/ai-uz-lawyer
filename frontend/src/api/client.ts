@@ -447,7 +447,8 @@ export async function sendChatMessage(
   sessionId?: number,
   onChunk?: (chunk: string) => void,
   onDone?: (sessionId: number, sources: Source[]) => void,
-  chatMode: 'risk-manager' | 'smalltalk' | 'consultant' | 'practitioner' | 'litigator' | 'legal-audit' | 'compliance' | 'tax' | 'corporate' | 'commercial' | 'negotiator' | 'startup' | 'procedural' | 'deadlines' | 'hr' | 'worker-protection' | 'analyst' | 'skeptic' | 'judge-questions' | 'odds' | 'strategist' | 'what-if' | 'interview-practice' | 'family' | 'real-estate' | 'notary' | 'ip' | 'criminal-defense' | 'criminal-prosecution' | 'admin-defense' | 'admin-procedure' | 'customs' | 'procurement' | 'enforcement' | 'arbitration' | 'constitutional' | 'consumer-protection' | 'housing' | 'land-disputes' | 'digital-law' | 'environmental' | 'antitrust' | 'insurance' | 'banking' | 'securities' | 'investor-protection' | 'mediation' | 'doc-review' | 'legal-letter' | 'compliance-hr' | 'debt-collection' | 'bankruptcy' | 'merger-acquisition' | 'licensing' | 'regulatory' | 'cross-border' | 'forensic-legal' | 'quick-answer' = 'risk-manager'
+  chatMode: 'auto-detect' | 'risk-manager' | 'smalltalk' | 'consultant' | 'practitioner' | 'litigator' | 'legal-audit' | 'compliance' | 'tax' | 'corporate' | 'commercial' | 'negotiator' | 'startup' | 'procedural' | 'deadlines' | 'hr' | 'worker-protection' | 'analyst' | 'skeptic' | 'judge-questions' | 'odds' | 'strategist' | 'what-if' | 'interview-practice' | 'family' | 'real-estate' | 'notary' | 'ip' | 'criminal-defense' | 'criminal-prosecution' | 'admin-defense' | 'admin-procedure' | 'customs' | 'procurement' | 'enforcement' | 'arbitration' | 'constitutional' | 'consumer-protection' | 'housing' | 'land-disputes' | 'digital-law' | 'environmental' | 'antitrust' | 'insurance' | 'banking' | 'securities' | 'investor-protection' | 'mediation' | 'doc-review' | 'legal-letter' | 'compliance-hr' | 'debt-collection' | 'bankruptcy' | 'merger-acquisition' | 'licensing' | 'regulatory' | 'cross-border' | 'forensic-legal' | 'quick-answer' = 'risk-manager',
+  taskContext?: { name?: string; description?: string; fileText?: string }
 ): Promise<void> {
   const token = getToken();
   const headers: Record<string, string> = {
@@ -457,10 +458,15 @@ export async function sendChatMessage(
     headers['Authorization'] = `Bearer ${token}`;
   }
   
+  const body: Record<string, unknown> = { message, session_id: sessionId, chat_mode: chatMode };
+  if (taskContext?.name) body.task_context_name = taskContext.name;
+  if (taskContext?.description) body.task_context_description = taskContext.description;
+  if (taskContext?.fileText) body.task_context_text = taskContext.fileText;
+  
   const response = await fetch(`${API_BASE_URL}/api/lawyer/chat`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ message, session_id: sessionId, chat_mode: chatMode }),
+    body: JSON.stringify(body),
   });
   
   if (!response.ok) {

@@ -33,7 +33,7 @@ export default function Login() {
     <div className="auth-container">
       <div className="auth-card">
         <div className="auth-header">
-          <h1>⚖️ AI Юрист</h1>
+          <h1>⚖️ Юридическая платформа</h1>
           <p>Вход в систему</p>
         </div>
 
