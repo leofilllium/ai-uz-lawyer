@@ -23,6 +23,7 @@ class TaskComment(Base):
     # Relationships
     task = relationship('Task', back_populates='comments')
     user = relationship('User', backref='task_comments')
+    attachments = relationship('TaskAttachment', back_populates='comment', cascade='all, delete-orphan')
 
     def __repr__(self):
         return f'<TaskComment {self.id} on Task {self.task_id}>'

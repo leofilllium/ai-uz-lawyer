@@ -15,6 +15,7 @@ import {
   deleteTaskComment,
   deleteTaskAttachment,
   downloadTaskAttachment,
+  uploadTaskAttachment,
   getMe,
   type User,
   type TaskDetail as TaskDetailType,
@@ -70,6 +71,8 @@ export default function TaskDetail() {
   const [loading, setLoading] = useState(true);
   const [commentText, setCommentText] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [commentFiles, setCommentFiles] = useState<File[]>([]);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
   const [time, setTime] = useState(new Date());
@@ -112,11 +115,20 @@ export default function TaskDetail() {
     if (!commentText.trim() || !task) return;
     setSubmittingComment(true);
     try {
+      // 1. Create comment
       const newComment = await addTaskComment(task.id, commentText.trim());
-      setTask((prev) =>
-        prev ? { ...prev, comments: [...prev.comments, newComment] } : prev
-      );
+
+      // 2. Upload attachments if any
+      if (commentFiles.length > 0) {
+        await Promise.all(commentFiles.map(file => uploadTaskAttachment(task.id, file, newComment.id)));
+      }
+
+      // 3. Refresh to show new comment and attachments
+      await loadData();
+      
       setCommentText('');
+      setCommentFiles([]);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     } catch {
       alert('Ошибка при добавлении комментария');
     } finally {
@@ -348,7 +360,34 @@ export default function TaskDetail() {
                         <span className="comment-author">{c.user_name}</span>
                         <span className="comment-time">{timeAgo(c.created_at)}</span>
                       </div>
-                      <div className="comment-text">{c.content}</div>
+                      <div className="comment-text" style={{ whiteSpace: 'pre-wrap' }}>{c.content}</div>
+                      
+                      {/* Comment Attachments */}
+                      {c.attachments && c.attachments.length > 0 && (
+                        <div className="comment-attachments" style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                          {c.attachments.map(att => (
+                            <div key={att.id} className="comment-attachment-chip" style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              background: 'var(--color-surface)',
+                              border: '1px solid var(--color-border)',
+                              borderRadius: '6px',
+                              padding: '4px 8px',
+                              fontSize: '12px',
+                              cursor: 'pointer'
+                            }}
+                            onClick={() => downloadTaskAttachment(task.id, att.id, att.filename)}
+                            >
+                              <span>📎</span>
+                              <span style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {att.filename}
+                              </span>
+                              <span style={{ opacity: 0.6 }}>{formatBytes(att.file_size)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     {(user?.id === c.user_id || user?.role === 'HEAD') && (
                       <button className="comment-delete" onClick={() => handleDeleteComment(c.id)}>
@@ -367,15 +406,124 @@ export default function TaskDetail() {
             )}
 
             <form className="comment-form" onSubmit={handleAddComment}>
-              <textarea
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Написать комментарий..."
-                rows={2}
-              />
-              <button type="submit" disabled={!commentText.trim() || submittingComment}>
-                {submittingComment ? '...' : 'Отправить'}
-              </button>
+              <div style={{ position: 'relative' }}>
+                <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Оставьте комментарий или результат выполнения задачи..."
+                  rows={6}
+                  style={{
+                    width: '100%',
+                    minHeight: '120px',
+                    padding: '12px',
+                    paddingBottom: '50px', // Space for actions
+                    resize: 'vertical',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--color-border)',
+                    background: 'var(--color-bg-secondary)',
+                    color: 'var(--color-text-primary)',
+                    fontFamily: 'inherit',
+                    lineHeight: '1.5'
+                  }}
+                />
+                
+                {/* File List */}
+                {commentFiles.length > 0 && (
+                  <div style={{ 
+                    position: 'absolute', 
+                    bottom: '50px', 
+                    left: '12px', 
+                    right: '12px',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '8px',
+                    pointerEvents: 'none' // Click through to textarea
+                  }}>
+                    {commentFiles.map((f, i) => (
+                      <div key={i} style={{
+                        background: 'rgba(108, 92, 231, 0.1)',
+                        border: '1px solid rgba(108, 92, 231, 0.2)',
+                        borderRadius: '4px',
+                        padding: '2px 6px',
+                        fontSize: '11px',
+                        color: 'var(--color-primary)',
+                        pointerEvents: 'auto',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        {f.name}
+                        <span 
+                          style={{ cursor: 'pointer', fontWeight: 'bold' }}
+                          onClick={(e) => {
+                            e.preventDefault(); 
+                            setCommentFiles(prev => prev.filter((_, idx) => idx !== i));
+                          }}
+                        >×</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{
+                  position: 'absolute',
+                  bottom: '12px',
+                  left: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px'
+                }}>
+                  <button 
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '4px',
+                      color: 'var(--color-text-secondary)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontSize: '13px'
+                    }}
+                    title="Прикрепить файл"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                    </svg>
+                    {commentFiles.length === 0 && <span>Прикрепить файл</span>}
+                  </button>
+                  <input
+                    type="file"
+                    multiple
+                    ref={fileInputRef}
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      if (e.target.files) {
+                        setCommentFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+                      }
+                      // Reset value to allow selecting same file again if needed
+                      e.target.value = '';
+                    }}
+                  />
+                </div>
+                
+                <div style={{
+                  position: 'absolute',
+                  bottom: '12px',
+                  right: '12px'
+                }}>
+                  <button 
+                    type="submit" 
+                    disabled={(!commentText.trim() && commentFiles.length === 0) || submittingComment}
+                    className="btn btn-primary"
+                    style={{ padding: '6px 16px', fontSize: '13px' }}
+                  >
+                    {submittingComment ? 'Отправка...' : 'Отправить'}
+                  </button>
+                </div>
+              </div>
             </form>
           </div>
         </div>

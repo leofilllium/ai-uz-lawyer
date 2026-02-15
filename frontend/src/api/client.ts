@@ -107,6 +107,7 @@ export interface TaskComment {
   user_name: string;
   content: string;
   created_at: string;
+  attachments?: TaskAttachment[];
 }
 
 export interface TaskAttachment {
@@ -117,6 +118,7 @@ export interface TaskAttachment {
   file_size: number;
   content_type?: string;
   uploaded_by: number;
+  comment_id?: number;
   created_at: string;
 }
 
@@ -398,10 +400,16 @@ export async function getTaskAttachments(taskId: number): Promise<TaskAttachment
   return response.json();
 }
 
-export async function uploadTaskAttachment(taskId: number, file: File): Promise<TaskAttachment> {
+export async function uploadTaskAttachment(taskId: number, file: File, commentId?: number): Promise<TaskAttachment> {
   const formData = new FormData();
   formData.append('file', file);
-  const response = await fetchWithAuthFormData(`/api/tasks/${taskId}/attachments`, {
+  
+  let url = `/api/tasks/${taskId}/attachments`;
+  if (commentId) {
+    url += `?comment_id=${commentId}`;
+  }
+
+  const response = await fetchWithAuthFormData(url, {
     method: 'POST',
     body: formData
   });

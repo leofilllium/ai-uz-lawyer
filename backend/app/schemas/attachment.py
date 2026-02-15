@@ -14,6 +14,7 @@ class AttachmentResponse(BaseModel):
     file_size: int
     content_type: str | None = None
     uploaded_by: int
+    comment_id: int | None = None
     created_at: datetime
 
     class Config:

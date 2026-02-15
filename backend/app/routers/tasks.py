@@ -5,8 +5,8 @@ API endpoints for managing project tasks (Kanban), comments, and attachments.
 
 import os
 import uuid
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, joinedload
 
@@ -76,7 +76,7 @@ def get_task(
         .options(
             joinedload(Task.reporter),
             joinedload(Task.assignee),
-            joinedload(Task.comments).joinedload(TaskComment.user),
+            joinedload(Task.comments).options(joinedload(TaskComment.user), joinedload(TaskComment.attachments)),
             joinedload(Task.attachments),
         )
         .filter(Task.id == task_id)
@@ -95,7 +95,21 @@ def get_task(
             "user_id": c.user_id,
             "user_name": c.user.name if c.user else "",
             "content": c.content,
+            "content": c.content,
             "created_at": c.created_at,
+            "attachments": [
+                {
+                    "id": a.id,
+                    "task_id": a.task_id,
+                    "filename": a.filename,
+                    "file_size": a.file_size,
+                    "content_type": a.content_type,
+                    "uploaded_by": a.uploaded_by,
+                    "comment_id": a.comment_id,
+                    "created_at": a.created_at,
+                }
+                for a in c.attachments
+            ]
         }
         for c in task.comments
     ]
@@ -221,7 +235,7 @@ def list_comments(
 
     comments = (
         db.query(TaskComment)
-        .options(joinedload(TaskComment.user))
+        .options(joinedload(TaskComment.user), joinedload(TaskComment.attachments))
         .filter(TaskComment.task_id == task_id)
         .order_by(TaskComment.created_at)
         .all()
@@ -234,6 +248,19 @@ def list_comments(
             "user_name": c.user.name if c.user else "",
             "content": c.content,
             "created_at": c.created_at,
+            "attachments": [
+                {
+                    "id": a.id,
+                    "task_id": a.task_id,
+                    "filename": a.filename,
+                    "file_size": a.file_size,
+                    "content_type": a.content_type,
+                    "uploaded_by": a.uploaded_by,
+                    "comment_id": a.comment_id,
+                    "created_at": a.created_at,
+                }
+                for a in c.attachments
+            ]
         }
         for c in comments
     ]
@@ -321,6 +348,7 @@ def list_attachments(
 @router.post("/{task_id}/attachments", response_model=AttachmentResponse)
 async def upload_attachment(
     task_id: int,
+    comment_id: Optional[int] = Query(None),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -360,7 +388,9 @@ async def upload_attachment(
         filename=file.filename or "unnamed",
         file_path=relative_path,
         file_size=len(contents),
+        file_size=len(contents),
         content_type=file.content_type,
+        comment_id=comment_id,
     )
     db.add(attachment)
     db.commit()

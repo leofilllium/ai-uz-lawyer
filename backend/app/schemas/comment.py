@@ -5,6 +5,8 @@ Pydantic models for TaskComment operations.
 
 from pydantic import BaseModel, Field
 from datetime import datetime
+from typing import List
+from app.schemas.attachment import AttachmentResponse
 
 
 class CommentCreate(BaseModel):
@@ -18,6 +20,7 @@ class CommentResponse(BaseModel):
     user_name: str = ""
     content: str
     created_at: datetime
+    attachments: List[AttachmentResponse] = []
 
     class Config:
         from_attributes = True

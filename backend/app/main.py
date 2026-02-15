@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
-from app.database import create_tables
+from app.database import create_tables, check_and_migrate_db
 from app.routers import (
     auth, 
     lawyer, 
@@ -39,6 +39,7 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Implementation plan applied: Initializing database tables...")
     create_tables()
+    check_and_migrate_db()
     
     # Initialize singleton VectorStore (heaviest part)
     logger.info("Initializing VectorStore (loading index)... This may take a while for large datasets.")
