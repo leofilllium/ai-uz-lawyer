@@ -3381,13 +3381,16 @@ AUTO_DETECT_CLASSIFIER_PROMPT = f"""Вы — классификатор юрид
 1. Верните ТОЛЬКО JSON без дополнительного текста
 2. Выберите ОДИН наиболее подходящий режим
 3. Оцените уверенность от 0.0 до 1.0
-4. Если вопрос не юридический (приветствие, благодарность, общий вопрос) — используйте "smalltalk"
-5. Если вопрос юридический, но не подходит ни под один режим — используйте "consultant"
+4. Если пользователь ссылается на контекст (например, "выполни задачу", "проанализируй файл"), ОБЯЗАТЕЛЬНО используйте предоставленный КОНТЕКСТ ЗАДАЧИ для определения темы.
+5. Если вопрос не юридический и нет контекста (приветствие, благодарность) — используйте "smalltalk"
+6. Если вопрос юридический, но не подходит ни под один режим — используйте "consultant"
 
 ФОРМАТ ОТВЕТА:
 {{"detected_mode": "режим", "confidence": 0.85}}"""
 
 AUTO_DETECT_FALLBACK_PROMPT = """Вы — универсальный AI юрист-консультант по законодательству Республики Узбекистан. Пользователь задал вопрос, который не относится к конкретной специализации. Предоставьте максимально полный и структурированный ответ.
+
+ВАЖНО: Если предоставлен КОНТЕКСТ ЗАДАЧИ, используйте его как основной предмет обсуждения, даже если вопрос пользователя краткий (например, "выполни это").
 
 ## ФОРМАТ ОТВЕТА:
 
@@ -3400,7 +3403,7 @@ AUTO_DETECT_FALLBACK_PROMPT = """Вы — универсальный AI юрис
 | [Закон/Кодекс] | Ст. X | [Описание] |
 
 ### 📝 ПОДРОБНЫЙ АНАЛИЗ
-Развёрнутое объяснение с учётом всех аспектов вопроса.
+Развёрнутое объяснение с учётом всех аспектов вопроса и переданного контекста.
 
 ### ✅ РЕКОМЕНДАЦИИ
 1. [Конкретный шаг]
@@ -3650,7 +3653,7 @@ class AIService:
         
         # ─── AUTO-DETECT MODE ─────────────────────────────────────────
         if chat_mode == 'auto-detect':
-            detected_mode, confidence = await self._classify_chat_mode(question)
+            detected_mode, confidence = await self._classify_chat_mode(question, extra_context)
             logger.info(f"Auto-detected mode: '{detected_mode}' (confidence: {confidence:.2f})")
             
             if confidence >= 0.5 and detected_mode in CHAT_MODE_PROMPTS:
@@ -3846,17 +3849,21 @@ class AIService:
             "query": question,
         }
     
-    async def _classify_chat_mode(self, question: str) -> tuple:
+    async def _classify_chat_mode(self, question: str, extra_context: Optional[str] = None) -> tuple:
         """
         Use Claude Haiku to quickly classify the user's question into one of
         the available chat modes. Returns (mode_key, confidence).
         """
         try:
+            content = question
+            if extra_context:
+                content = f"КОНТЕКСТ ЗАДАЧИ:\n{extra_context}\n\nВОПРОС ПОЛЬЗОВАТЕЛЯ:\n{question}"
+
             response = await self.client.messages.create(
                 model=self.settings.claude_haiku_model,
                 max_tokens=200,
                 system=AUTO_DETECT_CLASSIFIER_PROMPT,
-                messages=[{"role": "user", "content": question}]
+                messages=[{"role": "user", "content": content}]
             )
             
             response_text = ""
