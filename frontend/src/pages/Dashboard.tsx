@@ -236,6 +236,23 @@ const CARD_META = [
     stat: 0,
     statLabel: 'событий',
     sparkData: [1, 2, 3, 2, 4, 3, 5, 4, 6, 5],
+    half: true,
+  },
+  {
+    key: 'history',
+    to: '/history',
+    icon: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+      </svg>
+    ),
+    title: 'История',
+    desc: 'Журнал всех консультаций и проверок',
+    stat: 0,
+    statLabel: 'записей',
+    sparkData: [2, 4, 3, 5, 7, 6, 8, 9, 11, 10],
+    half: true,
   },
 ];
 
@@ -246,6 +263,7 @@ const ACCENT_COLORS: Record<string, string> = {
   generator: 'var(--color-warning)',
   'doc-validator': '#6366f1',
   calendar: '#0ea5e9',
+  history: '#f59e0b',
 };
 
 /* ── Dashboard Component ─────────────────────────── */
@@ -436,7 +454,7 @@ export default function Dashboard() {
             <Link
               key={card.key}
               to={card.to}
-              className={`bento-card bento-card--${card.key}${card.primary ? ' bento-card--primary' : ''}`}
+              className={`bento-card bento-card--${card.key}${card.primary ? ' bento-card--primary' : ''}${card.half ? ' bento-card--half' : ''}`}
               style={{
                 '--card-accent': ACCENT_COLORS[card.key],
                 '--card-index': idx,
