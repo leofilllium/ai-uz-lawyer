@@ -263,17 +263,8 @@ export default function TaskForm() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
           <button
             onClick={() => navigate('/project-board')}
-            style={{
-              background: 'var(--color-surface)',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-md)',
-              padding: '8px 16px',
-              color: 'var(--color-text-primary)',
-              cursor: 'pointer',
-              fontSize: '13px',
-              fontWeight: 500,
-              fontFamily: 'var(--font-body)',
-            }}
+            className="btn btn-secondary"
+            style={{ padding: '8px 16px', height: 'auto', fontSize: '13px' }}
           >
             ← Назад
           </button>
@@ -494,13 +485,8 @@ export default function TaskForm() {
             </button>
             <button
               type="button"
-              className="btn"
+              className="btn btn-secondary"
               onClick={() => navigate('/project-board')}
-              style={{
-                background: 'var(--color-surface)',
-                border: '1px solid var(--color-border)',
-                color: 'var(--color-text-primary)',
-              }}
             >
               Отмена
             </button>

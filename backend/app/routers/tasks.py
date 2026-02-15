@@ -351,11 +351,13 @@ async def upload_attachment(
     with open(file_path, "wb") as f:
         f.write(contents)
 
+    relative_path = f"uploads/tasks/{task_id}/{safe_name}"
+    
     attachment = TaskAttachment(
         task_id=task_id,
         uploaded_by=current_user.id,
         filename=file.filename or "unnamed",
-        file_path=file_path,
+        file_path=relative_path,
         file_size=len(contents),
         content_type=file.content_type,
     )
