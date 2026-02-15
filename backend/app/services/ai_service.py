@@ -3588,20 +3588,23 @@ SEARCH_TOOLS = [
         "name": "search_legal_database",
         "description": (
             "Search the internal Uzbekistan legal database (codes, laws, articles). "
-            "Returns relevant legal provisions from our database. Use this to find "
-            "specific articles, laws, or legal provisions related to the user's question. "
+            "IMPORTANT: All documents are stored in UZBEK (Latin script). "
+            "For best results, formulate queries in UZBEK Latin. "
+            "The system will also try Russian queries but Uzbek queries give much better results. "
             "You can call this tool multiple times with different queries to gather "
-            "comprehensive legal context. Available sources include: Гражданский кодекс, "
-            "Уголовный кодекс, Трудовой кодекс, Налоговый кодекс, Семейный кодекс, "
-            "Земельный кодекс, Жилищный кодекс, Таможенный кодекс, Бюджетный кодекс, "
-            "Конституция, Закон о защите прав потребителей, and other codes/laws."
+            "comprehensive legal context. Available sources include: Fuqarolik kodeksi (Гражданский кодекс), "
+            "Jinoyat kodeksi (Уголовный кодекс), Mehnat kodeksi (Трудовой кодекс), Soliq kodeksi (Налоговый кодекс), "
+            "Oila kodeksi (Семейный кодекс), Yer kodeksi (Земельный кодекс), Turar-joy kodeksi (Жилищный кодекс), "
+            "Bojxona kodeksi (Таможенный кодекс), Byudjet kodeksi (Бюджетный кодекс), "
+            "Konstitutsiya (Конституция), Isteʼmolchilar huquqlarini himoya qilish toʻgʻrisidagi qonun, "
+            "and other codes/laws."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Search query in Russian — specific legal topic, article reference, or keyword phrase"
+                    "description": "Search query — preferably in Uzbek Latin script for best results. Examples: 'soliq tekshiruvi tartib', 'QQS hisobga olish', 'shartnoma muhim shartlari'"
                 },
                 "top_k": {
                     "type": "integer",
@@ -3618,11 +3621,19 @@ AGENTIC_INSTRUCTION = """
 
 У вас есть доступ к одному инструменту: `search_legal_database` — он ищет ТОЛЬКО в нашей внутренней базе данных законодательства Узбекистана.
 
+⚠️ КРИТИЧЕСКИ ВАЖНО: Все документы в базе данных хранятся на УЗБЕКСКОМ ЯЗЫКЕ (латиница)!
+Поэтому запросы НЕОБХОДИМО формулировать на УЗБЕКСКОМ ЯЗЫКЕ (латиница) для получения релевантных результатов.
+
 ПРАВИЛА:
 1. Вы ОБЯЗАНЫ использовать этот инструмент для поиска правовой базы перед ответом на юридические вопросы
 2. Вы можете вызывать инструмент НЕСКОЛЬКО РАЗ с разными запросами для сбора полного контекста
-3. Формулируйте запросы на русском языке, используя юридическую терминологию
-4. Если инструмент возвращает мало результатов или результаты с низкой релевантностью — попробуйте переформулировать запрос
+3. Формулируйте запросы НА УЗБЕКСКОМ ЯЗЫКЕ (латиница), используя юридическую терминологию:
+   - Вместо "Налоговый кодекс НДС" → "Soliq kodeksi QQS qoʻshilgan qiymat soligʻi"
+   - Вместо "Гражданский кодекс договор" → "Fuqarolik kodeksi shartnoma"
+   - Вместо "Трудовой договор" → "Mehnat shartnomasi"
+   - Вместо "Налоговая проверка" → "Soliq tekshiruvi"
+   - Вместо "Обжалование решения" → "Qarorni shikoyat qilish"
+4. Если инструмент возвращает мало результатов или результаты с низкой релевантностью — попробуйте переформулировать запрос с другими узбекскими терминами
 5. КРИТИЧНО: Если после нескольких попыток поиска релевантная информация НЕ НАЙДЕНА, вы ОБЯЗАНЫ ответить:
    "К сожалению, в нашей базе данных недостаточно информации для ответа на данный вопрос. Я не могу предоставить юридическую консультацию без подтверждения в базе знаний."
 6. ЗАПРЕЩЕНО отвечать на основе общих знаний, если нет подтверждения в базе.
@@ -4039,13 +4050,18 @@ class AIService:
                         seen_articles.add(article_key)
                         all_results.append(result)
             
-            # Also search with broad contract terms
+            # Also search with broad contract terms (both Russian and Uzbek)
             broad_searches = [
                 "существенные условия договора",
+                "shartnomaning muhim shartlari",
                 "заключение договора обязательные условия",
+                "shartnoma tuzish majburiy shartlar",
                 "неустойка штраф пеня",
+                "neustoyка jarima penya",
                 "валюта расчетов резиденты",
+                "hisob-kitob valyutasi rezidentlar",
                 "расторжение договора",
+                "shartnomani bekor qilish",
             ]
             
             for broad_query in broad_searches:
@@ -4194,9 +4210,50 @@ class AIService:
             "requirements": requirements,
         }
     
+    async def _translate_to_uzbek(self, text: str) -> str:
+        """Translate a Russian search query to Uzbek Latin for cross-language vector search."""
+        try:
+            response = await self.client.messages.create(
+                model=self.settings.claude_haiku_model,
+                max_tokens=300,
+                messages=[{"role": "user", "content": text}],
+                system=(
+                    "You are a Russian-to-Uzbek translator. Translate the given Russian legal query "
+                    "into Uzbek (Latin script). Output ONLY the Uzbek translation, nothing else. "
+                    "Use proper Uzbek legal terminology. Keep it concise — this is a search query, not prose."
+                ),
+            )
+            translated = response.content[0].text.strip()
+            logger.info(f"Translated query: '{text}' -> '{translated}'")
+            return translated
+        except Exception as e:
+            logger.warning(f"Translation failed: {e}, using original query")
+            return text
+
     async def _retrieve_context(self, query: str, top_k: int = 65) -> List[Dict[str, Any]]:
-        """Retrieve relevant legal context for a query."""
-        return await self.vector_store.asearch(query, top_k=top_k)
+        """Retrieve relevant legal context using dual-language search (Russian + Uzbek)."""
+        # Search with original query (Russian)
+        results_original = await self.vector_store.asearch(query, top_k=top_k)
+        
+        # Translate to Uzbek and search again
+        uzbek_query = await self._translate_to_uzbek(query)
+        
+        if uzbek_query and uzbek_query != query:
+            results_uzbek = await self.vector_store.asearch(uzbek_query, top_k=top_k)
+        else:
+            results_uzbek = []
+        
+        # Merge and deduplicate by content, keeping highest similarity
+        seen_keys = {}
+        for result in results_original + results_uzbek:
+            metadata = result.get("metadata", {})
+            key = f"{metadata.get('source', '')}_{metadata.get('article_display', '')}_{metadata.get('chunk_index', 0)}"
+            if key not in seen_keys or result.get("similarity", 0) > seen_keys[key].get("similarity", 0):
+                seen_keys[key] = result
+        
+        # Sort by similarity and limit
+        merged = sorted(seen_keys.values(), key=lambda x: x.get("similarity", 0), reverse=True)
+        return merged[:top_k]
     
     def _format_context(self, results: List[Dict[str, Any]]) -> str:
         """Format retrieved documents into a context string for the LLM."""
@@ -4328,39 +4385,54 @@ class AIService:
         return keywords
     
     def _build_contract_search_queries(self, category: str, requirements: str) -> List[str]:
-        """Build search queries for contract generation."""
+        """Build search queries for contract generation (Russian + Uzbek)."""
         queries = []
         category_lower = category.lower()
         
         if "аренд" in category_lower:
             queries.extend([
                 "договор аренды существенные условия",
+                "ijara shartnomasi muhim shartlari",
                 "права обязанности арендодателя арендатора",
+                "ijaraga beruvchi ijarachi huquq majburiyatlari",
                 "расторжение договора аренды",
+                "ijara shartnomasi bekor qilish",
             ])
         elif "услуг" in category_lower:
             queries.extend([
                 "договор оказания услуг существенные условия",
+                "xizmat ko'rsatish shartnomasi muhim shartlari",
                 "ответственность исполнителя заказчика",
+                "ijrochi buyurtmachi javobgarligi",
                 "качество услуг претензии",
+                "xizmat sifati da'volar",
             ])
         elif "купл" in category_lower or "продаж" in category_lower or "поставк" in category_lower:
             queries.extend([
                 "договор купли продажи существенные условия",
+                "oldi sotdi shartnomasi muhim shartlari",
                 "поставка товаров условия",
+                "tovar yetkazib berish shartlari",
                 "переход права собственности",
+                "mulk huquqi o'tishi",
             ])
         elif "займ" in category_lower or "кредит" in category_lower:
             queries.extend([
                 "договор займа существенные условия",
+                "qarz shartnomasi muhim shartlari",
                 "проценты по займу",
+                "qarz foizlari",
                 "обеспечение исполнения обязательств",
+                "majburiyatlarni ta'minlash",
             ])
         else:
             queries.extend([
                 "существенные условия договора",
+                "shartnomaning muhim shartlari",
                 "права обязанности сторон",
+                "tomonlarning huquq va majburiyatlari",
                 "ответственность сторон договора",
+                "shartnoma tomonlari javobgarligi",
             ])
         
         return queries
@@ -4433,30 +4505,44 @@ class AIService:
             
             # Broad searches for document validation (especially up-to-dateness)
             broad_searches = [
-                # Core document requirements
+                # Core document requirements (Russian + Uzbek)
                 "доверенность полномочия представитель",
+                "ishonchnoma vakolatlar vakil",
                 "форма документа обязательные реквизиты",
+                "hujjat shakli majburiy rekvizitlar",
                 "сроки действия документа",
+                "hujjatning amal qilish muddati",
                 "подпись печать удостоверение",
+                "imzo muhr tasdiqlash",
                 "недействительность ничтожность",
-                # Up-to-dateness specific searches
+                "yaroqsizlik haqiqiy emaslik",
+                # Up-to-dateness (Russian + Uzbek)
                 "актуальность законодательства изменения",
+                "qonunchilik dolzarbligi o'zgarishlar",
                 "утратил силу недействующий",
+                "kuchini yo'qotgan amal qilmayotgan",
                 "новая редакция изменения дополнения",
-                "переходные положения вступление в силу",
-                "применение законодательства действующий",
-                # Current codes and laws
+                "yangi tahriri o'zgarishlar qo'shimchalar",
+                # Current codes (Russian + Uzbek)
                 "Гражданский кодекс",
+                "Fuqarolik kodeksi",
                 "Трудовой кодекс",
+                "Mehnat kodeksi",
                 "Налоговый кодекс",
+                "Soliq kodeksi",
                 "Хозяйственный процессуальный кодекс",
-                "Административный кодекс",
+                "Xo'jalik protsessual kodeksi",
                 "Гражданский процессуальный кодекс",
-                # Procedural and regulatory
+                "Fuqarolik protsessual kodeksi",
+                # Procedural (Russian + Uzbek)
                 "порядок оформления регистрация",
+                "rasmiylashtirish tartibi ro'yxatdan o'tkazish",
                 "государственная пошлина сбор",
+                "davlat boji yig'im",
                 "сроки исковой давности",
+                "da'vo muddati",
                 "обязательства права сторон",
+                "majburiyatlar tomonlar huquqlari",
             ]
             
             for broad_query in broad_searches:
@@ -4532,42 +4618,66 @@ class AIService:
             }
     
     def _extract_document_topics(self, document_text: str, document_type: Optional[str] = None) -> List[str]:
-        """Extract key topics from document for targeted legal search."""
+        """Extract key topics from document for targeted legal search (Russian + Uzbek)."""
         keywords = []
         text_lower = document_text.lower()
         
         # Based on document type
         if document_type:
             type_queries = {
-                "power_of_attorney": ["доверенность полномочия представитель", "удостоверение доверенности нотариус"],
-                "corporate_resolution": ["решение учредителя протокол собрания", "полномочия органов управления"],
-                "claim": ["претензия требование ответственность", "порядок предъявления претензий"],
-                "application": ["заявление рассмотрение сроки", "порядок подачи заявления"],
-                "agreement": ["соглашение договоренность стороны", "условия соглашения"],
-                "act": ["акт составление подписание", "акт приема передачи"],
-                "order": ["приказ распоряжение руководитель", "издание приказа"],
+                "power_of_attorney": [
+                    "доверенность полномочия представитель", "ishonchnoma vakolatlar vakil",
+                    "удостоверение доверенности нотариус", "ishonchnomani notarial tasdiqlash",
+                ],
+                "corporate_resolution": [
+                    "решение учредителя протокол собрания", "ta'sischi qarori yig'ilish bayoni",
+                    "полномочия органов управления", "boshqaruv organlari vakolatlari",
+                ],
+                "claim": [
+                    "претензия требование ответственность", "da'vo talab javobgarlik",
+                    "порядок предъявления претензий", "da'vo qo'yish tartibi",
+                ],
+                "application": [
+                    "заявление рассмотрение сроки", "ariza ko'rib chiqish muddatlari",
+                    "порядок подачи заявления", "ariza berish tartibi",
+                ],
+                "agreement": [
+                    "соглашение договоренность стороны", "kelishuv bitim tomonlar",
+                    "условия соглашения", "kelishuv shartlari",
+                ],
+                "act": [
+                    "акт составление подписание", "dalolatnoma tuzish imzolash",
+                    "акт приема передачи", "topshirish qabul qilish dalolatnomasini",
+                ],
+                "order": [
+                    "приказ распоряжение руководитель", "buyruq farmoyish rahbar",
+                    "издание приказа", "buyruq chiqarish",
+                ],
             }
             if document_type in type_queries:
                 keywords.extend(type_queries[document_type])
         
-        # Based on document content
+        # Based on document content (Russian + Uzbek keywords)
         if "доверен" in text_lower:
-            keywords.append("доверенность отмена срок действия")
+            keywords.extend(["доверенность отмена срок действия", "ishonchnomani bekor qilish amal qilish muddati"])
         if "протокол" in text_lower or "собрани" in text_lower:
-            keywords.append("протокол общего собрания кворум")
+            keywords.extend(["протокол общего собрания кворум", "umumiy yig'ilish bayonnomasi kvorum"])
         if "претензи" in text_lower:
-            keywords.append("претензионный порядок сроки ответа")
+            keywords.extend(["претензионный порядок сроки ответа", "da'vo tartibi javob muddatlari"])
         if "иск" in text_lower:
-            keywords.append("исковое заявление требования подсудность")
+            keywords.extend(["исковое заявление требования подсудность", "da'vo arizasi talablar sudlovchilik"])
         if "приказ" in text_lower:
-            keywords.append("приказ руководителя полномочия")
+            keywords.extend(["приказ руководителя полномочия", "rahbar buyrug'i vakolatlari"])
         if "устав" in text_lower:
-            keywords.append("устав юридического лица регистрация")
+            keywords.extend(["устав юридического лица регистрация", "yuridik shaxs ustavi ro'yxatdan o'tkazish"])
         if "трудов" in text_lower:
-            keywords.append("трудовой договор прием увольнение")
+            keywords.extend(["трудовой договор прием увольнение", "mehnat shartnomasi ishga qabul qilish ishdan bo'shatish"])
         
         if not keywords:
-            keywords = ["документ форма реквизиты требования", "юридическая сила документа"]
+            keywords = [
+                "документ форма реквизиты требования", "hujjat shakli rekvizitlar talablar",
+                "юридическая сила документа", "hujjatning yuridik kuchi",
+            ]
         
         return keywords
     
