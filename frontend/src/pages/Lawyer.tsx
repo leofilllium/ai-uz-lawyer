@@ -8,7 +8,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
-import { sendChatMessage, getChatSessions, getChatSession, deleteHistoryItem, getTasks, getMe, type ChatSession, type Source, type Task, type User, TaskStatus } from '../api/client';
+import { sendChatMessage, getChatSessions, getChatSession, deleteHistoryItem, getTasks, getMe, getTask, getTaskAttachmentContent, type ChatSession, type Source, type Task, type User, type TaskDetail, type TaskAttachment, TaskStatus } from '../api/client';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -28,17 +28,16 @@ export default function Lawyer() {
   const [hasMore, setHasMore] = useState(true);
   const LIMIT = 20;
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  
-  // Task context state
+  const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [showTaskContext, setShowTaskContext] = useState(false);
   const [availableTasks, setAvailableTasks] = useState<Task[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
-  const [taskContextFile, setTaskContextFile] = useState<File | null>(null);
+  const [taskContextFilename, setTaskContextFilename] = useState('');
   const [taskContextFileText, setTaskContextFileText] = useState('');
   const [fileError, setFileError] = useState('');
+  const [isFetchingAttachment, setIsFetchingAttachment] = useState(false);
   
   // Load current user on mount
   useEffect(() => {
@@ -55,6 +54,74 @@ export default function Lawyer() {
       }).catch(() => setAvailableTasks([]));
     }
   }, [showTaskContext, currentUser]);
+
+  // Handle task selection and auto-fetch attachment
+  useEffect(() => {
+    if (!selectedTaskId) {
+      setTaskContextFilename('');
+      setTaskContextFileText('');
+      setFileError('');
+      return;
+    }
+
+    const fetchTaskAndAttachment = async () => {
+      setIsFetchingAttachment(true);
+      setTaskContextFilename('');
+      setTaskContextFileText('');
+      setFileError('');
+
+      try {
+        const taskDetail = await getTask(selectedTaskId);
+        
+        // Find first supported attachment
+        const supportedExts = ['txt', 'docx', 'doc'];
+        const validAttachment = taskDetail.attachments.find(att => {
+          const ext = att.filename.split('.').pop()?.toLowerCase() || '';
+          return supportedExts.includes(ext);
+        });
+
+        if (validAttachment) {
+          setTaskContextFilename(validAttachment.filename);
+          
+          if (validAttachment.file_size > 10 * 1024 * 1024) {
+             setFileError('Файл задачи слишком большой (>10MB)');
+             return;
+          }
+
+          try {
+            const blob = await getTaskAttachmentContent(taskDetail.id, validAttachment.id);
+            const ext = validAttachment.filename.split('.').pop()?.toLowerCase();
+            
+            let text = '';
+            if (ext === 'txt') {
+              text = await blob.text();
+            } else if (ext === 'docx' || ext === 'doc') {
+              text = await extractDocxText(blob);
+            }
+
+            if (text.length > 50000) {
+              setFileError('Текст файла слишком большой (>50KB), контекст не будет использован');
+              setTaskContextFileText('');
+            } else {
+              setTaskContextFileText(text);
+            }
+          } catch (err) {
+            console.error(err);
+            setFileError('Не удалось загрузить содержимое файла задачи');
+          }
+        } else {
+          // No error, just no file context
+        }
+      } catch (err) {
+        console.error(err);
+        setFileError('Не удалось загрузить детали задачи');
+      } finally {
+        setIsFetchingAttachment(false);
+      }
+    };
+
+    fetchTaskAndAttachment();
+  }, [selectedTaskId]);
 
   // Load session from URL parameter on mount
   useEffect(() => {
@@ -140,64 +207,7 @@ export default function Lawyer() {
     }
   };
 
-  // Handle file selection and text extraction
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    setFileError('');
-    setTaskContextFileText('');
-    
-    if (!file) {
-      setTaskContextFile(null);
-      return;
-    }
-    
-    const ext = file.name.toLowerCase().split('.').pop();
-    if (!['txt', 'docx', 'doc'].includes(ext || '')) {
-      setFileError('Поддерживаются только .txt, .docx и .doc файлы');
-      setTaskContextFile(null);
-      return;
-    }
-    
-    if (file.size > 10 * 1024 * 1024) {
-      setFileError('Файл слишком большой (макс. 10МБ)');
-      setTaskContextFile(null);
-      return;
-    }
-    
-    setTaskContextFile(file);
-    
-    // Extract text from file
-    try {
-      if (ext === 'txt') {
-        const text = await file.text();
-        if (text.length > 50000) {
-          setFileError('Текст файла слишком большой (>50KB), контекст не будет использован');
-          setTaskContextFileText('');
-        } else {
-          setTaskContextFileText(text);
-        }
-      } else if (ext === 'docx' || ext === 'doc') {
-        // Read as ArrayBuffer and extract text from docx XML
-        const buffer = await file.arrayBuffer();
-        try {
-          // Use JSZip-like approach: read the docx as a zip and extract word/document.xml
-          const blob = new Blob([buffer]);
-          const text = await extractDocxText(blob);
-          if (text.length > 50000) {
-            setFileError('Текст файла слишком большой (>50KB), контекст не будет использован');
-            setTaskContextFileText('');
-          } else {
-            setTaskContextFileText(text);
-          }
-        } catch {
-          setFileError('Не удалось извлечь текст из файла');
-          setTaskContextFileText('');
-        }
-      }
-    } catch {
-      setFileError('Ошибка при чтении файла');
-    }
-  };
+
   
   // Simple docx text extraction using browser APIs
   const extractDocxText = async (blob: Blob): Promise<string> => {
@@ -678,24 +688,20 @@ export default function Lawyer() {
               ) : null;
             })()}
             <div className="task-context-file-row">
-              <label className={`task-context-file-label ${taskContextFile ? 'has-file' : ''}`}>
-                📎 {taskContextFile ? taskContextFile.name : 'Прикрепить файл (.txt, .docx, .doc)'}
-                <input
-                  type="file"
-                  accept=".txt,.docx,.doc"
-                  onChange={handleFileChange}
-                  style={{ display: 'none' }}
-                />
-              </label>
-              {taskContextFile && (
-                <button 
-                  className="task-context-remove-btn"
-                  onClick={() => { setTaskContextFile(null); setTaskContextFileText(''); setFileError(''); }}
-                >🗑️</button>
-              )}
+              {isFetchingAttachment ? (
+                 <span className="task-context-status" style={{ color: 'var(--text-secondary)' }}>⌛ Загрузка файла задачи...</span>
+              ) : taskContextFilename ? (
+                <div className="task-context-file-label has-file">
+                   📎 {taskContextFilename} (из задачи)
+                </div>
+              ) : selectedTaskId ? (
+                <span className="task-context-status" style={{ color: 'var(--text-tertiary)', fontSize: '12px' }}>
+                  Нет подходящих файлов (.doc, .docx, .txt) в выбранной задаче
+                </span>
+              ) : null}
             </div>
             {fileError && <span className="task-context-status error">⚠️ {fileError}</span>}
-            {taskContextFileText && <span className="task-context-status success">✅ Текст извлечён ({(taskContextFileText.length / 1024).toFixed(1)}KB)</span>}
+            {taskContextFileText && <span className="task-context-status success">✅ Текст извлечён из задачи ({(taskContextFileText.length / 1024).toFixed(1)}KB)</span>}
           </div>
         )}
 

@@ -1891,9 +1891,7 @@ body {
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--color-primary), var(--color-accent, #6c5ce7), var(--color-primary));
-  background-size: 200% auto;
-  animation: gradientShift 3s ease-in-out infinite;
+  background: var(--color-primary);
 }
 
 @keyframes taskPanelSlideIn {

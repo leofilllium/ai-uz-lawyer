@@ -428,6 +428,12 @@ export async function downloadTaskAttachment(taskId: number, attachmentId: numbe
   URL.revokeObjectURL(url);
 }
 
+export async function getTaskAttachmentContent(taskId: number, attachmentId: number): Promise<Blob> {
+  const response = await fetchWithAuth(`/api/tasks/${taskId}/attachments/${attachmentId}/download`);
+  if (!response.ok) throw new Error('Failed to fetch attachment content');
+  return response.blob();
+}
+
 
 // Lawyer Chat API
 export async function getChatSessions(skip: number = 0, limit: number = 20): Promise<ChatSession[]> {
