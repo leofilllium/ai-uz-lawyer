@@ -103,6 +103,7 @@ def get_task(
             "id": a.id,
             "task_id": a.task_id,
             "filename": a.filename,
+            "file_path": a.file_path,
             "file_size": a.file_size,
             "content_type": a.content_type,
             "uploaded_by": a.uploaded_by,

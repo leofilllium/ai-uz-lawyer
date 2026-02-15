@@ -5,6 +5,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   createTask,
   updateTask,
@@ -53,6 +55,8 @@ export default function TaskForm() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const descRef = useRef<HTMLTextAreaElement>(null);
+  const [editorTab, setEditorTab] = useState<'write' | 'preview'>('write');
 
   const [time, setTime] = useState(new Date());
   useEffect(() => {
@@ -151,6 +155,38 @@ export default function TaskForm() {
   const handleLogout = () => {
     import('../api/client').then((m) => m.logout());
     navigate('/login');
+  };
+
+  /* ── Markdown editor helpers ── */
+  const wrapSelection = (before: string, after: string) => {
+    const ta = descRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const selected = description.slice(start, end);
+    const newText =
+      description.slice(0, start) + before + selected + after + description.slice(end);
+    setDescription(newText);
+    // restore cursor position after React re-render
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.setSelectionRange(start + before.length, end + before.length);
+    });
+  };
+
+  const insertAtLine = (prefix: string) => {
+    const ta = descRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    // Find beginning of current line
+    const lineStart = description.lastIndexOf('\n', start - 1) + 1;
+    const newText =
+      description.slice(0, lineStart) + prefix + description.slice(lineStart);
+    setDescription(newText);
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.setSelectionRange(start + prefix.length, start + prefix.length);
+    });
   };
 
   if (loading) {
@@ -258,17 +294,74 @@ export default function TaskForm() {
             />
           </div>
 
-          {/* Description */}
+          {/* Description — Rich Markdown Editor */}
           <div className="form-group">
             <label className="form-label">Описание</label>
-            <textarea
-              className="form-input"
-              rows={8}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Подробное описание задачи... (поддерживается Markdown)"
-              style={{ resize: 'vertical', minHeight: '160px', fontFamily: 'var(--font-body)' }}
-            />
+            <div className="md-editor">
+              {/* Tabs */}
+              <div className="md-editor__tabs">
+                <button
+                  type="button"
+                  className={`md-editor__tab ${editorTab === 'write' ? 'md-editor__tab--active' : ''}`}
+                  onClick={() => setEditorTab('write')}
+                >
+                  ✏️ Редактор
+                </button>
+                <button
+                  type="button"
+                  className={`md-editor__tab ${editorTab === 'preview' ? 'md-editor__tab--active' : ''}`}
+                  onClick={() => setEditorTab('preview')}
+                >
+                  👁 Просмотр
+                </button>
+              </div>
+
+              {/* Toolbar */}
+              {editorTab === 'write' && (
+                <div className="md-editor__toolbar">
+                  <button type="button" title="Жирный (Ctrl+B)" onClick={() => wrapSelection('**', '**')}>B</button>
+                  <button type="button" title="Курсив (Ctrl+I)" onClick={() => wrapSelection('*', '*')}><em>I</em></button>
+                  <span className="md-toolbar__sep" />
+                  <button type="button" title="Заголовок" onClick={() => insertAtLine('## ')}>H</button>
+                  <button type="button" title="Цитата" onClick={() => insertAtLine('> ')}>❝</button>
+                  <button type="button" title="Код" onClick={() => wrapSelection('`', '`')}>{'</>'}</button>
+                  <button type="button" title="Блок кода" onClick={() => wrapSelection('\n```\n', '\n```\n')}>{'{ }'}</button>
+                  <span className="md-toolbar__sep" />
+                  <button type="button" title="Список" onClick={() => insertAtLine('- ')}>☰</button>
+                  <button type="button" title="Нумерованный список" onClick={() => insertAtLine('1. ')}>1.</button>
+                  <button type="button" title="Чекбокс" onClick={() => insertAtLine('- [ ] ')}>☑</button>
+                  <span className="md-toolbar__sep" />
+                  <button type="button" title="Ссылка" onClick={() => wrapSelection('[', '](url)')}>🔗</button>
+                  <button type="button" title="Горизонтальная линия" onClick={() => insertAtLine('\n---\n')}>—</button>
+                </div>
+              )}
+
+              {/* Editor body */}
+              {editorTab === 'write' ? (
+                <textarea
+                  ref={descRef}
+                  className="md-editor__textarea"
+                  rows={12}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Подробное описание задачи... (поддерживается Markdown)"
+                  onKeyDown={(e) => {
+                    if (e.ctrlKey || e.metaKey) {
+                      if (e.key === 'b') { e.preventDefault(); wrapSelection('**', '**'); }
+                      if (e.key === 'i') { e.preventDefault(); wrapSelection('*', '*'); }
+                    }
+                  }}
+                />
+              ) : (
+                <div className="md-editor__preview">
+                  {description.trim() ? (
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{description}</ReactMarkdown>
+                  ) : (
+                    <div style={{ color: 'var(--color-text-tertiary)', fontStyle: 'italic' }}>Нет содержимого для отображения</div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Priority / Complexity / Status */}

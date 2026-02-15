@@ -5,6 +5,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   getTask,
   updateTask,
@@ -12,6 +14,7 @@ import {
   deleteTaskComment,
   deleteTaskAttachment,
   getMe,
+  API_BASE_URL,
   type User,
   type TaskDetail as TaskDetailType,
   TaskStatus,
@@ -279,7 +282,11 @@ export default function TaskDetail() {
           {task.description && (
             <div className="task-detail-description">
               <h3>📝 Описание</h3>
-              <p>{task.description}</p>
+              <div className="task-detail-description__body">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {task.description}
+                </ReactMarkdown>
+              </div>
             </div>
           )}
 
@@ -295,11 +302,23 @@ export default function TaskDetail() {
                       <div className="attachment-name">{a.filename}</div>
                       <div className="attachment-size">{formatBytes(a.file_size)}</div>
                     </div>
-                    {(user?.id === a.uploaded_by || user?.role === 'HEAD') && (
-                      <button className="attachment-delete" onClick={() => handleDeleteAttachment(a.id)}>
-                        ✕
-                      </button>
-                    )}
+                    <div className="attachment-actions">
+                      <a
+                        className="attachment-download"
+                        href={`${API_BASE_URL}/${a.file_path}`}
+                        download={a.filename}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Скачать"
+                      >
+                        ⬇
+                      </a>
+                      {(user?.id === a.uploaded_by || user?.role === 'HEAD') && (
+                        <button className="attachment-delete" onClick={() => handleDeleteAttachment(a.id)}>
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

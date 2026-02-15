@@ -3,7 +3,7 @@
  * Handles all API calls to the FastAPI backend with JWT authentication and SSE support.
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.lawyerai.uz';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.lawyerai.uz';
 
 // Token storage
 const TOKEN_KEY = 'ai_lawyer_token';
@@ -113,6 +113,7 @@ export interface TaskAttachment {
   id: number;
   task_id: number;
   filename: string;
+  file_path?: string;
   file_size: number;
   content_type?: string;
   uploaded_by: number;
