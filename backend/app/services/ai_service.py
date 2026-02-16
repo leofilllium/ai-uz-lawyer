@@ -3612,7 +3612,7 @@ SEARCH_TOOLS = [
                 },
                 "top_k": {
                     "type": "integer",
-                    "description": "Number of results to return (default 100, recommended 70-120 for balanced coverage, max 350)"
+                    "description": "Number of results to return (default 100, recommended 70-120 for balanced coverage, max 200)"
                 },
                 "filter_source": {
                     "type": "string",
@@ -3655,17 +3655,17 @@ AGENTIC_INSTRUCTION = """
 ▶ Поиск 1 (ШИРОКИЙ): Общая концепция
    Пример: "mehnat shartnomasi tuziladigan tartib"
    Цель: Понять общую структуру регулирования
-   Параметр: top_k=100-150
+   Параметр: top_k=60-80
 
 ▶ Поиск 2 (УТОЧНЯЮЩИЙ): Конкретный аспект
    Пример: "mehnat shartnomasi majburiy shartlari"
    Цель: Найти специфические требования
-   Параметр: top_k=70-100
+   Параметр: top_k=40-60
 
 ▶ Поиск 3 (ЦЕЛЕВОЙ): Специфические нормы
    Пример: "mehnat shartnomasi bekor qilish asoslari"
    Цель: Точные правовые основания
-   Параметр: top_k=60-80
+   Параметр: top_k=20-40
 
 ▶ Поиск 4+ (ПО НЕОБХОДИМОСТИ): Смежные вопросы
    Примеры: санкции, процедуры, исключения, судебная практика
@@ -3841,27 +3841,27 @@ AGENTIC_INSTRUCTION = """
 Пользователь: "Какие обязательные условия должны быть в трудовом договоре?"
 
 Стратегия:
-1. search_legal_database("mehnat shartnomasi majburiy shartlari", top_k=150)
-2. search_legal_database("mehnat shartnomasi tuzish tartibi", top_k=100)
-3. search_legal_database("mehnat shartnomasi mazmuni talablar", top_k=80)
+1. search_legal_database("mehnat shartnomasi majburiy shartlari", top_k=60)
+2. search_legal_database("mehnat shartnomasi tuzish tartibi", top_k=50)
+3. search_legal_database("mehnat shartnomasi mazmuni talablar", top_k=40)
 
 【ПРИМЕР 2: Вопрос о НДС】
 Пользователь: "Кто освобождается от уплаты НДС?"
 
 Стратегия:
-1. search_legal_database("QQS qoshilgan qiymat soligi imtiyozlar", top_k=150)
-2. search_legal_database("QQS tolovchilar roʻyxatga olish", top_k=100)
-3. search_legal_database("QQS ozod qilish shartlari chegirmalar", top_k=100)
-4. search_legal_database("soliq imtiyozlari QQS", top_k=80)
+1. search_legal_database("QQS qoshilgan qiymat soligi imtiyozlar", top_k=60)
+2. search_legal_database("QQS tolovchilar roʻyxatga olish", top_k=50)
+3. search_legal_database("QQS ozod qilish shartlari chegirmalar", top_k=40)
+4. search_legal_database("soliq imtiyozlari QQS", top_k=30)
 
 【ПРИМЕР 3: Вопрос о расторжении договора】
 Пользователь: "По каким основаниям можно расторгнуть договор купли-продажи?"
 
 Стратегия:
-1. search_legal_database("shartnoma bekor qilish asoslari", top_k=150)
-2. search_legal_database("sotib olish sotish shartnomasi buzilishi", top_k=100)
-3. search_legal_database("shartnoma majburiyatlarini bajarmagan tartib", top_k=100)
-4. search_legal_database("birtaraflama shartnomadan voz kechish", top_k=80)
+1. search_legal_database("shartnoma bekor qilish asoslari", top_k=60)
+2. search_legal_database("sotib olish sotish shartnomasi buzilishi", top_k=50)
+3. search_legal_database("shartnoma majburiyatlarini bajarmagan tartib", top_k=40)
+4. search_legal_database("birtaraflama shartnomadan voz kechish", top_k=30)
 
 ═══════════════════════════════════════════════════════════════════════════
 ⚠️ СПЕЦИАЛЬНЫЕ СЛУЧАИ
@@ -3964,7 +3964,7 @@ class AIService:
         self, 
         question: str, 
         history: Optional[List[Dict[str, str]]] = None,
-        top_k: int = 350,
+        top_k: int = 200,
         chat_mode: str = 'consultant',
         extra_context: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -4015,7 +4015,7 @@ class AIService:
         # Always do an initial search to guarantee baseline context & sources,
         # even if Haiku decides not to use the search tool in the agentic loop.
         logger.info("Running mandatory pre-search for baseline context...")
-        pre_search_results = await self._retrieve_context(question, top_k=500)
+        pre_search_results = await self._retrieve_context(question, top_k=250)
         if pre_search_results:
             pre_context = self._format_context(pre_search_results)
             all_context_parts.append(pre_context)
@@ -4067,7 +4067,7 @@ class AIService:
                 for block in assistant_content:
                     if block.type == "tool_use" and block.name == "search_legal_database":
                         query = block.input.get("query", "")
-                        search_top_k = min(block.input.get("top_k", 175), 350)
+                        search_top_k = min(block.input.get("top_k", 175), 200)
                         filter_source = block.input.get("filter_source")
                         
                         log_msg = f"  Tool call: search_legal_database(query='{query}', top_k={search_top_k}"
@@ -4257,7 +4257,7 @@ class AIService:
         logger.info(f"Using simple mode for chat_mode='{chat_mode}'")
         
         # Quick context retrieval
-        results = await self._retrieve_context(question, top_k=350)
+        results = await self._retrieve_context(question, top_k=200)
         context = self._format_context(results)
         sources = self._format_sources(results)
         
@@ -4512,7 +4512,7 @@ class AIService:
             logger.warning(f"Translation failed: {e}, using original query")
             return text
 
-    async def _retrieve_context(self, query: str, top_k: int = 350, filter_source: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def _retrieve_context(self, query: str, top_k: int = 200, filter_source: Optional[str] = None) -> List[Dict[str, Any]]:
         """Retrieve relevant legal context using dual-language search (Russian + Uzbek)."""
         
         # Prepare filter metadata if source filter is provided
