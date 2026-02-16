@@ -77,7 +77,7 @@ export default function Validator() {
   return (
     <div className="validator-page">
       <header className="page-header">
-        <button onClick={() => navigate('/dashboard')} className="btn-back">← Назад</button>
+        <button onClick={() => navigate('/dashboard')} className="btn-secondary">← Назад</button>
         <h1>✅ Проверка договора</h1>
       </header>
 
@@ -90,44 +90,53 @@ export default function Validator() {
             rows={12}
             disabled={loading}
           />
-          <button type="submit" disabled={loading || contractText.length < 50}>
-            {loading ? 'Анализ...' : 'Проверить договор'}
-          </button>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary" disabled={loading || contractText.length < 50}>
+              {loading ? 'Анализ...' : 'Проверить договор (Strict Mode)'}
+            </button>
+          </div>
         </form>
 
         {error && <div className="error-message">{error}</div>}
 
         {result && (
           <div className="analysis-result">
+            {/* Score Card */}
             <div className={`score-card ${getScoreColor(result.validity_score)}`}>
-              <span className="score-emoji">{getScoreEmoji(result.validity_score)}</span>
-              <span className="score-value">{result.validity_score}/100</span>
-              <span className="score-label">
-                {result.validity_score >= 80 ? 'ДОПУСТИМО' : 
-                 result.validity_score >= 50 ? 'ТРЕБУЕТ ДОРАБОТКИ' : 'ВЫСОКИЙ РИСК'}
-              </span>
-              {result.strictness_level === 'maximum' && (
-                <div className="strictness-badge">
-                  🔒 RUTHLESS AUDITOR MODE
-                </div>
-              )}
+              <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
+                <span className="score-emoji">{getScoreEmoji(result.validity_score)}</span>
+                <span className="score-value">{result.validity_score}/100</span>
+              </div>
+              
+              <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end'}}>
+                <span className="score-label">
+                  {result.validity_score >= 90 ? 'ДОПУСТИМО (ИДЕАЛ)' : 
+                   result.validity_score >= 75 ? 'ТРЕБУЕТ ДОРАБОТКИ' : 
+                   result.validity_score >= 50 ? 'РИСКОВАНО' : 'КРИТИЧЕСКИ ОПАСНО'}
+                </span>
+                {result.strictness_level === 'maximum' && (
+                  <span className="strict-badge">🔒 RUTHLESS AUDITOR</span>
+                )}
+              </div>
             </div>
 
+            {/* Score Explanation */}
             {result.score_explanation && (
               <div className="score-explanation">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.score_explanation}</ReactMarkdown>
               </div>
             )}
 
+            {/* Critical Errors */}
             {result.critical_errors && result.critical_errors.length > 0 && (
-              <section className="errors-section">
+              <section className="analysis-section">
                 <h2>❌ Критические ошибки</h2>
                 {result.critical_errors.map((err, i) => (
                   <div key={i} className="error-card">
-                    <h3>{err.error}</h3>
-                    <p><strong>Статья:</strong> {err.article}</p>
+                    <div className="card-title">🛑 {err.error}</div>
+                    <div className="card-meta">Статья: {err.article}</div>
                     <div className="fix-suggestion">
-                      <strong>Исправление:</strong>
+                      <label>Исправление</label>
                       <pre>{err.fix}</pre>
                     </div>
                   </div>
@@ -135,90 +144,90 @@ export default function Validator() {
               </section>
             )}
 
-            {/* Hidden Risks Section */}
+            {/* Hidden Risks (New) */}
             {result.hidden_risks && result.hidden_risks.length > 0 && (
-              <section className="risks-section">
+              <section className="analysis-section">
                 <h2>🕵️ Скрытые угрозы и ловушки</h2>
-                <div className="section-subtitle">Пункты, которые юридически корректны, но опасны для вас</div>
                 {result.hidden_risks.map((risk, i) => (
-                  <div key={i} className={`risk-card ${risk.severity.toLowerCase()}`}>
-                    <div className="risk-header">
-                      <h3>{risk.severity.toLowerCase() === 'high' ? '💣' : '⚠️'} {risk.risk}</h3>
-                      <span className={`severity-tag ${risk.severity.toLowerCase()}`}>{risk.severity}</span>
+                  <div key={i} className="risk-card">
+                    <div className="card-title">💣 {risk.risk}</div>
+                    <div className="card-meta">
+                      Где: {risk.location} • Тяжесть: {risk.severity.toUpperCase()}
                     </div>
-                    <p><strong>Где найдено:</strong> {risk.location}</p>
-                    <div className="mitigation-box">
-                      <strong>Как обезвредить:</strong>
-                      <p>{risk.mitigation}</p>
+                    <p style={{marginTop: '8px', fontSize: '0.95rem'}}>
+                      <strong>Как обезвредить:</strong> {risk.mitigation}
+                    </p>
+                  </div>
+                ))}
+              </section>
+            )}
+
+            {/* Ambiguities (New) */}
+            {result.ambiguities && result.ambiguities.length > 0 && (
+              <section className="analysis-section">
+                <h2>🌫️ Размытые формулировки</h2>
+                {result.ambiguities.map((amb, i) => (
+                  <div key={i} className="ambiguity-card">
+                    <div className="card-title">"{amb.phrase}"</div>
+                    <p style={{marginBottom: '8px', color: 'var(--color-error)'}}>{amb.risk}</p>
+                    <div className="fix-suggestion">
+                      <label>Лучше написать</label>
+                      <pre>{amb.suggestion}</pre>
                     </div>
                   </div>
                 ))}
               </section>
             )}
 
-            {/* Ambiguities Section */}
-            {result.ambiguities && result.ambiguities.length > 0 && (
-              <section className="ambiguities-section">
-                <h2>🌫️ Размытые формулировки</h2>
-                <div className="section-subtitle">Фразы, которые можно трактовать двояко в суде</div>
-                <div className="ambiguities-grid">
-                  {result.ambiguities.map((amb, i) => (
-                    <div key={i} className="ambiguity-card">
-                      <div className="ambiguity-phrase">"{amb.phrase}"</div>
-                      <div className="ambiguity-risk">⚠️ {amb.risk}</div>
-                      <div className="ambiguity-fix">
-                        <strong>Лучше написать:</strong>
-                        <code>{amb.suggestion}</code>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
+            {/* Warnings */}
             {result.warnings && result.warnings.length > 0 && (
-              <section className="warnings-section">
+              <section className="analysis-section">
                 <h2>⚠️ Предупреждения</h2>
                 {result.warnings.map((warn, i) => (
                   <div key={i} className="warning-card">
-                    <h3>{warn.risk}</h3>
+                    <div className="card-title">{warn.risk}</div>
                     <p>{warn.explanation}</p>
-                    <p><strong>Рекомендация:</strong> {warn.suggestion}</p>
+                    <p style={{marginTop: '8px'}}>👉 <strong>Рекомендация:</strong> {warn.suggestion}</p>
                   </div>
                 ))}
               </section>
             )}
 
+            {/* Missing Clauses */}
             {result.missing_clauses && result.missing_clauses.length > 0 && (
-              <section className="missing-section">
+              <section className="analysis-section">
                 <h2>📝 Недостающие пункты</h2>
                 {result.missing_clauses.map((clause, i) => (
                   <div key={i} className="missing-card">
-                    <h3>{clause.clause_name}</h3>
-                    <p><strong>Основание:</strong> {clause.article_reference}</p>
-                    <pre className="drafted-text">{clause.drafted_text}</pre>
+                    <div className="card-title">🔹 {clause.clause_name}</div>
+                    <div className="card-meta">Основание: {clause.article_reference}</div>
+                    <div className="fix-suggestion">
+                      <pre>{clause.drafted_text}</pre>
+                    </div>
                   </div>
                 ))}
               </section>
             )}
 
-            {/* Negotiation Strategy */}
+            {/* Negotiation Strategy (New) */}
             {result.negotiation_strategy && (
-              <section className="strategy-section">
+              <section className="analysis-section">
                 <h2>🤝 Стратегия переговоров</h2>
-                <div className="strategy-content">
+                <div style={{whiteSpace: 'pre-wrap', lineHeight: '1.6'}}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.negotiation_strategy}</ReactMarkdown>
                 </div>
               </section>
             )}
 
+            {/* Summary */}
             {result.summary && (
-              <section className="summary-section">
+              <section className="analysis-section">
                 <h2>📌 Заключение</h2>
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.summary}</ReactMarkdown>
               </section>
             )}
 
+            {/* Sources */}
             {result.sources && result.sources.length > 0 && (
               <details className="sources-expander" open>
                 <summary>📚 Правовая основа ({result.sources.length})</summary>
@@ -228,12 +237,7 @@ export default function Validator() {
                       <div className="source-header-info">
                         <strong>{source.source}</strong>
                         <span className="source-article-badge">Статья {source.article}</span>
-                        {source.similarity && (
-                          <span className="source-similarity">{source.similarity}</span>
-                        )}
                       </div>
-                      {source.title && <div className="source-title">{source.title}</div>}
-                      {source.chapter && <div className="source-chapter">{source.chapter}</div>}
                       {source.preview && (
                         <div className="source-preview">{source.preview.substring(0, 200)}...</div>
                       )}

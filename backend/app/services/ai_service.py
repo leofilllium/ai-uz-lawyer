@@ -5445,7 +5445,7 @@ class AIService:
         seen_articles = set()
         
         for search_query in search_queries:
-            results = await self.vector_store.asearch(search_query, top_k=15)
+            results = await self.vector_store.asearch(search_query, top_k=70)
             for result in results:
                 article_key = f"{result.get('metadata', {}).get('source')}_{result.get('metadata', {}).get('article_display')}"
                 if article_key not in seen_articles:
@@ -5485,7 +5485,7 @@ class AIService:
         async def stream_response():
             try:
                 stream = await self.client.aio.models.generate_content_stream(
-                    model=self.settings.gemini_flash_model,
+                    model="gemini-3-pro-preview",
                     contents=generation_prompt,
                     config=config
                 )
