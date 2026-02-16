@@ -3676,7 +3676,7 @@ DEFAULT_TOP_K = 35
 PRE_SEARCH_TOP_K = 50
 MIN_RELEVANCE_SCORE = 0.35  # Minimum similarity score for RAG results
 MAX_AGENTIC_ROUNDS = 10 # Max rounds for agentic search
-MAX_OUTPUT_TOKENS = 24000 # Increased to maximum possible for extremely detailed responses
+MAX_OUTPUT_TOKENS = 65536 # Gemini 3 Flash maximum for exhaustive, detailed responses
 
 # ═══════════════════════════════════════════════════════════════
 # 🛡️ SAFETY & QUALITY INSTRUCTIONS
@@ -3845,7 +3845,7 @@ KB_ENFORCEMENT_INSTRUCTION = """
 # All available mode keys for the classifier
 ALL_MODE_KEYS = list(CHAT_MODE_PROMPTS.keys())
 
-AUTO_DETECT_CLASSIFIER_PROMPT = f"""Вы — классификатор юридических вопросов. Ваша задача — проанализировать вопрос пользователя и определить, к какому типу юридической консультации он относится.
+AUTO_DETECT_CLASSIFIER_PROMPT = f"""Вы — интеллектуальный классификатор и планировщик юридических ответов. Ваша задача — проанализировать вопрос пользователя, определить тип консультации и спланировать ОПТИМАЛЬНУЮ СТРУКТУРУ ответа.
 
 Доступные режимы:
 {chr(10).join(f'- {k}' for k in ALL_MODE_KEYS)}
@@ -3857,9 +3857,18 @@ AUTO_DETECT_CLASSIFIER_PROMPT = f"""Вы — классификатор юрид
 4. Если пользователь ссылается на контекст (например, "выполни задачу", "проанализируй файл"), ОБЯЗАТЕЛЬНО используйте предоставленный КОНТЕКСТ ЗАДАЧИ для определения темы.
 5. Если вопрос не юридический и нет контекста (приветствие, благодарность) — используйте "smalltalk"
 6. Если вопрос юридический, но не подходит ни под один режим — используйте "consultant"
+7. ОБЯЗАТЕЛЬНО составьте response_plan — детальный план структуры ответа, адаптированный к конкретному вопросу
+
+АНАЛИЗ ТИПА ВОПРОСА для response_plan:
+- Если вопрос содержит КЕЙС + ВОПРОСЫ → план: ответить на каждый вопрос отдельно, объяснить, привести статьи
+- Если вопрос о КОНКРЕТНОЙ СИТУАЦИИ → план: анализ ситуации, применимое право, пошаговые действия, риски
+- Если вопрос ТЕОРЕТИЧЕСКИЙ → план: определение, правовая база, практическое применение, примеры
+- Если СРАВНЕНИЕ ВАРИАНТОВ → план: таблица сравнения, плюсы/минусы, рекомендация
+- Если запрос ДОКУМЕНТА → план: структура документа, обязательные реквизиты, текст
+- Если СПОР/КОНФЛИКТ → план: позиции сторон, применимые нормы, стратегия, прогноз
 
 ФОРМАТ ОТВЕТА:
-{{"detected_mode": "режим", "confidence": 0.85}}"""
+{{"detected_mode": "режим", "confidence": 0.85, "response_plan": "Детальный план структуры ответа на русском языке. Включите: какие разделы создать, какие вопросы осветить, какую информацию обязательно включить, рекомендуемый формат (таблицы, списки, разделы)."}}"""
 
 AUTO_DETECT_FALLBACK_PROMPT = """Вы — универсальный AI юрист-консультант по законодательству Республики Узбекистан.
 
@@ -4088,6 +4097,74 @@ class AIService:
         self.vector_store = get_vector_store()
         self.document_processor = DocumentProcessor()
     
+    async def _auto_detect_mode(
+        self,
+        question: str,
+        extra_context: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Smart auto-detect: classifies the question and generates an optimal response plan.
+        Returns dict with 'detected_mode', 'confidence', and 'response_plan'.
+        """
+        logger.info("Running smart auto-detect classifier...")
+        
+        classifier_input = f"ВОПРОС ПОЛЬЗОВАТЕЛЯ:\n{question}"
+        if extra_context:
+            classifier_input += f"\n\nКОНТЕКСТ ЗАДАЧИ:\n{extra_context[:2000]}"
+        
+        try:
+            response = await self.client.aio.models.generate_content(
+                model=self.settings.gemini_flash_model,
+                contents=classifier_input,
+                config=types.GenerateContentConfig(
+                    system_instruction=AUTO_DETECT_CLASSIFIER_PROMPT,
+                    temperature=0.1,
+                    max_output_tokens=1024,
+                    thinking_config=types.ThinkingConfig(
+                        thinking_level="low"
+                    )
+                )
+            )
+            
+            raw_text = response.text.strip() if response.text else ""
+            # Extract JSON from response (handle markdown code blocks)
+            if "```" in raw_text:
+                raw_text = raw_text.split("```")[1]
+                if raw_text.startswith("json"):
+                    raw_text = raw_text[4:]
+                raw_text = raw_text.strip()
+            
+            result = json.loads(raw_text)
+            detected_mode = result.get("detected_mode", "consultant")
+            confidence = float(result.get("confidence", 0.5))
+            response_plan = result.get("response_plan", "")
+            
+            # Validate detected mode exists
+            if detected_mode not in CHAT_MODE_PROMPTS:
+                logger.warning(f"Auto-detect returned unknown mode '{detected_mode}', falling back to consultant")
+                detected_mode = "consultant"
+            
+            # Require minimum confidence
+            if confidence < 0.7:
+                logger.info(f"Auto-detect confidence {confidence:.2f} below threshold, using consultant")
+                detected_mode = "consultant"
+            
+            logger.info(f"Auto-detect result: mode='{detected_mode}', confidence={confidence:.2f}, plan_length={len(response_plan)}")
+            
+            return {
+                "detected_mode": detected_mode,
+                "confidence": confidence,
+                "response_plan": response_plan
+            }
+            
+        except Exception as e:
+            logger.error(f"Auto-detect failed: {e}")
+            return {
+                "detected_mode": "consultant",
+                "confidence": 0.0,
+                "response_plan": ""
+            }
+
     async def query_with_rag(
         self, 
         question: str, 
@@ -4099,11 +4176,24 @@ class AIService:
     ) -> Dict[str, Any]:
         """
         Enhanced agentic RAG with hallucination prevention and quality validation.
-        Uses Gemini Flash for fast agentic loops and synthesis.
+        Uses Gemini 3 Flash with thinking_level for deep reasoning.
         """
         logger.info(f"=== ENHANCED AI SERVICE (GEMINI): query_with_rag ===")
         logger.info(f"Question: {question[:100]}...")
         logger.info(f"Chat mode: {chat_mode}")
+        
+        # ═══════════════════════════════════════════════════════════════
+        # PHASE 0: SMART AUTO-DETECT (if mode is 'auto-detect')
+        # ═══════════════════════════════════════════════════════════════
+        
+        auto_detect_plan = ""
+        if chat_mode == 'auto-detect':
+            if progress_callback:
+                await progress_callback("detecting_mode")
+            detect_result = await self._auto_detect_mode(question, extra_context)
+            chat_mode = detect_result["detected_mode"]
+            auto_detect_plan = detect_result.get("response_plan", "")
+            logger.info(f"Auto-detected mode: '{chat_mode}', plan: '{auto_detect_plan[:100]}...'")
         
         # Select appropriate system prompt
         system_prompt = self._get_system_prompt(chat_mode)
@@ -4182,13 +4272,16 @@ class AIService:
         
         logger.info(f"Starting enhanced agentic loop (max {MAX_AGENTIC_ROUNDS} rounds)...")
         
-        # Tools configuration
+        # Tools configuration — use low thinking for fast agentic tool-calling
         tools = [types.Tool(function_declarations=[GEMINI_SEARCH_TOOL])]
         config = types.GenerateContentConfig(
             system_instruction=full_system_prompt,
             tools=tools,
-            temperature=0.7,
+            temperature=0.3,
             max_output_tokens=MAX_OUTPUT_TOKENS,
+            thinking_config=types.ThinkingConfig(
+                thinking_level="low"
+            ),
         )
         
         # Convert history to Gemini format
@@ -4346,20 +4439,44 @@ class AIService:
         if progress_callback:
             await progress_callback("synthesizing")
         
+        # Build auto-detect plan instruction if available
+        auto_detect_instruction = ""
+        if auto_detect_plan:
+            auto_detect_instruction = (
+                f"\n\n### 📋 ПЛАН ОТВЕТА (ОБЯЗАТЕЛЬНО СЛЕДУЙТЕ):\n{auto_detect_plan}\n"
+            )
+        
         model_final_config = types.GenerateContentConfig(
             system_instruction=(
                 system_prompt + "\n\n" + 
                 ANTI_HALLUCINATION_RULES + "\n\n" + 
-                "IMPORTANT: You are a SENIOR IN FIELD YOU SPECIALIZE TO. Your goal is to provide a comprehensive, "
-                "deeply reasoned, and legally grounded answer. "
-                "Target 5,000+ words of high-quality legal analysis in your field, use as much words you can, make answers as detailed as it can be. "
-                "MUST START RESPONSE WITH THE TITLE/HEADER DEFINED IN THE FORMAT."
+                auto_detect_instruction + "\n\n" +
+                """КРИТИЧЕСКИЕ ИНСТРУКЦИИ ДЛЯ КАЧЕСТВА ОТВЕТА:
+
+1. ВЫ — ВЕДУЩИЙ ЭКСПЕРТ в данной области права. Ваш ответ должен быть ИСЧЕРПЫВАЮЩИМ и ПРОФЕССИОНАЛЬНЫМ.
+
+2. ПЕРВАЯ СТРОКА вашего ответа ОБЯЗАТЕЛЬНО должна быть заголовком формата (## 📌 или ## ⚖️ и т.д.). НЕ выводите НИЧЕГО перед заголовком — ни пробелов, ни пустых строк, ни комментариев.
+
+3. ОБЪЁМ И ДЕТАЛИЗАЦИЯ:
+   - Для КАЖДОГО правового утверждения укажите: (а) конкретную статью закона/кодекса из контекста, (б) как она применяется к данной ситуации, (в) практические последствия, (г) потенциальные риски и исключения.
+   - НЕ сокращайте и НЕ обобщайте. Раскрывайте КАЖДЫЙ пункт максимально подробно.
+   - Используйте таблицы для структурированных данных (сроки, штрафы, сравнения).
+   - Приводите пошаговые инструкции с конкретными действиями.
+   - Указывайте ВСЕ применимые нормативные акты из предоставленного контекста.
+
+4. СТРУКТУРА: Строго следуйте формату, определённому в системной подсказке. Не пропускайте ни одного раздела.
+
+5. ПОЛНОТА: Ответ должен быть настолько полным, чтобы у пользователя НЕ возникло необходимости задавать уточняющие вопросы. Предвосхищайте связанные вопросы и отвечайте на них."""
             ),
+            temperature=0.4,
             max_output_tokens=MAX_OUTPUT_TOKENS,
-            # thinking_config=types.ThinkingConfig(thinking_level="high") # Not supported in all models yet, safely removed for now
+            thinking_config=types.ThinkingConfig(
+                thinking_level="high"
+            ),
         )
         
         async def stream_response():
+            first_chunk = True
             try:
                 stream = await self.client.aio.models.generate_content_stream(
                     model=self.settings.gemini_flash_model,
@@ -4369,7 +4486,12 @@ class AIService:
                 
                 async for chunk in stream:
                     if chunk.text:
-                        yield chunk.text
+                        text = chunk.text
+                        # Ensure the very first output starts with a header
+                        if first_chunk:
+                            text = text.lstrip()
+                            first_chunk = False
+                        yield text
             except Exception as e:
                 logger.error(f"Streaming error: {e}")
                 yield f"\n\n⚠️ Error generating response: {str(e)}"
@@ -4636,13 +4758,14 @@ class AIService:
                 f"ВОПРОС КЛИЕНТА:\n{question}\n\n"
                 f"{'─' * 60}\n\n"
                 f"📝 ИНСТРУКЦИИ ДЛЯ ОТВЕТА:\n\n"
-                f"1. НАЧНИТЕ СВОЙ ОТВЕТ ТОЧНО С ЗАГОЛОВКА/ЗАГОЛОВКА, определенного в формате системной подсказки.\n"
-                f"2. НЕ ПРОПУСКАЙТЕ НИКАКИЕ РАЗДЕЛЫ. Строго следуйте требуемой структуре.\n"
-                f"3. Используйте ТОЛЬКО информацию из предоставленного правового контекста\n"
-                f"4. Цитируйте ТОЧНЫЕ номера статей из контекста (не придумывайте!)\n"
-                f"5. При низком качестве контекста укажите предупреждение\n"
-                f"6. Если информации недостаточно - прямо сообщите об этом\n"
-                f"Дайте полный, структурированный, профессиональный ответ. НАЧНИТЕ С ЗАГОЛОВКА."
+                f"1. ПЕРВАЯ СТРОКА = ЗАГОЛОВОК. Начните ответ НЕМЕДЛЕННО с заголовка формата (## 📌 ...). Без пробелов, без пустых строк перед ним.\n"
+                f"2. НЕ ПРОПУСКАЙТЕ НИКАКИЕ РАЗДЕЛЫ. Строго следуйте требуемой структуре от начала до конца.\n"
+                f"3. Используйте ТОЛЬКО информацию из предоставленного правового контекста. Каждое утверждение — со ссылкой на статью.\n"
+                f"4. Цитируйте ТОЧНЫЕ номера статей из контекста (не придумывайте!).\n"
+                f"5. МАКСИМАЛЬНАЯ ДЕТАЛИЗАЦИЯ: раскройте каждый пункт полностью, со всеми нюансами, исключениями и практическими рекомендациями.\n"
+                f"6. ПРЕДВОСХИЩАЙТЕ вопросы: отвечайте на связанные и смежные вопросы, которые могут возникнуть.\n"
+                f"7. При низком качестве контекста укажите предупреждение, но всё равно дайте максимально полный ответ.\n"
+                f"Дайте ИСЧЕРПЫВАЮЩИЙ, структурированный, профессиональный ответ. НАЧНИТЕ С ЗАГОЛОВКА."
             )
         else:
              final_user_content = (
@@ -4698,11 +4821,9 @@ class AIService:
         contents = gemini_history + [types.Content(role="user", parts=[types.Part.from_text(text=question)])]
         
         config = types.GenerateContentConfig(
-            system_instruction=system_prompt + "\n\nIMPORTANT: Provide a very deep and extensive answer. Do not summarize — expand on every point possible.",
+            system_instruction=system_prompt + "\n\nIMPORTANT: Provide a very deep and extensive answer. Do not summarize — expand on every point possible. Your FIRST LINE must be the title/header.",
             max_output_tokens=MAX_OUTPUT_TOKENS,
-            thinking_config=types.ThinkingConfig(
-                include_thoughts=True
-            )
+            temperature=0.5,
         )
 
         async def stream_response():
