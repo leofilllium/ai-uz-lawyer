@@ -5446,21 +5446,24 @@ class AIService:
         # 1. Build search queries
         search_queries = self._build_contract_search_queries(category, requirements)
         
-        # 2. Retrieve context (Multi-query)
+        # 2. Retrieve context (Advanced Agentic RAG)
         all_results = []
         seen_articles = set()
         
         for search_query in search_queries:
-            results = await self.vector_store.asearch(search_query, top_k=100)
+            # Use improved retrieval with reranking and hybrid search
+            results = await self._enhanced_retrieve_context(search_query, top_k=50)
             for result in results:
+                # Deduplicate by source + article
                 article_key = f"{result.get('metadata', {}).get('source')}_{result.get('metadata', {}).get('article_display')}"
                 if article_key not in seen_articles:
                     seen_articles.add(article_key)
                     all_results.append(result)
                     
-        # Sort and limit
+        # Sort by similarity (now includes rerank score) and limit
         all_results.sort(key=lambda x: x.get("similarity", 0), reverse=True)
-        final_results = all_results[:40]
+        # Increase context window for detailed contracts
+        final_results = all_results[:150]
         
         legal_context = self._format_enhanced_context(final_results)
         sources = self._format_sources_with_quality(final_results)
