@@ -3608,7 +3608,7 @@ SEARCH_TOOLS = [
                 },
                 "top_k": {
                     "type": "integer",
-                    "description": "Number of results to return (default 10, max 20)"
+                    "description": "Number of results to return (default 50, max 100)"
                 }
             },
             "required": ["query"]
@@ -3742,7 +3742,7 @@ class AIService:
         # Always do an initial search to guarantee baseline context & sources,
         # even if Haiku decides not to use the search tool in the agentic loop.
         logger.info("Running mandatory pre-search for baseline context...")
-        pre_search_results = await self._retrieve_context(question, top_k=65)
+        pre_search_results = await self._retrieve_context(question, top_k=100)
         if pre_search_results:
             pre_context = self._format_context(pre_search_results)
             all_context_parts.append(pre_context)
@@ -3794,7 +3794,7 @@ class AIService:
                 for block in assistant_content:
                     if block.type == "tool_use" and block.name == "search_legal_database":
                         query = block.input.get("query", "")
-                        search_top_k = min(block.input.get("top_k", 10), 20)
+                        search_top_k = min(block.input.get("top_k", 50), 100)
                         
                         logger.info(f"  Tool call: search_legal_database(query='{query}', top_k={search_top_k})")
                         
@@ -3975,7 +3975,7 @@ class AIService:
         logger.info(f"Using simple mode for chat_mode='{chat_mode}'")
         
         # Quick context retrieval
-        results = await self._retrieve_context(question, top_k=65)
+        results = await self._retrieve_context(question, top_k=100)
         context = self._format_context(results)
         sources = self._format_sources(results)
         
@@ -4023,7 +4023,7 @@ class AIService:
             "query": question,
         }
     
-    async def analyze_contract(self, contract_text: str, top_k: int = 65) -> Dict[str, Any]:
+    async def analyze_contract(self, contract_text: str, top_k: int =100) -> Dict[str, Any]:
         """
         Analyze a contract for legal compliance.
         Returns structured audit result with validity score.
@@ -4139,7 +4139,7 @@ class AIService:
         category: str,
         requirements: str,
         template_context: str,
-        top_k: int = 65
+        top_k: int = 100
     ) -> Dict[str, Any]:
         """
         Generate a contract based on templates, legal context, and user requirements.
@@ -4230,7 +4230,7 @@ class AIService:
             logger.warning(f"Translation failed: {e}, using original query")
             return text
 
-    async def _retrieve_context(self, query: str, top_k: int = 65) -> List[Dict[str, Any]]:
+    async def _retrieve_context(self, query: str, top_k: int =100) -> List[Dict[str, Any]]:
         """Retrieve relevant legal context using dual-language search (Russian + Uzbek)."""
         # Search with original query (Russian)
         results_original = await self.vector_store.asearch(query, top_k=top_k)
@@ -4475,7 +4475,7 @@ class AIService:
                 "summary": response_text[:500] if response_text else "No response received"
             }
 
-    async def analyze_document(self, document_text: str, document_type: Optional[str] = None, top_k: int = 65) -> Dict[str, Any]:
+    async def analyze_document(self, document_text: str, document_type: Optional[str] = None, top_k: int =100) -> Dict[str, Any]:
         """
         Analyze a legal document for validity, compliance, and provide improvements.
         Returns comprehensive audit with formal validity, legal validity, up-to-dateness,
