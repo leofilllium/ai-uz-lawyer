@@ -3587,28 +3587,36 @@ SEARCH_TOOLS = [
     {
         "name": "search_legal_database",
         "description": (
-            "Search the internal Uzbekistan legal database (codes, laws, articles). "
-            "IMPORTANT: All documents are stored in UZBEK (Latin script). "
-            "For best results, formulate queries in UZBEK Latin. "
-            "The system will also try Russian queries but Uzbek queries give much better results. "
-            "You can call this tool multiple times with different queries to gather "
-            "comprehensive legal context. Available sources include: Fuqarolik kodeksi (Гражданский кодекс), "
-            "Jinoyat kodeksi (Уголовный кодекс), Mehnat kodeksi (Трудовой кодекс), Soliq kodeksi (Налоговый кодекс), "
-            "Oila kodeksi (Семейный кодекс), Yer kodeksi (Земельный кодекс), Turar-joy kodeksi (Жилищный кодекс), "
-            "Bojxona kodeksi (Таможенный кодекс), Byudjet kodeksi (Бюджетный кодекс), "
-            "Konstitutsiya (Конституция), Isteʼmolchilar huquqlarini himoya qilish toʻgʻrisidagi qonun, "
-            "and other codes/laws."
+            "Search the internal Uzbekistan legal database (codes, laws, regulations, articles). "
+            "CRITICAL: All documents are stored in UZBEK (Latin script). "
+            "The search engine uses hybrid semantic + keyword matching. "
+            "Returns results with relevance scores (0-1) and metadata (source, article number, date). "
+            "Available sources: Fuqarolik kodeksi (Civil Code), Jinoyat kodeksi (Criminal Code), "
+            "Mehnat kodeksi (Labor Code), Soliq kodeksi (Tax Code), Oila kodeksi (Family Code), "
+            "Yer kodeksi (Land Code), Turar-joy kodeksi (Housing Code), Bojxona kodeksi (Customs Code), "
+            "Byudjet kodeksi (Budget Code), Konstitutsiya (Constitution), O'zbekiston Respublikasi "
+            "Fuqarolik protsessual kodeksi (Civil Procedure Code), Ma'muriy javobgarlik to'g'risida kodeks "
+            "(Administrative Liability Code), and 500+ laws and regulations."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Search query — preferably in Uzbek Latin script for best results. Examples: 'soliq tekshiruvi tartib', 'QQS hisobga olish', 'shartnoma muhim shartlari'"
+                    "description": (
+                        "Search query in Uzbek Latin script for optimal results. "
+                        "Use legal terminology: 'shartnoma buzilishi' (contract breach), "
+                        "'mehnat huquqlari' (labor rights), 'soliq majburiyatlari' (tax obligations). "
+                        "For multi-concept queries, use specific legal terms for each concept."
+                    )
                 },
                 "top_k": {
                     "type": "integer",
-                    "description": "Number of results to return (default 50, max 100)"
+                    "description": "Number of results to return (default 100, recommended 70-120 for balanced coverage, max 350)"
+                },
+                "filter_source": {
+                    "type": "string",
+                    "description": "Optional: Filter by specific code/law name (e.g., 'Soliq kodeksi', 'Mehnat kodeksi')"
                 }
             },
             "required": ["query"]
@@ -3617,27 +3625,292 @@ SEARCH_TOOLS = [
 ]
 
 AGENTIC_INSTRUCTION = """
-🔧 ИНСТРУКЦИЯ ПО ИСПОЛЬЗОВАНИЮ ИНСТРУМЕНТОВ:
+╔═══════════════════════════════════════════════════════════════════════════╗
+║ 🔧 РАСШИРЕННАЯ ИНСТРУКЦИЯ ПО АГЕНТНОМУ ПОИСКУ В ПРАВОВОЙ БАЗЕ            ║
+╚═══════════════════════════════════════════════════════════════════════════╝
 
-У вас есть доступ к одному инструменту: `search_legal_database` — он ищет ТОЛЬКО в нашей внутренней базе данных законодательства Узбекистана.
+═══════════════════════════════════════════════════════════════════════════
+📚 ДОСТУПНЫЙ ИНСТРУМЕНТ
+═══════════════════════════════════════════════════════════════════════════
 
-⚠️ КРИТИЧЕСКИ ВАЖНО: Все документы в базе данных хранятся на УЗБЕКСКОМ ЯЗЫКЕ (латиница)!
-Поэтому запросы НЕОБХОДИМО формулировать на УЗБЕКСКОМ ЯЗЫКЕ (латиница) для получения релевантных результатов.
+`search_legal_database` — гибридный поиск (семантический + ключевые слова) 
+по внутренней базе законодательства Узбекистана (15,000+ документов).
 
-ПРАВИЛА:
-1. Вы ОБЯЗАНЫ использовать этот инструмент для поиска правовой базы перед ответом на юридические вопросы
-2. Вы можете вызывать инструмент НЕСКОЛЬКО РАЗ с разными запросами для сбора полного контекста
-3. Формулируйте запросы НА УЗБЕКСКОМ ЯЗЫКЕ (латиница), используя юридическую терминологию:
-   - Вместо "Налоговый кодекс НДС" → "Soliq kodeksi QQS qoʻshilgan qiymat soligʻi"
-   - Вместо "Гражданский кодекс договор" → "Fuqarolik kodeksi shartnoma"
-   - Вместо "Трудовой договор" → "Mehnat shartnomasi"
-   - Вместо "Налоговая проверка" → "Soliq tekshiruvi"
-   - Вместо "Обжалование решения" → "Qarorni shikoyat qilish"
-4. Если инструмент возвращает мало результатов или результаты с низкой релевантностью — попробуйте переформулировать запрос с другими узбекскими терминами
-5. КРИТИЧНО: Если после нескольких попыток поиска релевантная информация НЕ НАЙДЕНА, вы ОБЯЗАНЫ ответить:
-   "К сожалению, в нашей базе данных недостаточно информации для ответа на данный вопрос. Я не могу предоставить юридическую консультацию без подтверждения в базе знаний."
-6. ЗАПРЕЩЕНО отвечать на основе общих знаний, если нет подтверждения в базе.
-7. Для вопросов общего характера (приветствия, благодарности) инструмент использовать не нужно
+⚠️ КРИТИЧЕСКИ ВАЖНО: База данных на УЗБЕКСКОМ ЯЗЫКЕ (латиница)!
+
+═══════════════════════════════════════════════════════════════════════════
+🎯 СТРАТЕГИЯ ПОИСКА: ОБЯЗАТЕЛЬНЫЙ ПРОТОКОЛ
+═══════════════════════════════════════════════════════════════════════════
+
+【ЭТАП 1: АНАЛИЗ ЗАПРОСА】
+Перед любым поиском:
+1. Определите правовую область (гражданское, налоговое, трудовое, семейное и т.д.)
+2. Выделите ключевые юридические концепции
+3. Определите, какие кодексы/законы наиболее релевантны
+4. Сформулируйте 2-3 варианта узбекских поисковых запросов
+
+【ЭТАП 2: МНОГОУРОВНЕВЫЙ ПОИСК】
+Используйте итеративную стратегию:
+
+▶ Поиск 1 (ШИРОКИЙ): Общая концепция
+   Пример: "mehnat shartnomasi tuziladigan tartib"
+   Цель: Понять общую структуру регулирования
+   Параметр: top_k=100-150
+
+▶ Поиск 2 (УТОЧНЯЮЩИЙ): Конкретный аспект
+   Пример: "mehnat shartnomasi majburiy shartlari"
+   Цель: Найти специфические требования
+   Параметр: top_k=70-100
+
+▶ Поиск 3 (ЦЕЛЕВОЙ): Специфические нормы
+   Пример: "mehnat shartnomasi bekor qilish asoslari"
+   Цель: Точные правовые основания
+   Параметр: top_k=60-80
+
+▶ Поиск 4+ (ПО НЕОБХОДИМОСТИ): Смежные вопросы
+   Примеры: санкции, процедуры, исключения, судебная практика
+   
+ПРАВИЛО: Минимум 2-3 поисковых запроса для комплексных юридических вопросов
+
+═══════════════════════════════════════════════════════════════════════════
+🗣️ СЛОВАРЬ: РУССКИЙ → УЗБЕКСКИЙ (Правовая терминология)
+═══════════════════════════════════════════════════════════════════════════
+
+【ОБЩИЕ ТЕРМИНЫ】
+- Договор/Контракт → shartnoma
+- Закон → qonun
+- Кодекс → kodeks
+- Статья → modda
+- Право → huquq
+- Обязанность → majburiyat
+- Ответственность → javobgarlik
+- Нарушение → buzilish, qoidabuzarlik
+- Процедура → tartib, jarayon
+- Требование → talab
+- Условие → shart
+- Срок → muddat
+
+【ГРАЖДАНСКОЕ ПРАВО】
+- Гражданский кодекс → Fuqarolik kodeksi
+- Физическое лицо → jismoniy shaxs
+- Юридическое лицо → yuridik shaxs
+- Право собственности → mulk huquqi
+- Купля-продажа → sotib olish-sotish
+- Аренда → ijara
+- Исковое заявление → da'vo ariza
+- Возмещение ущерба → zararni qoplash
+
+【НАЛОГОВОЕ ПРАВО】
+- Налоговый кодекс → Soliq kodeksi
+- НДС → QQS (Qo'shilgan qiymat solig'i)
+- Налог на прибыль → foyda solig'i
+- Подоходный налог → daromad solig'i
+- Налоговая декларация → soliq deklaratsiyasi
+- Налоговая проверка → soliq tekshiruvi
+- Налоговый период → soliq davri
+- Налогоплательщик → soliq to'lovchi
+- Налоговая база → soliq bazasi
+- Льгота → imtiyoz, chegirma
+
+【ТРУДОВОЕ ПРАВО】
+- Трудовой кодекс → Mehnat kodeksi
+- Трудовой договор → mehnat shartnomasi
+- Работник → xodim, ishchi
+- Работодатель → ish beruvchi
+- Заработная плата → ish haqi
+- Увольнение → ishdan bo'shatish
+- Рабочее время → ish vaqti
+- Отпуск → ta'til
+- Дисциплинарное взыскание → intizomiy jazolar
+
+【СЕМЕЙНОЕ ПРАВО】
+- Семейный кодекс → Oila kodeksi
+- Брак → nikoh
+- Развод → ajralish
+- Алименты → alimentlar
+- Опека → vasiylik
+- Имущество супругов → turmush o'rtoqlarining mol-mulki
+
+【ПРОЦЕССУАЛЬНЫЕ ТЕРМИНЫ】
+- Суд → sud
+- Иск → da'vo
+- Доказательство → dalil
+- Решение суда → sud qarori
+- Апелляция → apellyatsiya shikoyat
+- Исполнение → ijro etish
+- Жалоба → shikoyat
+
+【АДМИНИСТРАТИВНОЕ ПРАВО】
+- Административная ответственность → ma'muriy javobgarlik
+- Штраф → jarima
+- Лицензия → litsenziya
+- Разрешение → ruxsat
+- Регистрация → ro'yxatga olish
+
+═══════════════════════════════════════════════════════════════════════════
+📊 ОЦЕНКА РЕЗУЛЬТАТОВ: КРИТЕРИИ КАЧЕСТВА
+═══════════════════════════════════════════════════════════════════════════
+
+После КАЖДОГО поискового запроса анализируйте:
+
+✅ ВЫСОКОЕ КАЧЕСТВО (relevance_score ≥ 0.75):
+   • Точное совпадение правовых терминов
+   • Прямое регулирование вопроса
+   • Актуальная редакция кодекса/закона
+   → ИСПОЛЬЗУЙТЕ эти результаты как основу ответа
+
+⚠️ СРЕДНЕЕ КАЧЕСТВО (0.50 ≤ relevance_score < 0.75):
+   • Частичное совпадение концепций
+   • Смежное регулирование
+   • Общие принципы
+   → ИСПОЛЬЗУЙТЕ как дополнительный контекст
+   → ТРЕБУЕТСЯ дополнительный уточняющий поиск
+
+❌ НИЗКОЕ КАЧЕСТВО (relevance_score < 0.50):
+   • Нерелевантные результаты
+   • Неправильная интерпретация запроса
+   → ПЕРЕФОРМУЛИРУЙТЕ запрос с другими терминами
+   → НЕ ИСПОЛЬЗУЙТЕ эти результаты
+
+🔍 ПРИЗНАКИ НЕОБХОДИМОСТИ ДОПОЛНИТЕЛЬНОГО ПОИСКА:
+- Все результаты имеют score < 0.70
+- Менее 5 релевантных результатов
+- Отсутствуют прямые статьи кодексов
+- Результаты из неожиданных источников
+- Неполное покрытие аспектов вопроса
+
+═══════════════════════════════════════════════════════════════════════════
+✍️ ФОРМИРОВАНИЕ ОТВЕТА: СТРОГИЕ ТРЕБОВАНИЯ
+═══════════════════════════════════════════════════════════════════════════
+
+【СТРУКТУРА ОТВЕТА】
+1. **ПРАВОВОЕ ОСНОВАНИЕ** (обязательно):
+   - Точное название кодекса/закона
+   - Номер статьи/части/пункта
+   - Цитата ключевых положений
+
+2. **АНАЛИЗ ПРИМЕНЕНИЯ**:
+   - Как норма применяется к конкретной ситуации
+   - Условия и ограничения
+   - Процедурные требования
+
+3. **ПРАКТИЧЕСКИЕ РЕКОМЕНДАЦИИ**:
+   - Необходимые действия
+   - Сроки
+   - Документы
+   - Риски
+
+4. **ИСТОЧНИКИ** (обязательно):
+   - Перечислите ВСЕ использованные статьи
+   - Формат: "Статья X Кодекса Y" или "modda X, Y kodeksi"
+
+【УРОВНИ УВЕРЕННОСТИ】
+Явно указывайте уровень уверенности:
+
+🟢 ВЫСОКАЯ УВЕРЕННОСТЬ (найдены прямые нормы, score > 0.75):
+   "Согласно статье X Кодекса Y, ..."
+   "Законодательство четко устанавливает..."
+
+🟡 СРЕДНЯЯ УВЕРЕННОСТЬ (косвенные нормы, score 0.50-0.75):
+   "На основании общих принципов статьи X..."
+   "Применительно к данной ситуации может действовать..."
+
+🔴 НИЗКАЯ УВЕРЕННОСТЬ (недостаточно данных):
+   "В доступной базе данных недостаточно информации..."
+   "Требуется дополнительная консультация со специалистом..."
+
+【ЗАПРЕЩЕННЫЕ ДЕЙСТВИЯ】
+❌ НИКОГДА не отвечайте на юридические вопросы без поиска в базе
+❌ НИКОГДА не ссылайтесь на "общие знания" по правовым вопросам
+❌ НИКОГДА не выдумывайте номера статей или содержание норм
+❌ НИКОГДА не даваёте категоричные советы при низком quality score
+❌ НИКОГДА не используйте результаты с relevance_score < 0.40
+
+【ОБЯЗАТЕЛЬНЫЕ ДЕЙСТВИЯ】
+✅ ВСЕГДА делайте минимум 2-3 поисковых запроса для комплексных вопросов
+✅ ВСЕГДА указывайте конкретные статьи и их источники
+✅ ВСЕГДА предупреждайте о необходимости профессиональной консультации
+✅ ВСЕГДА указывайте актуальность найденной информации
+✅ ВСЕГДА оценивайте quality/relevance scores результатов
+
+═══════════════════════════════════════════════════════════════════════════
+🔄 ПРИМЕРЫ ПОИСКОВЫХ СТРАТЕГИЙ
+═══════════════════════════════════════════════════════════════════════════
+
+【ПРИМЕР 1: Вопрос о трудовом договоре】
+Пользователь: "Какие обязательные условия должны быть в трудовом договоре?"
+
+Стратегия:
+1. search_legal_database("mehnat shartnomasi majburiy shartlari", top_k=150)
+2. search_legal_database("mehnat shartnomasi tuzish tartibi", top_k=100)
+3. search_legal_database("mehnat shartnomasi mazmuni talablar", top_k=80)
+
+【ПРИМЕР 2: Вопрос о НДС】
+Пользователь: "Кто освобождается от уплаты НДС?"
+
+Стратегия:
+1. search_legal_database("QQS qoshilgan qiymat soligi imtiyozlar", top_k=150)
+2. search_legal_database("QQS tolovchilar roʻyxatga olish", top_k=100)
+3. search_legal_database("QQS ozod qilish shartlari chegirmalar", top_k=100)
+4. search_legal_database("soliq imtiyozlari QQS", top_k=80)
+
+【ПРИМЕР 3: Вопрос о расторжении договора】
+Пользователь: "По каким основаниям можно расторгнуть договор купли-продажи?"
+
+Стратегия:
+1. search_legal_database("shartnoma bekor qilish asoslari", top_k=150)
+2. search_legal_database("sotib olish sotish shartnomasi buzilishi", top_k=100)
+3. search_legal_database("shartnoma majburiyatlarini bajarmagan tartib", top_k=100)
+4. search_legal_database("birtaraflama shartnomadan voz kechish", top_k=80)
+
+═══════════════════════════════════════════════════════════════════════════
+⚠️ СПЕЦИАЛЬНЫЕ СЛУЧАИ
+═══════════════════════════════════════════════════════════════════════════
+
+【НЕДОСТАТОЧНО ИНФОРМАЦИИ】
+Если после 3-4 качественных поисковых запросов с разными формулировками
+релевантная информация НЕ НАЙДЕНА (все scores < 0.50):
+
+"К сожалению, в нашей правовой базе данных недостаточно информации для
+полного ответа на данный вопрос. Найденные результаты имеют низкую
+релевантность и могут не отражать актуальное регулирование. 
+
+Рекомендую:
+- Обратиться к лицензированному юристу
+- Проконсультироваться в государственных органах [указать какие]
+- Проверить последние изменения в законодательстве
+
+Буду рад помочь с другими правовыми вопросами."
+
+【НЕ ЮРИДИЧЕСКИЕ ВОПРОСЫ】
+Для общих вопросов (приветствия, благодарности, уточнения) — 
+инструмент search_legal_database НЕ используйте.
+
+【КОНФЛИКТУЮЩИЕ НОРМЫ】
+Если найдены противоречащие друг другу положения:
+1. Проверьте даты принятия/изменения документов
+2. Примените принцип: более поздний закон имеет приоритет
+3. Специальная норма имеет приоритет над общей
+4. Явно укажите на выявленное противоречие
+
+═══════════════════════════════════════════════════════════════════════════
+📋 КОНТРОЛЬНЫЙ ЧЕКЛИСТ ПЕРЕД ОТВЕТОМ
+═══════════════════════════════════════════════════════════════════════════
+
+Перед отправкой ответа проверьте:
+☐ Выполнено минимум 2-3 поисковых запроса (для комплексных вопросов)
+☐ Проанализированы relevance scores всех результатов
+☐ Использованы только результаты с score ≥ 0.50 (или указано на недостаток данных)
+☐ Указаны конкретные статьи и источники
+☐ Обозначен уровень уверенности в ответе
+☐ Даны практические рекомендации (при наличии достаточных данных)
+☐ Рекомендована консультация специалиста (при необходимости)
+☐ Ответ структурирован и понятен пользователю
+
+═══════════════════════════════════════════════════════════════════════════
+
+ПОМНИТЕ: Вы работаете с юридической информацией, которая влияет на права
+и обязанности людей. Точность и обоснованность критически важны.
 """
 
 MAX_AGENTIC_ROUNDS = 3
@@ -3691,7 +3964,7 @@ class AIService:
         self, 
         question: str, 
         history: Optional[List[Dict[str, str]]] = None,
-        top_k: int = 100,
+        top_k: int = 350,
         chat_mode: str = 'consultant',
         extra_context: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -3742,7 +4015,7 @@ class AIService:
         # Always do an initial search to guarantee baseline context & sources,
         # even if Haiku decides not to use the search tool in the agentic loop.
         logger.info("Running mandatory pre-search for baseline context...")
-        pre_search_results = await self._retrieve_context(question, top_k=100)
+        pre_search_results = await self._retrieve_context(question, top_k=500)
         if pre_search_results:
             pre_context = self._format_context(pre_search_results)
             all_context_parts.append(pre_context)
@@ -3794,12 +4067,21 @@ class AIService:
                 for block in assistant_content:
                     if block.type == "tool_use" and block.name == "search_legal_database":
                         query = block.input.get("query", "")
-                        search_top_k = min(block.input.get("top_k", 50), 100)
+                        search_top_k = min(block.input.get("top_k", 175), 350)
+                        filter_source = block.input.get("filter_source")
                         
-                        logger.info(f"  Tool call: search_legal_database(query='{query}', top_k={search_top_k})")
+                        log_msg = f"  Tool call: search_legal_database(query='{query}', top_k={search_top_k}"
+                        if filter_source:
+                            log_msg += f", filter_source='{filter_source}'"
+                        log_msg += ")"
+                        logger.info(log_msg)
                         
                         # Execute search against our internal ChromaDB
-                        results = await self._retrieve_context(query, top_k=search_top_k)
+                        results = await self._retrieve_context(
+                            query, 
+                            top_k=search_top_k,
+                            filter_source=filter_source
+                        )
                         logger.info(f"  Found {len(results)} results")
                         
                         # Format results for Claude
@@ -3975,7 +4257,7 @@ class AIService:
         logger.info(f"Using simple mode for chat_mode='{chat_mode}'")
         
         # Quick context retrieval
-        results = await self._retrieve_context(question, top_k=100)
+        results = await self._retrieve_context(question, top_k=350)
         context = self._format_context(results)
         sources = self._format_sources(results)
         
@@ -4230,16 +4512,30 @@ class AIService:
             logger.warning(f"Translation failed: {e}, using original query")
             return text
 
-    async def _retrieve_context(self, query: str, top_k: int =100) -> List[Dict[str, Any]]:
+    async def _retrieve_context(self, query: str, top_k: int = 350, filter_source: Optional[str] = None) -> List[Dict[str, Any]]:
         """Retrieve relevant legal context using dual-language search (Russian + Uzbek)."""
+        
+        # Prepare filter metadata if source filter is provided
+        filter_metadata = None
+        if filter_source:
+            filter_metadata = {"source": filter_source}
+            
         # Search with original query (Russian)
-        results_original = await self.vector_store.asearch(query, top_k=top_k)
+        results_original = await self.vector_store.asearch(
+            query, 
+            top_k=top_k, 
+            filter_metadata=filter_metadata
+        )
         
         # Translate to Uzbek and search again
         uzbek_query = await self._translate_to_uzbek(query)
         
         if uzbek_query and uzbek_query != query:
-            results_uzbek = await self.vector_store.asearch(uzbek_query, top_k=top_k)
+            results_uzbek = await self.vector_store.asearch(
+                uzbek_query, 
+                top_k=top_k, 
+                filter_metadata=filter_metadata
+            )
         else:
             results_uzbek = []
         
@@ -4475,7 +4771,7 @@ class AIService:
                 "summary": response_text[:500] if response_text else "No response received"
             }
 
-    async def analyze_document(self, document_text: str, document_type: Optional[str] = None, top_k: int =100) -> Dict[str, Any]:
+    async def analyze_document(self, document_text: str, document_type: Optional[str] = None, top_k: int = 100) -> Dict[str, Any]:
         """
         Analyze a legal document for validity, compliance, and provide improvements.
         Returns comprehensive audit with formal validity, legal validity, up-to-dateness,
