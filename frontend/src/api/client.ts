@@ -174,6 +174,11 @@ export interface ContractAnalysis {
   summary?: string;
   sources: Source[];
   created_at?: string;
+  // Strict Mode Fields
+  strictness_level?: string;
+  hidden_risks?: Array<{risk: string; location: string; severity: string; mitigation: string}>;
+  ambiguities?: Array<{phrase: string; risk: string; suggestion: string}>;
+  negotiation_strategy?: string;
 }
 
 export interface GeneratedContract {
@@ -609,6 +614,11 @@ export async function analyzeContract(contract: string): Promise<ContractAnalysi
     missing_clauses: data.audit?.missing_clauses || [],
     summary: data.audit?.summary || '',
     sources: data.sources || [],
+    // Map strict fields
+    strictness_level: data.audit?.strictness_level || 'standard',
+    hidden_risks: data.audit?.hidden_risks || [],
+    ambiguities: data.audit?.ambiguities || [],
+    negotiation_strategy: data.audit?.negotiation_strategy || '',
   };
 }
 

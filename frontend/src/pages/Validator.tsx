@@ -7,6 +7,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { analyzeContract, getValidationById, type ContractAnalysis as Analysis } from '../api/client';
+import './Validator.css';
 
 export default function Validator() {
   const [contractText, setContractText] = useState('');
@@ -105,6 +106,11 @@ export default function Validator() {
                 {result.validity_score >= 80 ? 'ДОПУСТИМО' : 
                  result.validity_score >= 50 ? 'ТРЕБУЕТ ДОРАБОТКИ' : 'ВЫСОКИЙ РИСК'}
               </span>
+              {result.strictness_level === 'maximum' && (
+                <div className="strictness-badge">
+                  🔒 RUTHLESS AUDITOR MODE
+                </div>
+              )}
             </div>
 
             {result.score_explanation && (
@@ -126,6 +132,47 @@ export default function Validator() {
                     </div>
                   </div>
                 ))}
+              </section>
+            )}
+
+            {/* Hidden Risks Section */}
+            {result.hidden_risks && result.hidden_risks.length > 0 && (
+              <section className="risks-section">
+                <h2>🕵️ Скрытые угрозы и ловушки</h2>
+                <div className="section-subtitle">Пункты, которые юридически корректны, но опасны для вас</div>
+                {result.hidden_risks.map((risk, i) => (
+                  <div key={i} className={`risk-card ${risk.severity.toLowerCase()}`}>
+                    <div className="risk-header">
+                      <h3>{risk.severity.toLowerCase() === 'high' ? '💣' : '⚠️'} {risk.risk}</h3>
+                      <span className={`severity-tag ${risk.severity.toLowerCase()}`}>{risk.severity}</span>
+                    </div>
+                    <p><strong>Где найдено:</strong> {risk.location}</p>
+                    <div className="mitigation-box">
+                      <strong>Как обезвредить:</strong>
+                      <p>{risk.mitigation}</p>
+                    </div>
+                  </div>
+                ))}
+              </section>
+            )}
+
+            {/* Ambiguities Section */}
+            {result.ambiguities && result.ambiguities.length > 0 && (
+              <section className="ambiguities-section">
+                <h2>🌫️ Размытые формулировки</h2>
+                <div className="section-subtitle">Фразы, которые можно трактовать двояко в суде</div>
+                <div className="ambiguities-grid">
+                  {result.ambiguities.map((amb, i) => (
+                    <div key={i} className="ambiguity-card">
+                      <div className="ambiguity-phrase">"{amb.phrase}"</div>
+                      <div className="ambiguity-risk">⚠️ {amb.risk}</div>
+                      <div className="ambiguity-fix">
+                        <strong>Лучше написать:</strong>
+                        <code>{amb.suggestion}</code>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </section>
             )}
 
@@ -152,6 +199,16 @@ export default function Validator() {
                     <pre className="drafted-text">{clause.drafted_text}</pre>
                   </div>
                 ))}
+              </section>
+            )}
+
+            {/* Negotiation Strategy */}
+            {result.negotiation_strategy && (
+              <section className="strategy-section">
+                <h2>🤝 Стратегия переговоров</h2>
+                <div className="strategy-content">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.negotiation_strategy}</ReactMarkdown>
+                </div>
               </section>
             )}
 

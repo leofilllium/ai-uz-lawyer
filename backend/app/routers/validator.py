@@ -24,23 +24,31 @@ router = APIRouter()
 
 
 def format_audit_as_markdown(audit: dict) -> str:
-    """Format contract audit result as markdown for display."""
+    """Format contract audit result as markdown for display (Strict Mode)."""
     lines = []
     
     # Score header
     score = audit.get('validity_score', 0)
-    if score >= 80:
+    strictness = audit.get('strictness_level', 'standard')
+    
+    if score >= 90:
         emoji = "🟢"
-        verdict = "ДОПУСТИМО"
-    elif score >= 50:
+        verdict = "ДОПУСТИМО (ИДЕАЛ)"
+    elif score >= 75:
         emoji = "🟡"
         verdict = "ТРЕБУЕТ ДОРАБОТКИ"
+    elif score >= 50:
+        emoji = "🟠"
+        verdict = "РИСКОВАНО"
     else:
         emoji = "🔴"
-        verdict = "ВЫСОКИЙ РИСК"
+        verdict = "КРИТИЧЕСКИ ОПАСНО"
     
     lines.append(f"# {emoji} Оценка договора: {score}/100")
     lines.append(f"## 🚦 Вердикт: **{verdict}**")
+    if strictness == 'maximum':
+        lines.append(f"🔒 **РЕЖИМ ПРОВЕРКИ: RUTHLESS AUDITOR (МАКСИМАЛЬНАЯ СТРОГОСТЬ)**")
+    
     lines.append("")
     lines.append(audit.get('score_explanation', ''))
     lines.append("")
@@ -50,49 +58,85 @@ def format_audit_as_markdown(audit: dict) -> str:
     critical = audit.get('critical_errors', [])
     if critical:
         lines.append("")
-        lines.append("## ❌ Критические ошибки")
+        lines.append("## ❌ КРИТИЧЕСКИЕ ОШИБКИ И НАРУШЕНИЯ ЗАКОНА")
         lines.append("")
         for err in critical:
-            lines.append(f"### {err.get('error', 'Ошибка')}")
-            lines.append(f"**Статья:** {err.get('article', 'Не указана')}")
-            lines.append(f"**Исправление:** {err.get('fix', 'Требуется консультация')}")
+            lines.append(f"### 🛑 {err.get('error', 'Ошибка')}")
+            lines.append(f"**Основание (Статья):** {err.get('article', 'Не указана')}")
+            lines.append(f"**Последствия:** {err.get('consequence', 'Юридические риски')}")
+            lines.append(f"**ИСПРАВЛЕНИЕ:** `{err.get('fix', 'Требуется консультация')}`")
             lines.append("")
+
+    # Hidden Risks (New)
+    hidden_risks = audit.get('hidden_risks', [])
+    if hidden_risks:
+        lines.append("")
+        lines.append("## 🕵️ СКРЫТЫЕ УГРОЗЫ И ЛОВУШКИ")
+        lines.append("> *Эти пункты юридически корректны, но создают кабальные условия.*")
+        lines.append("")
+        for risk in hidden_risks:
+            severity = risk.get('severity', 'medium').upper()
+            icon = "💣" if severity == 'HIGH' else "⚠️"
+            lines.append(f"### {icon} {risk.get('risk', 'Скрытый риск')}")
+            lines.append(f"**Где найдено:** {risk.get('location', 'Весь текст')}")
+            lines.append(f"**Как обезвредить:** {risk.get('mitigation', '')}")
+            lines.append("")
+
+    # Ambiguities (New)
+    ambiguities = audit.get('ambiguities', [])
+    if ambiguities:
+        lines.append("")
+        lines.append("## 🌫️ РАЗМЫТЫЕ ФОРМУЛИРОВКИ (AMBIGUITY CHECK)")
+        lines.append("")
+        for amb in ambiguities:
+            lines.append(f"- **Фраза:** \"{amb.get('phrase', '')}\"")
+            lines.append(f"  - *Риск:* {amb.get('risk', '')}")
+            lines.append(f"  - *Лучше написать:* `{amb.get('suggestion', '')}`")
+        lines.append("")
     
     # Warnings
     warnings = audit.get('warnings', [])
     if warnings:
         lines.append("")
-        lines.append("## ⚠️ Предупреждения")
+        lines.append("## ⚠️ ПРЕДУПРЕЖДЕНИЯ")
         lines.append("")
         for warn in warnings:
-            lines.append(f"### {warn.get('risk', 'Риск')}")
+            lines.append(f"**Риск:** {warn.get('risk', 'Риск')}")
             lines.append(f"{warn.get('explanation', '')}")
-            lines.append(f"**Рекомендация:** {warn.get('suggestion', '')}")
+            lines.append(f"--> *Рекомендация:* {warn.get('suggestion', '')}")
             lines.append("")
     
     # Missing clauses
     missing = audit.get('missing_clauses', [])
     if missing:
         lines.append("")
-        lines.append("## 📝 Недостающие пункты")
+        lines.append("## 📝 НЕОБХОДИМО ДОБАВИТЬ")
         lines.append("")
         for clause in missing:
-            lines.append(f"### {clause.get('clause_name', 'Пункт')}")
-            lines.append(f"**Основание:** {clause.get('article_reference', 'Не указано')}")
-            lines.append("")
-            lines.append("```")
+            importance = clause.get('importance', 'medium').upper()
+            icon = "❗" if importance == 'CRITICAL' else "🔹"
+            lines.append(f"### {icon} {clause.get('clause_name', 'Пункт')}")
+            if clause.get('article_reference'):
+                lines.append(f"**Основание:** {clause.get('article_reference')}")
+            lines.append("```text")
             lines.append(clause.get('drafted_text', 'Текст не предоставлен'))
             lines.append("```")
             lines.append("")
+            
+    # Negotiation Strategy (New)
+    strategy = audit.get('negotiation_strategy', '')
+    if strategy:
+        lines.append("")
+        lines.append("## 🤝 СТРАТЕГИЯ ПЕРЕГОВОРОВ")
+        lines.append(strategy)
+        lines.append("")
     
     # Summary
     summary = audit.get('summary', '')
     if summary:
         lines.append("")
         lines.append("---")
-        lines.append("")
-        lines.append("## 📌 Итоговое заключение")
-        lines.append("")
+        lines.append(f"### 🧑‍⚖️ РЕЗЮМЕ АУДИТОРА")
         lines.append(summary)
     
     return "\n".join(lines)

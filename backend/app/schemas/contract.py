@@ -21,6 +21,11 @@ class ContractAudit(BaseModel):
     warnings: list[dict] = []
     missing_clauses: list[dict] = []
     summary: str = ""
+    # Strict Mode Fields
+    strictness_level: str = "standard"
+    hidden_risks: list[dict] = []
+    ambiguities: list[dict] = []
+    negotiation_strategy: str = ""
 
 
 class ValidateContractResponse(BaseModel):
