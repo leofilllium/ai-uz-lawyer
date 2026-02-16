@@ -15,7 +15,6 @@ from google import genai
 from google.genai import types
 
 from app.config import get_settings
-from app.core.logger import get_logger
 
 # Configure logging
 logger = logging.getLogger(__name__)
