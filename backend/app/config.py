@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     # Claude Models
     claude_haiku_model: str = "claude-haiku-4-5-20251001"
     claude_sonnet_model: str = "claude-sonnet-4-5-20250929"
-    claude_opus_model: str = "claude-opus-4-6"
+    claude_opus_model: str = "claude-haiku-4-5-20251001" # claude-opus-4-6
     thinking_budget_tokens: int = 8000
     max_output_tokens: int = 16000
     
