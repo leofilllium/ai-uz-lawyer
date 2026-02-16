@@ -3665,11 +3665,11 @@ OUTPUT FORMAT:
 # ⚙️ SYSTEM CONFIGURATION & CONSTANTS
 # ═══════════════════════════════════════════════════════════════
 
-DEFAULT_TOP_K = 25
-PRE_SEARCH_TOP_K = 40
+DEFAULT_TOP_K = 35
+PRE_SEARCH_TOP_K = 50
 MIN_RELEVANCE_SCORE = 0.35  # Minimum similarity score for RAG results
 MAX_AGENTIC_ROUNDS = 4 # Max rounds for agentic search
-MAX_OUTPUT_TOKENS = 16000
+MAX_OUTPUT_TOKENS = 24000 # Increased to maximum possible for extremely detailed responses
 
 # ═══════════════════════════════════════════════════════════════
 # 🛡️ SAFETY & QUALITY INSTRUCTIONS
@@ -4180,9 +4180,11 @@ class AIService:
         config = types.GenerateContentConfig(
             system_instruction=full_system_prompt,
             tools=tools,
-            temperature=0.7, # slightly higher temp for more creative/longer answers? No, user wants accuracy. 
-            # But "answer as long as it can" implies detail.
-            max_output_tokens=MAX_OUTPUT_TOKENS
+            temperature=0.7,
+            max_output_tokens=MAX_OUTPUT_TOKENS,
+            thinking_config=types.ThinkingConfig(
+                include_thoughts=True
+            )
         )
         
         # Convert history to Gemini format
@@ -4341,8 +4343,11 @@ class AIService:
             await progress_callback("synthesizing")
         
         model_final_config = types.GenerateContentConfig(
-            system_instruction=system_prompt + "\n\n" + ANTI_HALLUCINATION_RULES + "\n\nIMPORTANT: Provide a VERY DETAILED, COMPREHENSIVE response. Use as many relevant sources as possible (at least 5-10 if available). Target 4000+ tokens if the topic allows.",
-            max_output_tokens=MAX_OUTPUT_TOKENS
+            system_instruction=system_prompt + "\n\n" + ANTI_HALLUCINATION_RULES + "\n\nIMPORTANT: Provide a VERY DETAILED, COMPREHENSIVE response. Use as many relevant sources as possible (at least 15-20 if available). There is NO limit on length — make the answer as long and thorough as theoretically possible.",
+            max_output_tokens=MAX_OUTPUT_TOKENS,
+            thinking_config=types.ThinkingConfig(
+                include_thoughts=True
+            )
         )
         
         async def stream_response():
@@ -4695,7 +4700,11 @@ class AIService:
         contents = gemini_history + [types.Content(role="user", parts=[types.Part.from_text(text=question)])]
         
         config = types.GenerateContentConfig(
-            system_instruction=system_prompt
+            system_instruction=system_prompt + "\n\nIMPORTANT: Provide a very deep and extensive answer. Do not summarize — expand on every point possible.",
+            max_output_tokens=MAX_OUTPUT_TOKENS,
+            thinking_config=types.ThinkingConfig(
+                include_thoughts=True
+            )
         )
 
         async def stream_response():
