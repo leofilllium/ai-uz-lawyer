@@ -13,7 +13,7 @@ from starlette.concurrency import run_in_threadpool
 import chromadb
 from chromadb.config import Settings
 from langchain_voyageai import VoyageAIEmbeddings
-from rank_bm25 import BM25Okapi
+# from rank_bm25 import BM25Okapi  # Removed in favor of SimpleBM25Index
 
 from app.config import get_settings
 
@@ -32,65 +32,84 @@ def tokenize_uzbek(text: str) -> List[str]:
 
 import pickle
 import os
+import math
+import array
+from collections import Counter
 
-class BM25Index:
+class SimpleBM25Index:
     """
-    Lazy-built BM25 index over ChromaDB documents with persistence.
+    Custom memory-efficient BM25 implementation using inverted index.
     
-    Optimized to:
-    1. Persist index to disk (avoid rebuilding on restart)
-    2. Minimal memory footprint (don't store doc text, only IDs)
-    3. Fetch content from ChromaDB only for search results
+    Replaces rank_bm25 to avoid storing the full corpus in memory.
+    Uses array.array for compact storage of posting lists.
     """
-
+    
     def __init__(self, persist_dir: Path):
         self.persist_dir = persist_dir
-        self.index_path = persist_dir / "bm25_index.pkl"
+        self.index_path = persist_dir / "bm25_index_v2.pkl"
         
-        self._bm25: Optional[BM25Okapi] = None
-        self._doc_ids: List[str] = []
-        # We DO NOT store texts/metadata in memory to save RAM.
-        # We fetch them from ChromaDB by ID during search.
+        # Inverted index data
+        self.vocab: Dict[str, int] = {}  # term -> term_id
+        self.doc_ids: List[str] = []     # int_id -> chroma_id (and index implicitly)
+        self.doc_lengths: array.array = array.array('I')
+        self.avg_doc_len: float = 0.0
+        
+        # Postings: term_id -> array('I', [doc_id, freq, doc_id, freq, ...])
+        # We use a list of arrays. Access: self.postings[term_id]
+        self.postings: List[array.array] = []
+        
+        # IDF cache: term_id -> idf score
+        self.idf: array.array = array.array('f') 
         
         self._build_time: float = 0
         self._doc_count_at_build: int = 0
+        
+        # Hyperparameters
+        self.k1 = 1.5
+        self.b = 0.75
         
         # Try loading existing index
         self.load()
 
     @property
     def is_built(self) -> bool:
-        return self._bm25 is not None
+        return len(self.doc_ids) > 0
 
     def needs_rebuild(self, current_count: int) -> bool:
-        """Check if index needs rebuilding (new docs added)."""
+        """Check if index needs rebuilding."""
         if not self.is_built:
             return True
-        # Rebuild if >5% new documents or it's been >24 hours
-        # (Increased from 10m to 24h because building is expensive)
         count_diff = abs(current_count - self._doc_count_at_build)
-        time_diff = _time.time() - self._build_time
         
-        if count_diff > 0:
-            logger.info(f"BM25: Doc count changed ({self._doc_count_at_build} -> {current_count})")
-            
+        # Rebuild if >5% change
         return count_diff > self._doc_count_at_build * 0.05
 
     def save(self):
-        """Save index to disk."""
+        """Save index to disk using pickle."""
         try:
             logger.info(f"BM25: Saving index to {self.index_path}")
+            # We save as a dict
+            data = {
+                "vocab": self.vocab,
+                "doc_ids": self.doc_ids,
+                "doc_lengths": self.doc_lengths,
+                "avg_doc_len": self.avg_doc_len,
+                "postings": self.postings,
+                "idf": self.idf,
+                "build_time": self._build_time,
+                "doc_count": self._doc_count_at_build
+            }
             with open(self.index_path, "wb") as f:
-                data = {
-                    "bm25": self._bm25,
-                    "doc_ids": self._doc_ids,
-                    "build_time": self._build_time,
-                    "doc_count": self._doc_count_at_build
-                }
-                pickle.dump(data, f)
+                pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
             logger.info("BM25: Index saved successfully")
         except Exception as e:
             logger.error(f"BM25: Failed to save index: {e}")
+            # Try to cleanup partial file
+            if self.index_path.exists():
+                try:
+                    os.remove(self.index_path)
+                except:
+                    pass
 
     def load(self):
         """Load index from disk."""
@@ -98,129 +117,171 @@ class BM25Index:
             return
             
         try:
-            logger.info(f"BM25: Loading index from {self.index_path}")
+            # Check file size, if > 500MB log warning
+            size_mb = self.index_path.stat().st_size / (1024 * 1024)
+            logger.info(f"BM25: Loading index from {self.index_path} ({size_mb:.1f} MB)...")
+            
             with open(self.index_path, "rb") as f:
                 data = pickle.load(f)
-                self._bm25 = data["bm25"]
-                self._doc_ids = data["doc_ids"]
+                self.vocab = data["vocab"]
+                self.doc_ids = data["doc_ids"]
+                self.doc_lengths = data["doc_lengths"]
+                self.avg_doc_len = data["avg_doc_len"]
+                self.postings = data["postings"]
+                self.idf = data["idf"]
                 self._build_time = data.get("build_time", 0)
                 self._doc_count_at_build = data.get("doc_count", 0)
-            logger.info(f"BM25: Loaded index with {len(self._doc_ids)} documents")
+                
+            logger.info(f"BM25: Loaded index with {len(self.doc_ids)} documents")
         except Exception as e:
             logger.error(f"BM25: Failed to load index: {e}")
-            self._bm25 = None
+            # Reset
+            self.doc_ids = []
 
     def build(self, collection) -> None:
-        """Build BM25 index from ChromaDB collection."""
+        """Build inverted index from ChromaDB collection."""
         total = collection.count()
         if total == 0:
-            logger.warning("BM25: No documents to index")
             return
 
-        logger.info(f"BM25: Starting build over {total} documents...")
+        logger.info(f"BM25: Starting streaming build over {total} documents...")
         start = _time.time()
 
-        all_ids = []
-        corpus = []
+        # Reset structures
+        self.vocab = {}
+        self.doc_ids = []
+        self.doc_lengths = array.array('I')
+        self.postings = []
+        self.idf = array.array('f')
         
         batch_size = 5000 
-        # Using a generator or iterative fetch to manage memory, 
-        # but BM25Okapi needs full corpus list.
-        
         processed = 0
+        total_tokens = 0
+        
+        # Iterate and build inverted index
         for offset in range(0, total, batch_size):
             batch = collection.get(
-                include=["documents"], # Only fetch documents, no metadata yet
+                include=["documents"],
                 limit=batch_size,
                 offset=offset,
             )
             
-            if batch and batch["ids"]:
-                ids_batch = batch["ids"]
-                docs_batch = batch["documents"] or []
+            ids_batch = batch["ids"]
+            docs_batch = batch["documents"] or []
+            
+            for i, doc_text in enumerate(docs_batch):
+                doc_id = len(self.doc_ids) # internal integer ID
+                self.doc_ids.append(ids_batch[i])
                 
-                # Tokenize immediately and discard raw text
-                for doc in docs_batch:
-                    corpus.append(tokenize_uzbek(doc))
+                tokens = tokenize_uzbek(doc_text)
+                doc_len = len(tokens)
+                self.doc_lengths.append(doc_len)
+                total_tokens += doc_len
+                
+                # Count frequencies
+                term_counts = Counter(tokens)
+                
+                for term, freq in term_counts.items():
+                    # Get or assign term_id
+                    if term not in self.vocab:
+                        self.vocab[term] = len(self.postings)
+                        self.postings.append(array.array('I'))
                     
-                all_ids.extend(ids_batch)
-                processed += len(ids_batch)
-                
-                if processed % 20000 == 0:
-                    logger.info(f"BM25: Processed {processed}/{total} docs...")
-        
-        logger.info("BM25: Tokenization complete. Fitting BM25 model...")
-        self._bm25 = BM25Okapi(corpus)
-        self._doc_ids = all_ids
-        
-        self._build_time = _time.time()
-        self._doc_count_at_build = total
-        
-        # Save to disk
-        self.save()
+                    term_id = self.vocab[term]
+                    
+                    # Append doc_id and freq to posting list
+                    self.postings[term_id].append(doc_id)
+                    self.postings[term_id].append(freq)
+            
+            processed += len(ids_batch)
+            if processed % 20000 == 0:
+                logger.info(f"BM25: Processed {processed}/{total} docs... (Vocab size: {len(self.vocab)})")
 
+        self.avg_doc_len = total_tokens / total if total > 0 else 0
+        self._doc_count_at_build = total
+        self._build_time = _time.time()
+        
+        logger.info(f"BM25: Indexing complete. Calculating IDF and optimizing...")
+        
+        # Calculate IDF and convert postings to bytes if needed (keeping as array('I') for now)
+        # IDF(q) = log( (N - n(q) + 0.5) / (n(q) + 0.5) + 1 )
+        N = total
+        self.idf = array.array('f', [0.0] * len(self.postings))
+        
+        for term, term_id in self.vocab.items():
+            # n(q) is number of docs containing term
+            # postings stores [doc_id, freq, doc_id, freq], so len/2 is doc count
+            nq = len(self.postings[term_id]) // 2
+            
+            idf_val = math.log(1 + (N - nq + 0.5) / (nq + 0.5))
+            self.idf[term_id] = idf_val
+            
+        logger.info("BM25: Saving optimized index...")
+        self.save()
+        
         elapsed = self._build_time - start
         logger.info(f"BM25: Index built & saved in {elapsed:.2f}s")
-        
+
     def search(self, query: str, top_k: int = 60, collection = None) -> List[Dict[str, Any]]:
-        """
-        Search using BM25 keyword matching.
-        NOTE: Requires 'collection' argument to fetch actual content.
-        """
+        """Search using BM25 scoring."""
         if not self.is_built:
             return []
 
         tokens = tokenize_uzbek(query)
         if not tokens:
             return []
-
-        scores = self._bm25.get_scores(tokens)
-
-        # Get top-k indices by score
-        # Optimization: use numpy argpartition if available, but generic sort is fine for now
-        scored_indices = sorted(
-            enumerate(scores), key=lambda x: x[1], reverse=True
-        )[:top_k]
-
-        # Collect top IDs
-        top_indices = []
-        top_scores = []
-        top_ids = []
-        
-        for idx, score in scored_indices:
-            if score <= 0:
-                continue
-            top_indices.append(idx)
-            top_scores.append(score)
-            top_ids.append(self._doc_ids[idx])
             
-        if not top_ids:
+        # Accumulate scores: doc_id -> score
+        doc_scores: Dict[int, float] = {}
+        
+        for token in tokens:
+            if token not in self.vocab:
+                continue
+                
+            term_id = self.vocab[token]
+            idf = self.idf[term_id]
+            posting = self.postings[term_id]
+            
+            # posting is [doc_id, freq, doc_id, freq...]
+            # Optimization: iterate 2 at a time
+            # Using memoryview or range is slightly faster than creating iterator
+            for i in range(0, len(posting), 2):
+                doc_idx = posting[i]
+                freq = posting[i+1]
+                
+                doc_len = self.doc_lengths[doc_idx]
+                
+                # BM25 scoring formula
+                # score = idf * (freq * (k1 + 1)) / (freq + k1 * (1 - b + b * doc_len / avg_dl))
+                numerator = freq * (self.k1 + 1)
+                denominator = freq + self.k1 * (1 - self.b + self.b * doc_len / self.avg_doc_len)
+                score = idf * (numerator / denominator)
+                
+                if doc_idx in doc_scores:
+                    doc_scores[doc_idx] += score
+                else:
+                    doc_scores[doc_idx] = score
+                    
+        # Sort and get top K
+        top_docs = sorted(doc_scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
+        
+        if not top_docs:
             return []
             
-        # Fetch content for these IDs from filtered collection
-        # We need the content and metadata for the results
-        # Assuming collection is passed or we can access it.
-        # But wait, the standard signature didn't have collection.
-        # We need to rely on the caller passing it or storing a ref?
-        # Storing ref to collection is pickle-unsafe.
-        
-        # Better: Return IDs and scores, let VectorStore fetch content?
-        # Or change signature. Since this is internal helper, I can change signature.
-        
         if collection is None:
             logger.error("BM25: Collection required for fetching content")
             return []
-
+            
+        top_ids = [self.doc_ids[idx] for idx, _ in top_docs]
+        top_scores = [score for _, score in top_docs]
+        
         try:
-            # Fetch by IDs
-            # Note: collection.get returns results in arbitrary order? 
-            # We need to map them back.
             docs = collection.get(
                 ids=top_ids,
                 include=["documents", "metadatas"]
             )
             
-            # Create a lookup map
+            # Map back to order
             id_to_data = {}
             for i, doc_id in enumerate(docs["ids"]):
                 id_to_data[doc_id] = {
@@ -244,6 +305,10 @@ class BM25Index:
         except Exception as e:
             logger.error(f"BM25: Error fetching results: {e}")
             return []
+            
+            
+# Alias for backward compatibility if needed, but VectorStore uses SimpleBM25Index now
+BM25Index = SimpleBM25Index
 
 
 class VectorStore:
