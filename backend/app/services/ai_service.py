@@ -4556,9 +4556,6 @@ class AIService:
         if not source_filename or source_filename == "Unknown":
             return "Unknown"
             
-        # 1. Check hardcoded mapping first
-        if source_filename in self.DOCUMENT_NAME_MAPPING:
-            return self.DOCUMENT_NAME_MAPPING[source_filename]
             
         # 2. Parse dynamic filename pattern (e.g., -24724_Law_Title.txt)
         # Remove extension
@@ -4776,27 +4773,3 @@ class AIService:
             "quality_metrics": {},
         }
     
-    # Document name mapping
-    DOCUMENT_NAME_MAPPING = {
-        "CRIMINAL-CODE.docx": "Уголовный кодекс",
-        "CRIMINAL-PROCEDURE.docx": "Уголовно-процессуальный кодекс",
-        "CRIMINAL-EXECUTIVE.docx": "Уголовно-исполнительный кодекс",
-        "CIVIL-CODE-PART-1.docx": "Гражданский кодекс (Часть I)",
-        "CIVIL-CODE-PART-2.docx": "Гражданский кодекс (Часть II)",
-        "CIVIL-PROCEDURE.docx": "Гражданский процессуальный кодекс",
-        "ADMINISTRATIVE-RESPONSIBILITY.docx": "Кодекс об административной ответственности",
-        "ADMINISTRATIVE-PROCEDURE.docx": "Административное судопроизводство",
-        "ECONOMIC-PROCEDURE.docx": "Экономический процессуальный кодекс",
-        "TAX-CODE.docx": "Налоговый кодекс",
-        "CUSTOMS-CODE.docx": "Таможенный кодекс",
-        "BUDGET-CODE.docx": "Бюджетный кодекс",
-        "LABOR-CODE.docx": "Трудовой кодекс",
-        "FAMILY-CODE.docx": "Семейный кодекс",
-        "HOUSING-CODE.docx": "Жилищный кодекс",
-        "LAND-CODE.docx": "Земельный кодекс",
-        "CONSTITUTION.docx": "Конституция Республики Узбекистан",
-        "CONSUMER-PROTECTION.docx": "Закон о защите прав потребителей",
-        "PUBLIC-PROCUREMENT.docx": "Закон о государственных закупках",
-        "ENTREPRENEURSHIP.docx": "Закон о предпринимательстве",
-        "DIGITAL-SIGNATURE.docx": "Закон об электронной цифровой подписи",
-    }
