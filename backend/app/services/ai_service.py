@@ -13,7 +13,6 @@ from datetime import datetime
 
 from google import genai
 from google.genai import types
-from google.ai.generativelanguage_v1beta.types import content
 
 from app.config import get_settings
 from app.core.logger import get_logger
