@@ -4268,7 +4268,7 @@ class AIService:
             logger.info(f"=== AGENTIC ROUND {round_num}/{MAX_AGENTIC_ROUNDS} ===")
             
             response = await self.client.messages.create(
-                model=self.settings.claude_haiku_model,
+                model=self.settings.claude_sonnet_model,
                 max_tokens=8192,
                 system=full_system_prompt,
                 tools=SEARCH_TOOLS,
@@ -4734,8 +4734,8 @@ class AIService:
         """Translate Russian query to Uzbek for dual-language search."""
         try:
             response = await self.client.messages.create(
-                model=self.settings.claude_haiku_model,
-                max_tokens=300,
+                model=self.settings.claude_sonnet_model,
+                max_tokens=2000,
                 messages=[{"role": "user", "content": text}],
                 system=(
                     "You are a Russian-to-Uzbek translator. Translate the given Russian legal query "
@@ -4762,7 +4762,7 @@ class AIService:
         
         async def stream_response():
             async with self.client.messages.stream(
-                model=self.settings.claude_haiku_model,
+                model=self.settings.claude_sonnet_model,
                 max_tokens=2048,
                 system=system_prompt,
                 messages=messages,
