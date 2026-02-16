@@ -21,6 +21,7 @@ tiktoken>=0.5.2
 
 # Vector Database
 chromadb>=0.4.22
+rank-bm25>=0.2.2
 
 # LangChain
 langchain>=0.1.0

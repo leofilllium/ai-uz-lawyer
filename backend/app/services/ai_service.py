@@ -45,7 +45,278 @@ PRIMARY_CODES_KEYWORDS = [
     "Havo kodeksi"
 ]
 
+# ═══════════════════════════════════════════════════════════════
+# 🔤 RUSSIAN → UZBEK LEGAL TERMINOLOGY DICTIONARY
+# Used for fast query translation without LLM calls
+# ═══════════════════════════════════════════════════════════════
 
+LEGAL_TERMINOLOGY_RU_UZ = {
+    # ── General Legal Terms ──
+    "договор": "shartnoma",
+    "контракт": "shartnoma",
+    "закон": "qonun",
+    "кодекс": "kodeks",
+    "статья": "modda",
+    "право": "huquq",
+    "права": "huquqlar",
+    "обязанность": "majburiyat",
+    "обязанности": "majburiyatlar",
+    "ответственность": "javobgarlik",
+    "нарушение": "buzilish",
+    "процедура": "tartib",
+    "требование": "talab",
+    "требования": "talablar",
+    "условие": "shart",
+    "условия": "shartlar",
+    "срок": "muddat",
+    "сроки": "muddatlar",
+    "документ": "hujjat",
+    "документы": "hujjatlar",
+    "заявление": "ariza",
+    "решение": "qaror",
+    "порядок": "tartib",
+    "основание": "asos",
+    "основания": "asoslar",
+    "норма": "norma",
+    "нормы": "normalar",
+    "запрет": "taqiq",
+    "разрешение": "ruxsat",
+    "согласие": "rozilik",
+    "отказ": "rad etish",
+    "жалоба": "shikoyat",
+    "обжалование": "shikoyat qilish",
+    "регистрация": "ro'yxatga olish",
+    "лицензия": "litsenziya",
+    "запись": "yozuv",
+    # ── Civil Law ──
+    "гражданский": "fuqarolik",
+    "физическое лицо": "jismoniy shaxs",
+    "юридическое лицо": "yuridik shaxs",
+    "собственность": "mulk",
+    "право собственности": "mulk huquqi",
+    "купля-продажа": "sotib olish-sotish",
+    "купля": "sotib olish",
+    "продажа": "sotish",
+    "аренда": "ijara",
+    "арендатор": "ijarachi",
+    "арендодатель": "ijara beruvchi",
+    "наследство": "meros",
+    "наследование": "meros olish",
+    "наследник": "merosxo'r",
+    "дарение": "hadya",
+    "залог": "garov",
+    "поручительство": "kafillik",
+    "возмещение": "qoplash",
+    "ущерб": "zarar",
+    "убытки": "zararlar",
+    "возмещение ущерба": "zararni qoplash",
+    "исковое заявление": "da'vo ariza",
+    "иск": "da'vo",
+    "истец": "da'vogar",
+    "ответчик": "javobgar",
+    "расторжение": "bekor qilish",
+    "расторжение договора": "shartnomani bekor qilish",
+    "изменение": "o'zgartirish",
+    "недействительность": "haqiqiy emasligi",
+    "сделка": "bitim",
+    "обязательство": "majburiyat",
+    "исполнение": "ijro etish",
+    "неисполнение": "ijro etmaslik",
+    "неустойка": "neustoyka",
+    "штраф": "jarima",
+    "пеня": "penya",
+    # ── Tax Law ──
+    "налог": "soliq",
+    "налоги": "soliqlar",
+    "налоговый": "soliq",
+    "ндс": "QQS",
+    "НДС": "QQS",
+    "налог на добавленную стоимость": "qo'shilgan qiymat solig'i",
+    "прибыль": "foyda",
+    "налог на прибыль": "foyda solig'i",
+    "подоходный налог": "daromad solig'i",
+    "доход": "daromad",
+    "доходы": "daromadlar",
+    "декларация": "deklaratsiya",
+    "налоговая декларация": "soliq deklaratsiyasi",
+    "налоговая проверка": "soliq tekshiruvi",
+    "проверка": "tekshiruv",
+    "налогоплательщик": "soliq to'lovchi",
+    "плательщик": "to'lovchi",
+    "налоговая база": "soliq bazasi",
+    "льгота": "imtiyoz",
+    "льготы": "imtiyozlar",
+    "освобождение": "ozod qilish",
+    "вычет": "chegirma",
+    "акциз": "aksiz",
+    # ── Labor Law ──
+    "трудовой": "mehnat",
+    "труд": "mehnat",
+    "трудовой договор": "mehnat shartnomasi",
+    "работник": "xodim",
+    "работники": "xodimlar",
+    "работодатель": "ish beruvchi",
+    "зарплата": "ish haqi",
+    "заработная плата": "ish haqi",
+    "увольнение": "ishdan bo'shatish",
+    "рабочее время": "ish vaqti",
+    "отпуск": "ta'til",
+    "больничный": "kasallik varaqasi",
+    "дисциплинарное взыскание": "intizomiy jazo",
+    "испытательный срок": "sinov muddati",
+    "сокращение": "qisqartirish",
+    "перевод": "ko'chirish",
+    "совместительство": "o'rindoshlik",
+    "сверхурочная работа": "ortiqcha ish",
+    "материальная ответственность": "moddiy javobgarlik",
+    "коллективный договор": "jamoaviy shartnoma",
+    "профсоюз": "kasaba uyushmasi",
+    # ── Family Law ──
+    "семейный": "oilaviy",
+    "семья": "oila",
+    "брак": "nikoh",
+    "развод": "ajralish",
+    "алименты": "alimentlar",
+    "опека": "vasiylik",
+    "попечительство": "homiylik",
+    "усыновление": "farzandlikka olish",
+    "ребенок": "bola",
+    "дети": "bolalar",
+    "родители": "ota-onalar",
+    "супруг": "turmush o'rtog'i",
+    "имущество супругов": "turmush o'rtoqlarining mol-mulki",
+    # ── Criminal Law ──
+    "уголовный": "jinoyat",
+    "преступление": "jinoyat",
+    "наказание": "jazo",
+    "арест": "hibsga olish",
+    "задержание": "ushlab turish",
+    "обвинение": "ayblov",
+    "обвиняемый": "ayblanuvchi",
+    "потерпевший": "jabrlanuvchi",
+    "свидетель": "guvoh",
+    "приговор": "hukm",
+    "лишение свободы": "ozodlikdan mahrum qilish",
+    "условный срок": "shartli jazo",
+    "мошенничество": "firibgarlik",
+    "кража": "o'g'irlik",
+    "грабеж": "talonchilik",
+    "хулиганство": "bezorilik",
+    # ── Procedural Terms ──
+    "суд": "sud",
+    "судебный": "sud",
+    "судья": "sudya",
+    "доказательство": "dalil",
+    "доказательства": "dalillar",
+    "решение суда": "sud qarori",
+    "апелляция": "apellyatsiya",
+    "кассация": "kassatsiya",
+    "исполнение решения": "qarorni ijro etish",
+    "истечение срока": "muddat o'tishi",
+    "исковая давность": "da'vo muddati",
+    "подсудность": "sudlovchilik",
+    "третейский суд": "hakamlik sudi",
+    # ── Administrative Law ──
+    "административный": "ma'muriy",
+    "административная ответственность": "ma'muriy javobgarlik",
+    "правонарушение": "huquqbuzarlik",
+    "протокол": "bayonnoma",
+    # ── Corporate / Business ──
+    "предприятие": "korxona",
+    "предприниматель": "tadbirkor",
+    "предпринимательство": "tadbirkorlik",
+    "компания": "kompaniya",
+    "организация": "tashkilot",
+    "общество с ограниченной ответственностью": "mas'uliyati cheklangan jamiyat",
+    "ооо": "MChJ",
+    "акционерное общество": "aksiyadorlik jamiyati",
+    "ао": "AJ",
+    "учредитель": "ta'sischi",
+    "устав": "ustav",
+    "уставный капитал": "ustav fondi",
+    "банкротство": "bankrotlik",
+    "ликвидация": "tugatish",
+    "реорганизация": "qayta tashkil etish",
+    "инвестиции": "investitsiyalar",
+    "инвестор": "investor",
+    # ── Property / Land ──
+    "земля": "yer",
+    "земельный": "yer",
+    "земельный участок": "yer uchastkasi",
+    "недвижимость": "ko'chmas mulk",
+    "жилье": "turar joy",
+    "квартира": "kvartira",
+    "строительство": "qurilish",
+    # ── Codes (full names) ──
+    "гражданский кодекс": "Fuqarolik kodeksi",
+    "уголовный кодекс": "Jinoyat kodeksi",
+    "трудовой кодекс": "Mehnat kodeksi",
+    "налоговый кодекс": "Soliq kodeksi",
+    "семейный кодекс": "Oila kodeksi",
+    "земельный кодекс": "Yer kodeksi",
+    "жилищный кодекс": "Turar-joy kodeksi",
+    "таможенный кодекс": "Bojxona kodeksi",
+    "бюджетный кодекс": "Byudjet kodeksi",
+    "конституция": "Konstitutsiya",
+    "водный кодекс": "Suv kodeksi",
+    "лесной кодекс": "O'rmon kodeksi",
+    "воздушный кодекс": "Havo kodeksi",
+    "градостроительный кодекс": "Shaharsozlik kodeksi",
+    "избирательный кодекс": "Saylov kodeksi",
+}
+
+
+def fast_translate_to_uzbek(text: str) -> str:
+    """
+    Fast dictionary-based Russian → Uzbek translation for search queries.
+    
+    Translates known legal terms using the dictionary.
+    Returns the translated text or original if no translations found.
+    """
+    text_lower = text.lower().strip()
+    
+    # First, try full-phrase matches (longer phrases first for greedy matching)
+    sorted_terms = sorted(LEGAL_TERMINOLOGY_RU_UZ.items(), key=lambda x: len(x[0]), reverse=True)
+    
+    translated = text_lower
+    matched = False
+    
+    for ru_term, uz_term in sorted_terms:
+        if ru_term in translated:
+            translated = translated.replace(ru_term, uz_term)
+            matched = True
+    
+    if matched:
+        # Clean up extra spaces
+        translated = ' '.join(translated.split())
+        return translated
+    
+    return text
+
+
+def extract_search_keywords(text: str) -> List[str]:
+    """
+    Extract key legal terms from a Russian query and return Uzbek equivalents.
+    Returns a list of Uzbek keyword groups for targeted BM25 search.
+    """
+    text_lower = text.lower()
+    uzbek_terms = []
+    
+    # Sort by length (longest first) for greedy matching
+    sorted_terms = sorted(LEGAL_TERMINOLOGY_RU_UZ.items(), key=lambda x: len(x[0]), reverse=True)
+    
+    matched_positions = set()
+    
+    for ru_term, uz_term in sorted_terms:
+        start = text_lower.find(ru_term)
+        if start != -1:
+            end = start + len(ru_term)
+            # Check no overlap with already matched positions
+            if not any(pos in matched_positions for pos in range(start, end)):
+                uzbek_terms.append(uz_term)
+                matched_positions.update(range(start, end))
+    
+    return uzbek_terms
 
 
 
@@ -3953,9 +4224,9 @@ HIGH_QUALITY_THRESHOLD = 0.70  # High confidence threshold
 MEDIUM_QUALITY_THRESHOLD = 0.55  # Medium confidence threshold
 
 # Search configuration
-DEFAULT_TOP_K = 100
-PRE_SEARCH_TOP_K = 250
-MAX_SEARCH_TOP_K = 150
+DEFAULT_TOP_K = 80
+PRE_SEARCH_TOP_K = 80
+MAX_SEARCH_TOP_K = 120
 
 # ═══════════════════════════════════════════════════════════════
 # 📋 ENHANCED SYSTEM PROMPTS
@@ -4447,61 +4718,113 @@ class AIService:
         filter_source: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
-        Enhanced retrieval with hybrid search and quality filtering.
+        Advanced retrieval with hybrid search, multi-query expansion, and re-ranking.
         
-        IMPROVEMENTS:
-        - Dual-language search (Russian + Uzbek)
-        - Keyword boosting for exact matches
-        - Better deduplication
-        - Quality scoring
+        Pipeline:
+        1. Generate query variants (original, dictionary-translated, keyword-extracted)
+        2. Run hybrid search (semantic + BM25) for each variant
+        3. Merge results with Reciprocal Rank Fusion
+        4. Apply primary code boosting
+        5. Re-rank top candidates with Voyage AI
         """
         filter_metadata = {"source": filter_source} if filter_source else None
         
-        # Search with original query
-        results_original = await self.vector_store.asearch(
-            query, 
-            top_k=top_k,
-            filter_metadata=filter_metadata
-        )
+        # ── Step 1: Generate query variants ──
+        query_variants = [query]  # Always include original
         
-        # Translate and search in Uzbek
-        uzbek_query = await self._translate_to_uzbek(query)
-        results_uzbek = []
+        # Fast dictionary translation (no LLM call)
+        dict_translated = fast_translate_to_uzbek(query)
+        if dict_translated != query and dict_translated.lower() != query.lower():
+            query_variants.append(dict_translated)
+            logger.info(f"Dict-translated query: '{query}' → '{dict_translated}'")
         
-        if uzbek_query and uzbek_query != query:
-            results_uzbek = await self.vector_store.asearch(
-                uzbek_query,
-                top_k=top_k,
-                filter_metadata=filter_metadata
-            )
+        # Extract Uzbek keywords for targeted keyword search
+        uzbek_keywords = extract_search_keywords(query)
+        if uzbek_keywords:
+            keyword_query = " ".join(uzbek_keywords)
+            if keyword_query not in query_variants:
+                query_variants.append(keyword_query)
+                logger.info(f"Keyword query: '{keyword_query}'")
         
-        # Merge and deduplicate by content hash
+        # LLM translation as fallback (only if dictionary didn't translate much)
+        dict_coverage = sum(1 for w in query.lower().split() if w in LEGAL_TERMINOLOGY_RU_UZ)
+        if dict_coverage < len(query.split()) * 0.3:  # Less than 30% words translated
+            try:
+                llm_translated = await self._translate_to_uzbek(query)
+                if llm_translated and llm_translated != query and llm_translated not in query_variants:
+                    query_variants.append(llm_translated)
+                    logger.info(f"LLM-translated query: '{llm_translated}'")
+            except Exception as e:
+                logger.warning(f"LLM translation failed: {e}")
+        
+        logger.info(f"Search with {len(query_variants)} query variants")
+        
+        # ── Step 2: Run hybrid search for each variant ──
+        all_results = []
+        per_variant_k = max(top_k, 60)  # Get enough candidates per variant
+        
+        for variant in query_variants:
+            try:
+                results = await self.vector_store.ahybrid_search(
+                    variant,
+                    top_k=per_variant_k,
+                    filter_metadata=filter_metadata,
+                    semantic_weight=0.6,
+                    keyword_weight=0.4,
+                )
+                all_results.extend(results)
+            except Exception as e:
+                logger.warning(f"Search failed for variant '{variant[:50]}': {e}")
+        
+        # ── Step 3: Merge and deduplicate ──
         seen_keys = {}
-        for result in results_original + results_uzbek:
+        for result in all_results:
             metadata = result.get("metadata", {})
             content = result.get("content", "")
-            
-            # Create unique key from source + article + content hash
             key = f"{metadata.get('source', '')}_{metadata.get('article_display', '')}_{hash(content[:200])}"
             
-            # Keep result with highest similarity
             if key not in seen_keys or result.get("similarity", 0) > seen_keys[key].get("similarity", 0):
-                # Apply priority boost for Primary Codes
-                source_name = metadata.get("source", "")
-                # Normalize source name (replace underscores with spaces) for keyword matching
-                source_check = source_name.replace("_", " ")
-                if any(code in source_check for code in PRIMARY_CODES_KEYWORDS):
-                    # Boost relevance by 20% for primary codes to ensure they bubble up
-                    # But cap at 0.99
-                    current_sim = result.get("similarity", 0)
-                    boosted_sim = min(0.99, current_sim * 1.2)
-                    result["similarity"] = boosted_sim
-                    result["is_primary"] = True
-                
                 seen_keys[key] = result
         
-        # Sort by similarity
         merged = sorted(seen_keys.values(), key=lambda x: x.get("similarity", 0), reverse=True)
+        
+        # ── Step 4: Apply primary code boosting ──
+        for result in merged:
+            source_name = result.get("metadata", {}).get("source", "")
+            source_check = source_name.replace("_", " ")
+            if any(code in source_check for code in PRIMARY_CODES_KEYWORDS):
+                current_sim = result.get("similarity", 0)
+                result["similarity"] = min(0.99, current_sim * 1.15)
+                result["is_primary"] = True
+        
+        # Re-sort after boosting
+        merged = sorted(merged, key=lambda x: x.get("similarity", 0), reverse=True)
+        
+        # ── Step 5: Re-rank top candidates with Voyage AI ──
+        # Only rerank if we have enough results and it's worth the API call
+        rerank_candidates = merged[:min(top_k * 2, 150)]
+        
+        if len(rerank_candidates) > 5:
+            try:
+                reranked = await self.vector_store.arerank(
+                    query,  # Use original query for reranking
+                    rerank_candidates,
+                    top_k=top_k,
+                )
+                # Re-apply primary code boost after reranking
+                for result in reranked:
+                    source_name = result.get("metadata", {}).get("source", "")
+                    source_check = source_name.replace("_", " ")
+                    if any(code in source_check for code in PRIMARY_CODES_KEYWORDS):
+                        current_sim = result.get("similarity", 0)
+                        result["similarity"] = min(0.99, current_sim * 1.10)
+                        result["is_primary"] = True
+                
+                reranked = sorted(reranked, key=lambda x: x.get("similarity", 0), reverse=True)
+                logger.info(f"Reranked {len(reranked)} results")
+                return reranked[:top_k]
+            except Exception as e:
+                logger.warning(f"Reranking failed, using hybrid results: {e}")
         
         return merged[:top_k]
     
@@ -4773,23 +5096,29 @@ class AIService:
         return CHAT_MODE_PROMPTS.get(chat_mode, CONSULTANT_PROMPT)
     
     async def _translate_to_uzbek(self, text: str) -> str:
-        """Translate Russian query to Uzbek for dual-language search."""
+        """Translate Russian query to Uzbek using dictionary + LLM fallback."""
+        # First try fast dictionary translation
+        dict_result = fast_translate_to_uzbek(text)
+        if dict_result != text and dict_result.lower() != text.lower():
+            return dict_result
+        
+        # Fallback to LLM for complex queries
         try:
             response = await self.client.messages.create(
                 model=self.settings.claude_haiku_model,
-                max_tokens=500,
+                max_tokens=300,
                 messages=[{"role": "user", "content": text}],
                 system=(
-                    "You are a Russian-to-Uzbek translator. Translate the given Russian legal query "
+                    "You are a Russian-to-Uzbek legal translator. Translate the given Russian legal query "
                     "into Uzbek (Latin script). Output ONLY the Uzbek translation, nothing else. "
-                    "Use proper Uzbek legal terminology. Keep it concise."
+                    "Use proper Uzbek legal terminology. Keep it concise — output only search keywords."
                 ),
             )
             translated = response.content[0].text.strip()
-            logger.info(f"Translated: '{text}' → '{translated}'")
+            logger.info(f"LLM Translated: '{text}' → '{translated}'")
             return translated
         except Exception as e:
-            logger.warning(f"Translation failed: {e}")
+            logger.warning(f"LLM Translation failed: {e}")
             return text
     
     async def _simple_query(
