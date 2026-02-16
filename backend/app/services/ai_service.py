@@ -5451,7 +5451,7 @@ class AIService:
         seen_articles = set()
         
         for search_query in search_queries:
-            results = await self.vector_store.asearch(search_query, top_k=70)
+            results = await self.vector_store.asearch(search_query, top_k=100)
             for result in results:
                 article_key = f"{result.get('metadata', {}).get('source')}_{result.get('metadata', {}).get('article_display')}"
                 if article_key not in seen_articles:
@@ -5484,7 +5484,7 @@ class AIService:
         config = types.GenerateContentConfig(
             system_instruction=GENERATOR_PROMPT,
             max_output_tokens=MAX_OUTPUT_TOKENS,
-            temperature=0.3,
+            temperature=0.1,
             thinking_config=types.ThinkingConfig(thinking_level="high"),
         )
         
