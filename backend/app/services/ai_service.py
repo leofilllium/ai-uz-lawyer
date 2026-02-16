@@ -4095,7 +4095,7 @@ class AIService:
         logger.info(f"Starting enhanced agentic loop (max {MAX_AGENTIC_ROUNDS} rounds)...")
         
         # Tools configuration
-        tools = [GEMINI_SEARCH_TOOL]
+        tools = [types.Tool(function_declarations=[GEMINI_SEARCH_TOOL])]
         config = types.GenerateContentConfig(
             system_instruction=full_system_prompt,
             tools=tools
