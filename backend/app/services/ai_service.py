@@ -4107,6 +4107,8 @@ class AIService:
         # Add current user question to history
         gemini_history.append(types.Content(role="user", parts=[types.Part.from_text(text=question)]))
         
+        search_round_details = []
+        
         for round_num in range(1, MAX_AGENTIC_ROUNDS + 1):
             logger.info(f"=== AGENTIC ROUND {round_num}/{MAX_AGENTIC_ROUNDS} ===")
             if progress_callback:
@@ -4114,7 +4116,8 @@ class AIService:
             
             try:
                 # Send message with full history
-                response = await self.client.models.generate_content_async(
+                # Use client.aio.models.generate_content for async call in new SDK
+                response = await self.client.aio.models.generate_content(
                     model=self.settings.gemini_flash_model,
                     contents=gemini_history,
                     config=config
@@ -4259,19 +4262,7 @@ class AIService:
         
         async def stream_response():
             try:
-                response = await self.client.models.generate_content_async(
-                    model=self.settings.gemini_flash_model,
-                    contents=[final_prompt], # Assuming final_history handling is separate or not needed for single turn synthesis
-                    config=model_final_config,
-                    # stream=True # New SDK streaming might be different iterator
-                )
-                # If streaming is supported directly:
-                # async for chunk in await self.client.models.generate_content_stream(..., contents=...):
-                
-                # For now using non-streaming fallback or assuming generate_content_async returns a response object we can use.
-                # Actually, let's use the stream method if available.
-                
-                stream = await self.client.models.generate_content_stream_async(
+                stream = await self.client.aio.models.generate_content_stream(
                     model=self.settings.gemini_flash_model,
                     contents=final_history + [final_prompt],
                     config=model_final_config
@@ -4596,7 +4587,7 @@ class AIService:
         if dict_result != text and dict_result.lower() != text.lower():
             return dict_result
         try:
-            response = await self.client.models.generate_content_async(
+            response = await self.client.aio.models.generate_content(
                 model=self.settings.gemini_flash_model,
                 contents=f"Translate the following Russian legal query into Uzbek (Latin script). Output ONLY the Uzbek translation, nothing else. Query: {text}",
                 config=types.GenerateContentConfig(temperature=0.1)
@@ -4624,13 +4615,7 @@ class AIService:
 
         async def stream_response():
             try:
-                # Use generate_content_stream if available/verified, otherwise emulate with generate_content
-                # Checking docs (implied): client.models.generate_content_stream exists?
-                # The user example didn't show stream. Assuming it exists or falling back to non-stream if needed.
-                # But _simple_query needs to return a generator/stream.
-                # We will use generate_content_stream_async
-                
-                stream = await self.client.models.generate_content_stream_async(
+                stream = await self.client.aio.models.generate_content_stream(
                     model=self.settings.gemini_flash_model,
                     contents=contents,
                     config=config
