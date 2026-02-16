@@ -63,7 +63,7 @@ export default function Lawyer() {
   const [sessionId, setSessionId] = useState<number | undefined>();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [showSidebar, setShowSidebar] = useState(window.innerWidth > 768);
-  const [chatMode, setChatMode] = useState<'auto-detect' | 'risk-manager' | 'smalltalk' | 'consultant' | 'practitioner' | 'litigator' | 'legal-audit' | 'compliance' | 'tax' | 'corporate' | 'commercial' | 'negotiator' | 'startup' | 'procedural' | 'deadlines' | 'hr' | 'worker-protection' | 'analyst' | 'skeptic' | 'judge-questions' | 'odds' | 'strategist' | 'what-if' | 'interview-practice' | 'family' | 'real-estate' | 'notary' | 'ip' | 'criminal-defense' | 'criminal-prosecution' | 'admin-defense' | 'admin-procedure' | 'customs' | 'procurement' | 'enforcement' | 'arbitration' | 'constitutional' | 'consumer-protection' | 'housing' | 'land-disputes' | 'digital-law' | 'environmental' | 'antitrust' | 'insurance' | 'banking' | 'securities' | 'investor-protection' | 'mediation' | 'doc-review' | 'legal-letter' | 'compliance-hr' | 'debt-collection' | 'bankruptcy' | 'merger-acquisition' | 'licensing' | 'regulatory' | 'cross-border' | 'forensic-legal' | 'quick-answer'>('auto-detect');
+  const [chatMode, setChatMode] = useState<'auto-detect' | 'risk-manager' | 'smalltalk' | 'consultant' | 'practitioner' | 'litigator' | 'legal-audit' | 'compliance' | 'tax' | 'corporate' | 'commercial' | 'negotiator' | 'startup' | 'procedural' | 'deadlines' | 'hr' | 'worker-protection' | 'analyst' | 'skeptic' | 'judge-questions' | 'odds' | 'strategist' | 'what-if' | 'interview-practice' | 'family' | 'real-estate' | 'notary' | 'ip' | 'criminal-defense' | 'criminal-prosecution' | 'admin-defense' | 'admin-procedure' | 'customs' | 'procurement' | 'enforcement' | 'arbitration' | 'constitutional' | 'consumer-protection' | 'housing' | 'land-disputes' | 'digital-law' | 'environmental' | 'antitrust' | 'insurance' | 'banking' | 'securities' | 'investor-protection' | 'mediation' | 'doc-review' | 'legal-letter' | 'compliance-hr' | 'debt-collection' | 'bankruptcy' | 'merger-acquisition' | 'licensing' | 'regulatory' | 'cross-border' | 'forensic-legal' | 'quick-answer' | 'memorandum'>('auto-detect');
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const LIMIT = 20;
@@ -434,13 +434,13 @@ export default function Lawyer() {
               <optgroup label="📚 Базовые режимы">
                 <option value="consultant">📚 Юрист-консультант</option>
                 <option value="risk-manager">🛡️ Риск-менеджер</option>
-                <option value="practitioner">⚖️ Юрист-практик</option>
-                <option value="smalltalk">💬 Простые вопросы</option>
+                <option value="memorandum">⚖️ ЮРИДИЧЕСКОЕ ЗАКЛЮЧЕНИЕ (МЕМОРАНДУМ)</option>
                 <option value="quick-answer">⚡ Быстрый ответ</option>
+                <option value="smalltalk">💬 Просто пообщаться</option>
               </optgroup>
               
               <optgroup label="⚖️ Уголовное право">
-                <option value="criminal-defense">�️ Адвокат (Защита)</option>
+                <option value="criminal-defense">️ Адвокат (Защита)</option>
                 <option value="criminal-prosecution">⚔️ Прокурор (Обвинение)</option>
               </optgroup>
 
