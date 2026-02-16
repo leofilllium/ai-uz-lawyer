@@ -2524,8 +2524,8 @@ body {
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.risk-card { border-left: 4px solid #000; background: #fff5f5; }
-.ambiguity-card { border-left: 4px solid var(--color-text-secondary); }
+.risk-card { border-left: 4px solid #000; background: #fff5f5; color: #1a1a1a !important; }
+.ambiguity-card { border-left: 4px solid var(--color-text-secondary); color: #1a1a1a !important; }
 
 .card-title {
   font-weight: 700;
