@@ -7,7 +7,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { analyzeContract, getValidationById, type ContractAnalysis as Analysis } from '../api/client';
-import './Validator.css';
 
 export default function Validator() {
   const [contractText, setContractText] = useState('');
