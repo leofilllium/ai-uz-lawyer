@@ -3586,10 +3586,11 @@ OUTPUT FORMAT:
 # ⚙️ SYSTEM CONFIGURATION & CONSTANTS
 # ═══════════════════════════════════════════════════════════════
 
-DEFAULT_TOP_K = 10
-PRE_SEARCH_TOP_K = 20
-MIN_RELEVANCE_SCORE = 0.5  # Minimum similarity score for RAG results
-MAX_AGENTIC_ROUNDS = 3 # Max rounds for agentic search
+DEFAULT_TOP_K = 25
+PRE_SEARCH_TOP_K = 40
+MIN_RELEVANCE_SCORE = 0.35  # Minimum similarity score for RAG results
+MAX_AGENTIC_ROUNDS = 4 # Max rounds for agentic search
+MAX_OUTPUT_TOKENS = 16000
 
 # ═══════════════════════════════════════════════════════════════
 # 🛡️ SAFETY & QUALITY INSTRUCTIONS
@@ -4098,7 +4099,10 @@ class AIService:
         tools = [types.Tool(function_declarations=[GEMINI_SEARCH_TOOL])]
         config = types.GenerateContentConfig(
             system_instruction=full_system_prompt,
-            tools=tools
+            tools=tools,
+            temperature=0.7, # slightly higher temp for more creative/longer answers? No, user wants accuracy. 
+            # But "answer as long as it can" implies detail.
+            max_output_tokens=MAX_OUTPUT_TOKENS
         )
         
         # Convert history to Gemini format
@@ -4257,7 +4261,8 @@ class AIService:
             await progress_callback("synthesizing")
         
         model_final_config = types.GenerateContentConfig(
-            system_instruction=system_prompt + "\n\n" + ANTI_HALLUCINATION_RULES
+            system_instruction=system_prompt + "\n\n" + ANTI_HALLUCINATION_RULES + "\n\nIMPORTANT: Provide a VERY DETAILED, COMPREHENSIVE response. Use as many relevant sources as possible (at least 5-10 if available). Target 4000+ tokens if the topic allows.",
+            max_output_tokens=MAX_OUTPUT_TOKENS
         )
         
         async def stream_response():
