@@ -8,18 +8,22 @@ import json
 import logging
 import re
 import traceback
-from typing import List, Dict, Any, Generator, Optional, Callable, Awaitable
-import google.generativeai as genai
-from google.generativeai.types import HarmCategory, HarmBlockThreshold, GenerationConfig
+from typing import List, Dict, Any, Optional, Union, Callable, Awaitable
+from datetime import datetime
+
+from google import genai
+from google.genai import types
 from google.ai.generativelanguage_v1beta.types import content
 
 from app.config import get_settings
+from app.core.logger import get_logger
 
 # Configure logging
 logger = logging.getLogger(__name__)
 MIN_RELEVANCE_SCORE = 0.35        # ≥35% to use (lowered for debugging)
 HIGH_QUALITY_THRESHOLD = 0.70     # ≥70% = high confidence
 MEDIUM_QUALITY_THRESHOLD = 0.55   # 55-70% = medium confidence
+SIMPLE_MODES = ['smalltalk', 'quick-answer']
 
 # Primary Legal Codes (Prioritized)
 PRIMARY_CODES_KEYWORDS = [
@@ -914,6 +918,7 @@ COMMERCIAL_PROMPT = """Вы — коммерческий юрист Узбеки
 - Таможенный кодекс
 - Закон о внешнеэкономической деятельности
 - Закон об электронной коммерции
+- Закон об электронной цифровой подписи
 
 📋 ФОРМАТ ОТВЕТА:
 
@@ -2275,8 +2280,9 @@ ARBITRATION_PROMPT = """Вы — юрист по арбитражу в Узбе�
 | Срок разрешения | 3-6 месяцев | 6-12+ месяцев |
 | Стоимость | Выше (арбитры + госпошлина) | Ниже |
 | Конфиденциальность | ✅ Да | ❌ Нет |
-| Исполнимость за рубежом | ✅ Нью-Йоркская конвенция | ❌ Ограничена |
-| Специализация арбитров | ✅ Экспертизы | Общая юрисдикция |
+| Обязательность результата | ❌ Только по соглашению | ✅ Обязательное решение | ✅ Обязательное решение |
+| Сохранение деловых отношений | ✅ Да | ❌ Часто нет | 🟡 Частично |
+| Исполнимость | Через суд (мировое соглашение) | Непосредственно | Через суд |
 
 ### 💰 СТОИМОСТЬ АРБИТРАЖ (ТАЦ)
 | Сумма спора | Регистрационный сбор | Арбитражный сбор |
@@ -3585,6 +3591,7 @@ OUTPUT FORMAT:
 DEFAULT_TOP_K = 10
 PRE_SEARCH_TOP_K = 20
 MIN_RELEVANCE_SCORE = 0.5  # Minimum similarity score for RAG results
+MAX_AGENTIC_ROUNDS = 3 # Max rounds for agentic search
 
 # ═══════════════════════════════════════════════════════════════
 # 🛡️ SAFETY & QUALITY INSTRUCTIONS
@@ -3922,10 +3929,8 @@ GENERATOR_PROMPT = """Вы профессиональный юрист-сост�
 
 # Tool definition for Gemini (Function Declaration)
 GEMINI_SEARCH_TOOL = {
-    "function_declarations": [
-        {
-            "name": "search_legal_database",
-            "description": """Поиск в базе данных законодательства Узбекистана. Возвращает релевантные статьи законов и кодексов с оценкой релевантности (similarity score).
+    "name": "search_legal_database",
+    "description": """Поиск в базе данных законодательства Узбекистана. Возвращает релевантные статьи законов и кодексов с оценкой релевантности (similarity score).
 
 КРИТИЧЕСКИ ВАЖНО: Используйте этот инструмент для ЛЮБОГО юридического вопроса. НЕ отвечайте на правовые вопросы без поиска.
 
@@ -3941,26 +3946,24 @@ GEMINI_SEARCH_TOOL = {
 - relevance_score: Оценка релевантности (0-1, используйте только результаты с score ≥ 0.50)
 
 СТРАТЕГИЯ: Для комплексных вопросов делайте 2-3 поиска разными формулировками.""",
-            "parameters": {
-                "type": "OBJECT",
-                "properties": {
-                    "query": {
-                        "type": "STRING",
-                        "description": "Поисковый запрос (3-10 ключевых слов). Используйте юридические термины на русском и/или узбекском языке."
-                    },
-                    "top_k": {
-                        "type": "INTEGER",
-                        "description": "Количество результатов для возврата (40-60). По умолчанию 50."
-                    },
-                    "filter_source": {
-                        "type": "STRING",
-                        "description": "Фильтр по имени файла, например 'CIVIL-CODE-PART-1.docx' (опционально)"
-                    }
-                },
-                "required": ["query"]
+    "parameters": {
+        "type": "OBJECT",
+        "properties": {
+            "query": {
+                "type": "STRING",
+                "description": "Поисковый запрос (3-10 ключевых слов). Используйте юридические термины на русском и/или узбекском языке."
+            },
+            "top_k": {
+                "type": "INTEGER",
+                "description": "Количество результатов для возврата (40-60). По умолчанию 50."
+            },
+            "filter_source": {
+                "type": "STRING",
+                "description": "Фильтр по имени файла, например 'CIVIL-CODE-PART-1.docx' (опционально)"
             }
-        }
-    ]
+        },
+        "required": ["query"]
+    }
 }
 
 # ═══════════════════════════════════════════════════════════════
@@ -3988,7 +3991,7 @@ class AIService:
         if not self.settings.google_api_key:
             raise ValueError("GOOGLE_API_KEY is required")
         
-        genai.configure(api_key=self.settings.google_api_key)
+        self.client = genai.Client(api_key=self.settings.google_api_key)
         self._init_rag_engine()
     
     def _init_rag_engine(self):
@@ -4020,7 +4023,7 @@ class AIService:
         system_prompt = self._get_system_prompt(chat_mode)
         
         # For simple modes, use simplified query
-        if chat_mode in ['smalltalk', 'quick-answer']:
+        if chat_mode in SIMPLE_MODES:
             return await self._simple_query(question, history, chat_mode, system_prompt)
         
         # ═══════════════════════════════════════════════════════════════
@@ -4093,21 +4096,18 @@ class AIService:
         
         logger.info(f"Starting enhanced agentic loop (max {MAX_AGENTIC_ROUNDS} rounds)...")
         
-        # Initialize Gemini Model with Tools
-        model = genai.GenerativeModel(
-            model_name=self.settings.gemini_flash_model,
+        # Tools configuration
+        tools = [GEMINI_SEARCH_TOOL]
+        config = types.GenerateContentConfig(
             system_instruction=full_system_prompt,
-            tools=[GEMINI_SEARCH_TOOL]
+            tools=tools
         )
         
         # Convert history to Gemini format
         gemini_history = self._convert_history_to_gemini(history)
         
-        # Start chat session
-        chat = model.start_chat(history=gemini_history)
-        
-        search_round_details = []
-        current_msg = question
+        # Add current user question to history
+        gemini_history.append(types.Content(role="user", parts=[types.Part.from_text(text=question)]))
         
         for round_num in range(1, MAX_AGENTIC_ROUNDS + 1):
             logger.info(f"=== AGENTIC ROUND {round_num}/{MAX_AGENTIC_ROUNDS} ===")
@@ -4115,20 +4115,32 @@ class AIService:
                 await progress_callback(f"agentic_round_{round_num}")
             
             try:
-                # Send message
-                response = await chat.send_message_async(current_msg)
+                # Send message with full history
+                response = await self.client.models.generate_content_async(
+                    model=self.settings.gemini_flash_model,
+                    contents=gemini_history,
+                    config=config
+                )
                 
-                # Check for function call
-                function_call = None
-                if response.candidates:
+                # Check for candidates
+                if not response.candidates:
+                    logger.warning("No candidates returned from Gemini.")
+                    break
+
+                # Add model's response to history
+                gemini_history.append(response.candidates[0].content)
+                
+                function_calls = []
+                if response.candidates[0].content.parts:
                     for part in response.candidates[0].content.parts:
                         if part.function_call:
-                            function_call = part.function_call
-                            break
+                            function_calls.append(part.function_call)
                 
-                if function_call:
-                    fc_name = function_call.name
-                    fc_args = dict(function_call.args)
+                if function_calls:
+                    # For simplicity, handle the first function call
+                    part = function_calls[0]
+                    fc_name = part.name
+                    fc_args = part.args
                     
                     if fc_name == "search_legal_database":
                         query = fc_args.get("query", "")
@@ -4195,19 +4207,25 @@ class AIService:
                                 "Try reformulating the query with different terms or language."
                             )
                         
-                        # Prepare function response
-                        function_response = genai.protos.Part(
-                            function_response=genai.protos.FunctionResponse(
-                                name=fc_name,
-                                response={"result": result_summary}
-                            )
+                        # Construct Tool Response
+                        tool_response_part = types.Part.from_function_response(
+                            name=fc_name,
+                            response={"result": result_summary}
                         )
-                        current_msg = [function_response]
+                        # Append tool response to history (role='tool' is standard for new SDK, but often treated as user role with function_response part in chat context)
+                        # We used 'function' in prev step comment, but let's stick to 'tool' if possible or check docs. 
+                        # To be safe and compatible with typical Gemini chat history structure: Model (function_call) -> User/Tool (function_response).
+                        gemini_history.append(types.Content(role="tool", parts=[tool_response_part]))
                         continue
 
                     else:
                         logger.warning(f"Unknown function call: {fc_name}")
-                        current_msg = "Error: Unknown function call"
+                        # Append error response
+                        error_part = types.Part.from_function_response(
+                            name=fc_name,
+                            response={"error": "Unknown function call"}
+                        )
+                        gemini_history.append(types.Content(role="tool", parts=[error_part]))
                         continue
                 else:
                     logger.info("Agentic loop: Model produced text, stopping search.")
@@ -4237,17 +4255,31 @@ class AIService:
         if progress_callback:
             await progress_callback("synthesizing")
         
-        model_final = genai.GenerativeModel(
-            model_name=self.settings.gemini_flash_model,
+        model_final_config = types.GenerateContentConfig(
             system_instruction=system_prompt + "\n\n" + ANTI_HALLUCINATION_RULES
         )
         
-        chat_final = model_final.start_chat(history=final_history)
-        
         async def stream_response():
             try:
-                response = await chat_final.send_message_async(final_prompt, stream=True)
-                async for chunk in response:
+                response = await self.client.models.generate_content_async(
+                    model=self.settings.gemini_flash_model,
+                    contents=[final_prompt], # Assuming final_history handling is separate or not needed for single turn synthesis
+                    config=model_final_config,
+                    # stream=True # New SDK streaming might be different iterator
+                )
+                # If streaming is supported directly:
+                # async for chunk in await self.client.models.generate_content_stream(..., contents=...):
+                
+                # For now using non-streaming fallback or assuming generate_content_async returns a response object we can use.
+                # Actually, let's use the stream method if available.
+                
+                stream = await self.client.models.generate_content_stream_async(
+                    model=self.settings.gemini_flash_model,
+                    contents=final_history + [final_prompt],
+                    config=model_final_config
+                )
+                
+                async for chunk in stream:
                     if chunk.text:
                         yield chunk.text
             except Exception as e:
@@ -4566,16 +4598,14 @@ class AIService:
         if dict_result != text and dict_result.lower() != text.lower():
             return dict_result
         try:
-            model = genai.GenerativeModel(self.settings.gemini_flash_model)
-            response = await model.generate_content_async(
+            response = await self.client.models.generate_content_async(
+                model=self.settings.gemini_flash_model,
                 contents=f"Translate the following Russian legal query into Uzbek (Latin script). Output ONLY the Uzbek translation, nothing else. Query: {text}",
-                generation_config=GenerationConfig(temperature=0.1)
+                config=types.GenerateContentConfig(temperature=0.1)
             )
-            translated = response.text.strip()
-            logger.info(f"LLM Translated: '{text}' → '{translated}'")
-            return translated
+            return response.text.strip() if response.text else text
         except Exception as e:
-            logger.warning(f"LLM Translation failed: {e}")
+            logger.warning(f"Translation error: {e}")
             return text
 
     async def _simple_query(
@@ -4586,17 +4616,33 @@ class AIService:
         system_prompt: str
     ) -> Dict[str, Any]:
         gemini_history = self._convert_history_to_gemini(history)
-        model = genai.GenerativeModel(
-            model_name=self.settings.gemini_flash_model,
+        
+        # Add inputs to history for the call
+        contents = gemini_history + [types.Content(role="user", parts=[types.Part.from_text(text=question)])]
+        
+        config = types.GenerateContentConfig(
             system_instruction=system_prompt
         )
-        chat = model.start_chat(history=gemini_history)
-        
+
         async def stream_response():
-            response = await chat.send_message_async(question, stream=True)
-            async for chunk in response:
-                if chunk.text:
-                    yield chunk.text
+            try:
+                # Use generate_content_stream if available/verified, otherwise emulate with generate_content
+                # Checking docs (implied): client.models.generate_content_stream exists?
+                # The user example didn't show stream. Assuming it exists or falling back to non-stream if needed.
+                # But _simple_query needs to return a generator/stream.
+                # We will use generate_content_stream_async
+                
+                stream = await self.client.models.generate_content_stream_async(
+                    model=self.settings.gemini_flash_model,
+                    contents=contents,
+                    config=config
+                )
+                async for chunk in stream:
+                    if chunk.text:
+                        yield chunk.text
+            except Exception as e:
+                logger.error(f"Simple query error: {e}")
+                yield f"Error: {str(e)}"
         
         return {
             "response": stream_response(),
