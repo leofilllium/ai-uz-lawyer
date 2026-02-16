@@ -9,14 +9,14 @@ import logging
 import re
 import traceback
 from typing import List, Dict, Any, Generator, Optional, Callable, Awaitable
-import anthropic
+import google.generativeai as genai
+from google.generativeai.types import HarmCategory, HarmBlockThreshold, GenerationConfig
+from google.ai.generativelanguage_v1beta.types import content
 
 from app.config import get_settings
 
 # Configure logging
 logger = logging.getLogger(__name__)
-
-# Quality Thresholds
 MIN_RELEVANCE_SCORE = 0.35        # ≥35% to use (lowered for debugging)
 HIGH_QUALITY_THRESHOLD = 0.70     # ≥70% = high confidence
 MEDIUM_QUALITY_THRESHOLD = 0.55   # 55-70% = medium confidence
@@ -3886,526 +3886,13 @@ GENERATOR_PROMPT = """Вы профессиональный юрист-сост�
 # 🤖 AGENTIC RAG: Tool definitions for Claude tool-use loop
 # ═══════════════════════════════════════════════════════════════
 
-SEARCH_TOOLS = [
-    {
-        "name": "search_legal_database",
-        "description": (
-            "Search the internal Uzbekistan legal database (codes, laws, regulations, articles). "
-            "CRITICAL: All documents are stored in UZBEK (Latin script). "
-            "The search engine uses hybrid semantic + keyword matching. "
-            "Returns results with relevance scores (0-1) and metadata (source, article number, date). "
-            "Available sources: Fuqarolik kodeksi (Civil Code), Jinoyat kodeksi (Criminal Code), "
-            "Mehnat kodeksi (Labor Code), Soliq kodeksi (Tax Code), Oila kodeksi (Family Code), "
-            "Yer kodeksi (Land Code), Turar-joy kodeksi (Housing Code), Bojxona kodeksi (Customs Code), "
-            "Byudjet kodeksi (Budget Code), Konstitutsiya (Constitution), O'zbekiston Respublikasi "
-            "Fuqarolik protsessual kodeksi (Civil Procedure Code), Ma'muriy javobgarlik to'g'risida kodeks "
-            "(Administrative Liability Code), and 500+ laws and regulations."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": (
-                        "Search query in Uzbek Latin script for optimal results. "
-                        "Use legal terminology: 'shartnoma buzilishi' (contract breach), "
-                        "'mehnat huquqlari' (labor rights), 'soliq majburiyatlari' (tax obligations). "
-                        "For multi-concept queries, use specific legal terms for each concept."
-                    )
-                },
-                "top_k": {
-                    "type": "integer",
-                    "description": "Number of results to return (default 50, recommended 50-55 for balanced coverage, max 60)"
-                },
-                "filter_source": {
-                    "type": "string",
-                    "description": "Optional: Filter by specific code/law name (e.g., 'Soliq kodeksi', 'Mehnat kodeksi')"
-                }
-            },
-            "required": ["query"]
-        }
-    }
-]
 
-AGENTIC_INSTRUCTION = """
-╔═══════════════════════════════════════════════════════════════════════════╗
-║ 🔧 РАСШИРЕННАЯ ИНСТРУКЦИЯ ПО АГЕНТНОМУ ПОИСКУ В ПРАВОВОЙ БАЗЕ            ║
-╚═══════════════════════════════════════════════════════════════════════════╝
-
-═══════════════════════════════════════════════════════════════════════════
-📚 ДОСТУПНЫЙ ИНСТРУМЕНТ
-═══════════════════════════════════════════════════════════════════════════
-
-`search_legal_database` — гибридный поиск (семантический + ключевые слова) 
-по внутренней базе законодательства Узбекистана (15,000+ документов).
-
-⚠️ КРИТИЧЕСКИ ВАЖНО: База данных на УЗБЕКСКОМ ЯЗЫКЕ (латиница)!
-
-═══════════════════════════════════════════════════════════════════════════
-🎯 СТРАТЕГИЯ ПОИСКА: ОБЯЗАТЕЛЬНЫЙ ПРОТОКОЛ
-═══════════════════════════════════════════════════════════════════════════
-
-【ЭТАП 1: АНАЛИЗ ЗАПРОСА】
-Перед любым поиском:
-1. Определите правовую область (гражданское, налоговое, трудовое, семейное и т.д.)
-2. Выделите ключевые юридические концепции
-3. Определите, какие кодексы/законы наиболее релевантны
-4. Сформулируйте 2-3 варианта узбекских поисковых запросов
-
-【ЭТАП 2: МНОГОУРОВНЕВЫЙ ПОИСК】
-Используйте итеративную стратегию:
-
-▶ Поиск 1 (ШИРОКИЙ): Общая концепция
-   Пример: "mehnat shartnomasi tuziladigan tartib"
-   Цель: Понять общую структуру регулирования
-   Параметр: top_k=30-40
-
-▶ Поиск 2 (УТОЧНЯЮЩИЙ): Конкретный аспект
-   Пример: "mehnat shartnomasi majburiy shartlari"
-   Цель: Найти специфические требования
-   Параметр: top_k=20-30
-
-▶ Поиск 3 (ЦЕЛЕВОЙ): Специфические нормы
-   Пример: "mehnat shartnomasi bekor qilish asoslari"
-   Цель: Точные правовые основания
-   Параметр: top_k=10-20
-
-▶ Поиск 4+ (ПО НЕОБХОДИМОСТИ): Смежные вопросы
-   Примеры: санкции, процедуры, исключения, судебная практика
-   
-ПРАВИЛО: Минимум 2-3 поисковых запроса для комплексных юридических вопросов
-
-═══════════════════════════════════════════════════════════════════════════
-🗣️ СЛОВАРЬ: РУССКИЙ → УЗБЕКСКИЙ (Правовая терминология)
-═══════════════════════════════════════════════════════════════════════════
-
-【ОБЩИЕ ТЕРМИНЫ】
-- Договор/Контракт → shartnoma
-- Закон → qonun
-- Кодекс → kodeks
-- Статья → modda
-- Право → huquq
-- Обязанность → majburiyat
-- Ответственность → javobgarlik
-- Нарушение → buzilish, qoidabuzarlik
-- Процедура → tartib, jarayon
-- Требование → talab
-- Условие → shart
-- Срок → muddat
-
-【ГРАЖДАНСКОЕ ПРАВО】
-- Гражданский кодекс → Fuqarolik kodeksi
-- Физическое лицо → jismoniy shaxs
-- Юридическое лицо → yuridik shaxs
-- Право собственности → mulk huquqi
-- Купля-продажа → sotib olish-sotish
-- Аренда → ijara
-- Исковое заявление → da'vo ariza
-- Возмещение ущерба → zararni qoplash
-
-【НАЛОГОВОЕ ПРАВО】
-- Налоговый кодекс → Soliq kodeksi
-- НДС → QQS (Qo'shilgan qiymat solig'i)
-- Налог на прибыль → foyda solig'i
-- Подоходный налог → daromad solig'i
-- Налоговая декларация → soliq deklaratsiyasi
-- Налоговая проверка → soliq tekshiruvi
-- Налоговый период → soliq davri
-- Налогоплательщик → soliq to'lovchi
-- Налоговая база → soliq bazasi
-- Льгота → imtiyoz, chegirma
-
-【ТРУДОВОЕ ПРАВО】
-- Трудовой кодекс → Mehnat kodeksi
-- Трудовой договор → mehnat shartnomasi
-- Работник → xodim, ishchi
-- Работодатель → ish beruvchi
-- Заработная плата → ish haqi
-- Увольнение → ishdan bo'shatish
-- Рабочее время → ish vaqti
-- Отпуск → ta'til
-- Дисциплинарное взыскание → intizomiy jazolar
-
-【СЕМЕЙНОЕ ПРАВО】
-- Семейный кодекс → Oila kodeksi
-- Брак → nikoh
-- Развод → ajralish
-- Алименты → alimentlar
-- Опека → vasiylik
-- Имущество супругов → turmush o'rtoqlarining mol-mulki
-
-【ПРОЦЕССУАЛЬНЫЕ ТЕРМИНЫ】
-- Суд → sud
-- Иск → da'vo
-- Доказательство → dalil
-- Решение суда → sud qarori
-- Апелляция → apellyatsiya shikoyat
-- Исполнение → ijro etish
-- Жалоба → shikoyat
-
-【АДМИНИСТРАТИВНОЕ ПРАВО】
-- Административная ответственность → ma'muriy javobgarlik
-- Штраф → jarima
-- Лицензия → litsenziya
-- Разрешение → ruxsat
-- Регистрация → ro'yxatga olish
-
-═══════════════════════════════════════════════════════════════════════════
-📊 ОЦЕНКА РЕЗУЛЬТАТОВ: КРИТЕРИИ КАЧЕСТВА
-═══════════════════════════════════════════════════════════════════════════
-
-После КАЖДОГО поискового запроса анализируйте:
-
-✅ ВЫСОКОЕ КАЧЕСТВО (relevance_score ≥ 0.75):
-   • Точное совпадение правовых терминов
-   • Прямое регулирование вопроса
-   • Актуальная редакция кодекса/закона
-   → ИСПОЛЬЗУЙТЕ эти результаты как основу ответа
-
-⚠️ СРЕДНЕЕ КАЧЕСТВО (0.50 ≤ relevance_score < 0.75):
-   • Частичное совпадение концепций
-   • Смежное регулирование
-   • Общие принципы
-   → ИСПОЛЬЗУЙТЕ как дополнительный контекст
-   → ТРЕБУЕТСЯ дополнительный уточняющий поиск
-
-❌ НИЗКОЕ КАЧЕСТВО (relevance_score < 0.50):
-   • Нерелевантные результаты
-   • Неправильная интерпретация запроса
-   → ПЕРЕФОРМУЛИРУЙТЕ запрос с другими терминами
-   → НЕ ИСПОЛЬЗУЙТЕ эти результаты
-
-🔍 ПРИЗНАКИ НЕОБХОДИМОСТИ ДОПОЛНИТЕЛЬНОГО ПОИСКА:
-- Все результаты имеют score < 0.70
-- Менее 5 релевантных результатов
-- Отсутствуют прямые статьи кодексов
-- Результаты из неожиданных источников
-- Неполное покрытие аспектов вопроса
-
-═══════════════════════════════════════════════════════════════════════════
-✍️ ФОРМИРОВАНИЕ ОТВЕТА: СТРОГИЕ ТРЕБОВАНИЯ
-═══════════════════════════════════════════════════════════════════════════
-
-【СТРУКТУРА ОТВЕТА】
-1. **ПРАВОВОЕ ОСНОВАНИЕ** (обязательно):
-   - Точное название кодекса/закона
-   - Номер статьи/части/пункта
-   - Цитата ключевых положений
-
-2. **АНАЛИЗ ПРИМЕНЕНИЯ**:
-   - Как норма применяется к конкретной ситуации
-   - Условия и ограничения
-   - Процедурные требования
-
-3. **ПРАКТИЧЕСКИЕ РЕКОМЕНДАЦИИ**:
-   - Необходимые действия
-   - Сроки
-   - Документы
-   - Риски
-
-4. **ИСТОЧНИКИ** (обязательно):
-   - Перечислите ВСЕ использованные статьи
-   - Формат: "Статья X Кодекса Y" или "modda X, Y kodeksi"
-
-【УРОВНИ УВЕРЕННОСТИ】
-Явно указывайте уровень уверенности:
-
-🟢 ВЫСОКАЯ УВЕРЕННОСТЬ (найдены прямые нормы, score > 0.75):
-   "Согласно статье X Кодекса Y, ..."
-   "Законодательство четко устанавливает..."
-
-🟡 СРЕДНЯЯ УВЕРЕННОСТЬ (косвенные нормы, score 0.50-0.75):
-   "На основании общих принципов статьи X..."
-   "Применительно к данной ситуации может действовать..."
-
-🔴 НИЗКАЯ УВЕРЕННОСТЬ (недостаточно данных):
-   "В доступной базе данных недостаточно информации..."
-   "Требуется дополнительная консультация со специалистом..."
-
-【ЗАПРЕЩЕННЫЕ ДЕЙСТВИЯ】
-❌ НИКОГДА не отвечайте на юридические вопросы без поиска в базе
-❌ НИКОГДА не ссылайтесь на "общие знания" по правовым вопросам
-❌ НИКОГДА не выдумывайте номера статей или содержание норм
-❌ НИКОГДА не даваёте категоричные советы при низком quality score
-❌ НИКОГДА не используйте результаты с relevance_score < 0.40
-
-【ОБЯЗАТЕЛЬНЫЕ ДЕЙСТВИЯ】
-✅ ВСЕГДА делайте минимум 2-3 поисковых запроса для комплексных вопросов
-✅ ВСЕГДА указывайте конкретные статьи и их источники
-✅ ВСЕГДА предупреждайте о необходимости профессиональной консультации
-✅ ВСЕГДА указывайте актуальность найденной информации
-✅ ВСЕГДА оценивайте quality/relevance scores результатов
-
-═══════════════════════════════════════════════════════════════════════════
-🔄 ПРИМЕРЫ ПОИСКОВЫХ СТРАТЕГИЙ
-═══════════════════════════════════════════════════════════════════════════
-
-【ПРИМЕР 1: Вопрос о трудовом договоре】
-Пользователь: "Какие обязательные условия должны быть в трудовом договоре?"
-
-Стратегия:
-1. search_legal_database("mehnat shartnomasi majburiy shartlari", top_k=30)
-2. search_legal_database("mehnat shartnomasi tuzish tartibi", top_k=25)
-3. search_legal_database("mehnat shartnomasi mazmuni talablar", top_k=20)
-
-【ПРИМЕР 2: Вопрос о НДС】
-Пользователь: "Кто освобождается от уплаты НДС?"
-
-Стратегия:
-1. search_legal_database("QQS qoshilgan qiymat soligi imtiyozlar", top_k=30)
-2. search_legal_database("QQS tolovchilar roʻyxatga olish", top_k=25)
-3. search_legal_database("QQS ozod qilish shartlari chegirmalar", top_k=20)
-4. search_legal_database("soliq imtiyozlari QQS", top_k=15)
-
-【ПРИМЕР 3: Вопрос о расторжении договора】
-Пользователь: "По каким основаниям можно расторгнуть договор купли-продажи?"
-
-Стратегия:
-1. search_legal_database("shartnoma bekor qilish asoslari", top_k30)
-2. search_legal_database("sotib olish sotish shartnomasi buzilishi", top_k=25)
-3. search_legal_database("shartnoma majburiyatlarini bajarmagan tartib", top_k=20)
-4. search_legal_database("birtaraflama shartnomadan voz kechish", top_k=15)
-
-═══════════════════════════════════════════════════════════════════════════
-⚠️ СПЕЦИАЛЬНЫЕ СЛУЧАИ
-═══════════════════════════════════════════════════════════════════════════
-
-【НЕДОСТАТОЧНО ИНФОРМАЦИИ】
-Если после 3-4 качественных поисковых запросов с разными формулировками
-релевантная информация НЕ НАЙДЕНА (все scores < 0.50):
-
-"К сожалению, в нашей правовой базе данных недостаточно информации для
-полного ответа на данный вопрос. Найденные результаты имеют низкую
-релевантность и могут не отражать актуальное регулирование. 
-
-Рекомендую:
-- Обратиться к лицензированному юристу
-- Проконсультироваться в государственных органах [указать какие]
-- Проверить последние изменения в законодательстве
-
-Буду рад помочь с другими правовыми вопросами."
-
-【НЕ ЮРИДИЧЕСКИЕ ВОПРОСЫ】
-Для общих вопросов (приветствия, благодарности, уточнения) — 
-инструмент search_legal_database НЕ используйте.
-
-【КОНФЛИКТУЮЩИЕ НОРМЫ】
-Если найдены противоречащие друг другу положения:
-1. Проверьте даты принятия/изменения документов
-2. Примените принцип: более поздний закон имеет приоритет
-3. Специальная норма имеет приоритет над общей
-4. Явно укажите на выявленное противоречие
-
-═══════════════════════════════════════════════════════════════════════════
-📋 КОНТРОЛЬНЫЙ ЧЕКЛИСТ ПЕРЕД ОТВЕТОМ
-═══════════════════════════════════════════════════════════════════════════
-
-Перед отправкой ответа проверьте:
-☐ Выполнено минимум 2-3 поисковых запроса (для комплексных вопросов)
-☐ Проанализированы relevance scores всех результатов
-☐ Использованы только результаты с score ≥ 0.50 (или указано на недостаток данных)
-☐ Указаны конкретные статьи и источники
-☐ Обозначен уровень уверенности в ответе
-☐ Даны практические рекомендации (при наличии достаточных данных)
-☐ Рекомендована консультация специалиста (при необходимости)
-☐ Ответ структурирован и понятен пользователю
-
-═══════════════════════════════════════════════════════════════════════════
-
-ПОМНИТЕ: Вы работаете с юридической информацией, которая влияет на права
-и обязанности людей. Точность и обоснованность критически важны.
-"""
-
-MAX_AGENTIC_ROUNDS = 4  # Increased for better search coverage
-
-# Quality thresholds for retrieval
-MIN_RELEVANCE_SCORE = 0.50  # Minimum similarity score to use a result
-HIGH_QUALITY_THRESHOLD = 0.70  # High confidence threshold
-MEDIUM_QUALITY_THRESHOLD = 0.55  # Medium confidence threshold
-
-# Search configuration
-DEFAULT_TOP_K = 50
-PRE_SEARCH_TOP_K = 40
-MAX_SEARCH_TOP_K = 60
-
-# ═══════════════════════════════════════════════════════════════
-# 📋 ENHANCED SYSTEM PROMPTS
-# ═══════════════════════════════════════════════════════════════
-
-ANTI_HALLUCINATION_RULES = """
-═══════════════════════════════════════════════════════════════════════════
-🚨 КРИТИЧЕСКИЕ ПРАВИЛА ПРОТИВ ГАЛЛЮЦИНАЦИЙ
-═══════════════════════════════════════════════════════════════════════════
-
-【АБСОЛЮТНЫЕ ЗАПРЕТЫ】
-❌ НИКОГДА не выдумывайте номера статей или содержание законов
-❌ НИКОГДА не ссылайтесь на "общие знания" по правовым вопросам
-❌ НИКОГДА не используйте информацию, которой нет в предоставленном контексте
-❌ НИКОГДА не отвечайте на юридические вопросы без поиска в базе данных
-❌ НИКОГДА не даёте категоричные советы при низком quality score (< 0.55)
-❌ НИКОГДА не используйте результаты с relevance_score < 0.50
-
-【ОБЯЗАТЕЛЬНЫЕ ТРЕБОВАНИЯ】
-✅ ВСЕГДА используйте ТОЛЬКО информацию из предоставленного правового контекста
-✅ ВСЕГДА указывайте конкретные статьи с ТОЧНЫМИ номерами из контекста
-✅ ВСЕГДА проверяйте relevance_score каждого источника перед использованием
-✅ ВСЕГДА явно указывайте уровень уверенности в ответе
-✅ ВСЕГДА делайте минимум 2-3 поисковых запроса для комплексных вопросов
-✅ ВСЕГДА предупреждайте о необходимости профессиональной консультации при неполной информации
-
-【УРОВНИ УВЕРЕННОСТИ】
-🟢 ВЫСОКАЯ УВЕРЕННОСТЬ (найдены прямые нормы, avg score > 0.70):
-   "Согласно статье X Кодекса Y [найдено в контексте], ..."
-   "Законодательство чётко устанавливает в статье Z..."
-
-🟡 СРЕДНЯЯ УВЕРЕННОСТЬ (косвенные нормы, avg score 0.55-0.70):
-   "На основании найденных положений статьи X..."
-   "В предоставленном контексте обнаружены указания на..."
-
-🔴 НИЗКАЯ УВЕРЕННОСТЬ (avg score 0.50-0.55 или недостаточно данных):
-   "⚠️ В доступной базе данных найдена ограниченная информация..."
-   "⚠️ Требуется дополнительная консультация со специалистом..."
-
-🔴 ОТСУТСТВИЕ ИНФОРМАЦИИ (avg score < 0.50 или нет результатов):
-   "🚫 В нашей правовой базе данных недостаточно релевантной информации для ответа на данный вопрос."
-   "🚫 Найденные результаты имеют низкую релевантность (< 50%)."
-   "Рекомендую обратиться к лицензированному юристу или в государственные органы."
-
-【ЦИТИРОВАНИЕ ИСТОЧНИКОВ】
-Для КАЖДОГО утверждения о праве указывайте:
-   - ТОЧНЫЙ номер статьи из контекста (не придумывайте!)
-   - Название кодекса/закона (точно как в контексте)
-   - Формат: "Согласно статье [номер] [название закона из контекста], ..."
-
-【ПРОВЕРКА КАЧЕСТВА КОНТЕКСТА】
-Перед использованием результата проверьте:
-   ☐ Relevance score ≥ 0.50 (иначе НЕ используйте)
-   ☐ Информация действительно относится к вопросу
-   ☐ Статья указана явно в контексте
-   ☐ Содержание понятно и релевантно
-
-【ПРИ НЕДОСТАТКЕ ИНФОРМАЦИИ】
-Если после 3-4 качественных поисковых запросов НЕ НАЙДЕНО релевантной информации:
-
-"К сожалению, в нашей правовой базе данных недостаточно информации для 
-полного ответа на данный вопрос. Все найденные результаты имеют низкую 
-релевантность (менее 50%) или не содержат точных норм по этому вопросу.
-
-Рекомендую:
-- Обратиться к лицензированному юристу
-- Проконсультироваться в государственных органах [указать какие]
-- Проверить последние изменения в законодательстве
-
-Буду рад помочь с другими правовыми вопросами."
-
-【КОНТРОЛЬНЫЙ ЧЕКЛИСТ ПЕРЕД ОТВЕТОМ】
-☐ Выполнено минимум 2-3 поисковых запроса для комплексных вопросов
-☐ Все использованные источники имеют relevance_score ≥ 0.50
-☐ Каждое утверждение о праве подкреплено конкретной статьёй из контекста
-☐ Указан уровень уверенности в ответе (🟢🟡🔴)
-☐ При низкой уверенности указано предупреждение
-☐ НЕ использованы выдуманные номера статей или законов
-☐ Рекомендована консультация специалиста (при необходимости)
-
-═══════════════════════════════════════════════════════════════════════════
-"""
-
-ENHANCED_AGENTIC_INSTRUCTION = """
-═══════════════════════════════════════════════════════════════════════════
-🤖 ИНСТРУКЦИИ ДЛЯ АГЕНТНОГО ПОИСКА В БАЗЕ ДАННЫХ
-═══════════════════════════════════════════════════════════════════════════
-
-У вас есть доступ к инструменту search_legal_database для поиска в базе данных 
-законодательства Узбекистана.
-
-【ПРИОРИТЕТ ИСТОЧНИКОВ ⭐️】
-1. В первую очередь ВСЕГДА проверяйте ОСНОВНЫЕ КОДЕКСЫ (Конституция, Гражданский, Уголовный, Налоговый и др.).
-2. Они имеют высшую юридическую силу и приоритет над другими актами.
-3. Ищите результаты с пометкой "⭐️ PRIMARY SOURCE".
-
-【СТРАТЕГИЯ ПОИСКА】
-1. ВСЕГДА начинайте с 2-3 поисковых запросов разными формулировками
-2. Используйте как русские, так и узбекские термины
-3. Начинайте с широких запросов, затем уточняйте
-4. Для комплексных вопросов делайте 3-4 целевых поиска
-
-【ПАРАМЕТРЫ ПОИСКА】
-- query: Поисковый запрос (3-10 ключевых слов)
-- top_k: Количество результатов (40-100, по умолчанию 75)
-- filter_source: Фильтр по названию документа (например, "CIVIL-CODE-PART-1.docx" или "-24724_El-yurt_hurmati...")
-
-【ИМЕНОВАНИЕ ДОКУМЕНТОВ】
-Большинство документов в базе имеют формат: `-ID_Название_Документа.txt`.
-При использовании фильтра filter_source указывайте полное имя файла.
-AI автоматически очистит это имя для отображения пользователю (уберет ID и расширение).
-
-【АНАЛИЗ РЕЗУЛЬТАТОВ】
-После каждого поиска ОБЯЗАТЕЛЬНО проверяйте:
-✓ Relevance score каждого результата
-✓ Соответствие результата вашему запросу
-✓ Наличие конкретных статей и норм
-✓ Качество и полноту информации
-
-【КАЧЕСТВЕННЫЕ ЗАПРОСЫ】
-✅ ХОРОШО: "mehnat shartnomasi majburiy shartlari"
-✅ ХОРОШО: "трудовой договор обязательные условия статья"
-✅ ХОРОШО: "QQS ozod qilish shartlari imtiyozlar"
-
-❌ ПЛОХО: "расскажи про договор"
-❌ ПЛОХО: "что делать"
-❌ ПЛОХО: "закон"
-
-【КОГДА ИСПОЛЬЗОВАТЬ ИНСТРУМЕНТ】
-✓ Для ЛЮБОГО юридического вопроса
-✓ Для проверки конкретных норм права
-✓ Для поиска статей и кодексов
-✓ Для уточнения найденной информации
-
-❌ НЕ используйте для:
-- Общих вопросов (приветствия, благодарности)
-- Вопросов о самом сервисе
-- Неюридических тем
-
-【ПРИМЕРЫ ЭФФЕКТИВНОГО ИСПОЛЬЗОВАНИЯ】
-
-ПРИМЕР 1: Вопрос о трудовом договоре
-Запрос 1: search_legal_database(query="mehnat shartnomasi majburiy shartlari", top_k=60)
-Запрос 2: search_legal_database(query="трудовой договор существенные условия", top_k=50)
-Запрос 3: search_legal_database(query="mehnat shartnomasi tuzish tartibi kodeks", top_k=40)
-
-ПРИМЕР 2: Вопрос о НДС
-Запрос 1: search_legal_database(query="QQS qoshilgan qiymat soligi", top_k=60)
-Запрос 2: search_legal_database(query="НДС освобождение имтийозлар", top_k=50)
-Запрос 3: search_legal_database(query="soliq kodeksi QQS ozod qilish", top_k=40)
-
-ПРИМЕР 3: Вопрос о расторжении договора
-Запрос 1: search_legal_database(query="shartnoma bekor qilish asoslari", top_k=60)
-Запрос 2: search_legal_database(query="договор расторжение основания", top_k=50)
-Запрос 3: search_legal_database(query="grazhdanskiy kodeks shartnoma buzilishi", top_k=40)
-
-【ПРОВЕРКА КАЧЕСТВА】
-После поиска анализируйте результаты:
-- Если avg relevance_score > 0.70 → 🟢 Высокое качество, используйте уверенно
-- Если avg relevance_score 0.55-0.70 → 🟡 Среднее качество, используйте с осторожностью
-- Если avg relevance_score 0.50-0.55 → 🟡 Низкое качество, укажите предупреждение
-- Если avg relevance_score < 0.50 → 🔴 Недостаточная релевантность, сделайте ещё поиск
-
-【ИТЕРАЦИЯ ПОИСКА】
-Если первый поиск не дал хороших результатов (score < 0.60):
-1. Переформулируйте запрос
-2. Используйте синонимы
-3. Попробуйте на другом языке (русский↔узбекский)
-4. Уточните или расширьте запрос
-
-ПОМНИТЕ: Вы можете делать несколько поисковых запросов подряд. 
-Лучше сделать 3-4 целевых поиска, чем один широкий и получить неточную информацию.
-"""
-
-# Tool definition for Claude
-SEARCH_TOOLS = [
-    {
-        "name": "search_legal_database",
-        "description": """Поиск в базе данных законодательства Узбекистана. Возвращает релевантные статьи законов и кодексов с оценкой релевантности (similarity score).
+# Tool definition for Gemini (Function Declaration)
+GEMINI_SEARCH_TOOL = {
+    "function_declarations": [
+        {
+            "name": "search_legal_database",
+            "description": """Поиск в базе данных законодательства Узбекистана. Возвращает релевантные статьи законов и кодексов с оценкой релевантности (similarity score).
 
 КРИТИЧЕСКИ ВАЖНО: Используйте этот инструмент для ЛЮБОГО юридического вопроса. НЕ отвечайте на правовые вопросы без поиска.
 
@@ -4421,35 +3908,36 @@ SEARCH_TOOLS = [
 - relevance_score: Оценка релевантности (0-1, используйте только результаты с score ≥ 0.50)
 
 СТРАТЕГИЯ: Для комплексных вопросов делайте 2-3 поиска разными формулировками.""",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Поисковый запрос (3-10 ключевых слов). Используйте юридические термины на русском и/или узбекском языке."
+            "parameters": {
+                "type": "OBJECT",
+                "properties": {
+                    "query": {
+                        "type": "STRING",
+                        "description": "Поисковый запрос (3-10 ключевых слов). Используйте юридические термины на русском и/или узбекском языке."
+                    },
+                    "top_k": {
+                        "type": "INTEGER",
+                        "description": "Количество результатов для возврата (40-60). По умолчанию 50."
+                    },
+                    "filter_source": {
+                        "type": "STRING",
+                        "description": "Фильтр по имени файла, например 'CIVIL-CODE-PART-1.docx' (опционально)"
+                    }
                 },
-                "top_k": {
-                    "type": "integer",
-                    "description": "Количество результатов для возврата (40-60). По умолчанию 50.",
-                    "default": 50
-                },
-                "filter_source": {
-                    "type": "string",
-                    "description": "Фильтр по конкретному источнику, например 'CIVIL-CODE-PART-1.docx' (опционально)"
-                }
-            },
-            "required": ["query"]
+                "required": ["query"]
+            }
         }
-    }
-]
+    ]
+}
 
 # ═══════════════════════════════════════════════════════════════
-# 🧠 ENHANCED AI SERVICE
+# 🧠 ENHANCED AI SERVICE (GEMINI)
 # ═══════════════════════════════════════════════════════════════
 
 class AIService:
     """
     Enhanced AI service with improved agentic RAG and hallucination prevention.
+    Migrated to Google Gemini (Generative AI).
     
     KEY IMPROVEMENTS:
     1. Multi-stage retrieval with quality validation
@@ -4464,10 +3952,10 @@ class AIService:
         self.mode = mode
         self.settings = get_settings()
         
-        if not self.settings.anthropic_api_key:
-            raise ValueError("ANTHROPIC_API_KEY is required")
+        if not self.settings.google_api_key:
+            raise ValueError("GOOGLE_API_KEY is required")
         
-        self.client = anthropic.AsyncAnthropic(api_key=self.settings.anthropic_api_key)
+        genai.configure(api_key=self.settings.google_api_key)
         self._init_rag_engine()
     
     def _init_rag_engine(self):
@@ -4489,16 +3977,9 @@ class AIService:
     ) -> Dict[str, Any]:
         """
         Enhanced agentic RAG with hallucination prevention and quality validation.
-        
-        IMPROVEMENTS:
-        - Pre-search for baseline context
-        - Quality-validated retrieval
-        - Multi-round agentic search with Haiku
-        - Final synthesis with Opus
-        - Strict citation enforcement
-        - Progress callback for SSE heartbeats
+        Uses Gemini Flash for fast agentic loops and synthesis.
         """
-        logger.info(f"=== ENHANCED AI SERVICE: query_with_rag ===")
+        logger.info(f"=== ENHANCED AI SERVICE (GEMINI): query_with_rag ===")
         logger.info(f"Question: {question[:100]}...")
         logger.info(f"Chat mode: {chat_mode}")
         
@@ -4537,6 +4018,7 @@ class AIService:
         logger.info("Running mandatory pre-search for baseline context...")
         if progress_callback:
             await progress_callback("searching")
+        
         pre_search_results = await self._enhanced_retrieve_context(
             search_query, 
             top_k=PRE_SEARCH_TOP_K
@@ -4561,13 +4043,10 @@ class AIService:
                 logger.warning("Pre-search found no results meeting quality threshold")
         
         # ═══════════════════════════════════════════════════════════════
-        # PHASE 2: AGENTIC SEARCH LOOP WITH HAIKU
+        # PHASE 2: AGENTIC SEARCH LOOP WITH GEMINI
         # ═══════════════════════════════════════════════════════════════
         
-        messages = self._build_messages(history, question)
-        
-        # Combine prompts with enhanced anti-hallucination rules
-        # Inject extra context into system prompt so agent knows about the task
+        # Inject extra context into system prompt
         task_context_section = ""
         if extra_context:
             task_context_section = f"\n\nCONTEXT FROM USER TASK:\n{extra_context}\n\n"
@@ -4581,33 +4060,47 @@ class AIService:
         
         logger.info(f"Starting enhanced agentic loop (max {MAX_AGENTIC_ROUNDS} rounds)...")
         
-        agentic_messages = list(messages)
+        # Initialize Gemini Model with Tools
+        model = genai.GenerativeModel(
+            model_name=self.settings.gemini_flash_model,
+            system_instruction=full_system_prompt,
+            tools=[GEMINI_SEARCH_TOOL]
+        )
+        
+        # Convert history to Gemini format
+        gemini_history = self._convert_history_to_gemini(history)
+        
+        # Start chat session
+        chat = model.start_chat(history=gemini_history)
+        
         search_round_details = []
+        current_msg = question
         
         for round_num in range(1, MAX_AGENTIC_ROUNDS + 1):
             logger.info(f"=== AGENTIC ROUND {round_num}/{MAX_AGENTIC_ROUNDS} ===")
             if progress_callback:
                 await progress_callback(f"agentic_round_{round_num}")
             
-            response = await self.client.messages.create(
-                model=self.settings.claude_haiku_model,
-                max_tokens=8192,
-                system=full_system_prompt,
-                tools=SEARCH_TOOLS,
-                messages=agentic_messages,
-            )
-            
-            logger.info(f"Stop reason: {response.stop_reason}")
-            
-            if response.stop_reason == "tool_use":
-                tool_results = []
-                assistant_content = response.content
+            try:
+                # Send message
+                response = await chat.send_message_async(current_msg)
                 
-                for block in assistant_content:
-                    if block.type == "tool_use" and block.name == "search_legal_database":
-                        query = block.input.get("query", "")
-                        search_top_k = min(block.input.get("top_k", 75), MAX_SEARCH_TOP_K)
-                        filter_source = block.input.get("filter_source")
+                # Check for function call
+                function_call = None
+                if response.candidates:
+                    for part in response.candidates[0].content.parts:
+                        if part.function_call:
+                            function_call = part.function_call
+                            break
+                
+                if function_call:
+                    fc_name = function_call.name
+                    fc_args = dict(function_call.args)
+                    
+                    if fc_name == "search_legal_database":
+                        query = fc_args.get("query", "")
+                        search_top_k = min(int(fc_args.get("top_k", 30)), 60)
+                        filter_source = fc_args.get("filter_source", "") or None
                         
                         logger.info(f"  Tool call: search_legal_database(query='{query}', top_k={search_top_k})")
                         
@@ -4623,8 +4116,9 @@ class AIService:
                         
                         logger.info(f"  Found {len(quality_results)} quality results (total: {len(results)})")
                         
+                        result_summary = ""
                         if quality_results:
-                            # Calculate quality metrics
+                             # Calculate quality metrics
                             similarities = [r.get('similarity', 0) for r in quality_results]
                             avg_sim = sum(similarities) / len(similarities)
                             high_q = sum(1 for s in similarities if s >= HIGH_QUALITY_THRESHOLD)
@@ -4664,66 +4158,65 @@ class AIService:
                             )
                         else:
                             result_summary = (
-                                "⚠️ No results meeting minimum quality threshold (relevance ≥ 50%) found. "
+                                "⚠️ No results meeting minimum quality threshold (relevance ≥ 35%) found. "
                                 "Try reformulating the query with different terms or language."
                             )
                         
-                        tool_results.append({
-                            "type": "tool_result",
-                            "tool_use_id": block.id,
-                            "content": result_summary
-                        })
-                
-                agentic_messages.append({"role": "assistant", "content": assistant_content})
-                agentic_messages.append({"role": "user", "content": tool_results})
-            else:
-                logger.info(f"Agentic loop complete after {round_num} round(s)")
+                        # Prepare function response
+                        function_response = genai.protos.Part(
+                            function_response=genai.protos.FunctionResponse(
+                                name=fc_name,
+                                response={"result": result_summary}
+                            )
+                        )
+                        current_msg = [function_response]
+                        continue
+
+                    else:
+                        logger.warning(f"Unknown function call: {fc_name}")
+                        current_msg = "Error: Unknown function call"
+                        continue
+                else:
+                    logger.info("Agentic loop: Model produced text, stopping search.")
+                    break
+                    
+            except Exception as e:
+                logger.error(f"Agentic loop error: {e}")
+                logger.error(traceback.format_exc())
                 break
-        
-        # Calculate final quality metrics
-        if all_sources:
-            total_results = quality_metrics['pre_search_results'] + quality_metrics['agentic_search_results']
-            if total_results > 0:
-                quality_metrics['avg_relevance_score'] = sum(
-                    float(s.get('similarity', '0%').rstrip('%')) / 100 
-                    for s in all_sources
-                ) / len(all_sources)
-        
-        # Deduplicate sources
-        unique_sources = self._deduplicate_sources(all_sources)
-        
-        logger.info(f"Search complete: {len(unique_sources)} unique sources, "
-                   f"avg relevance: {quality_metrics['avg_relevance_score']:.2%}")
-        
+
         # ═══════════════════════════════════════════════════════════════
-        # PHASE 3: FINAL SYNTHESIS WITH OPUS
+        # PHASE 3: FINAL SYNTHESIS
         # ═══════════════════════════════════════════════════════════════
         
         combined_context = "\n\n".join(all_context_parts)
+        unique_sources = self._deduplicate_sources(all_sources)
+        final_history = self._convert_history_to_gemini(history)
         
-        # Build clean messages for Opus
-        final_messages = self._build_final_messages(
-            history,
+        final_prompt = self._build_final_prompt(
             question,
             combined_context,
             extra_context,
             quality_metrics
         )
         
-        logger.info(f"Phase 3: Streaming final response with Opus...")
+        logger.info(f"Phase 3: Streaming final response with Gemini Flash...")
         if progress_callback:
             await progress_callback("synthesizing")
         
+        model_final = genai.GenerativeModel(
+            model_name=self.settings.gemini_flash_model,
+            system_instruction=system_prompt + "\n\n" + ANTI_HALLUCINATION_RULES
+        )
+        
+        chat_final = model_final.start_chat(history=final_history)
+        
         async def stream_response():
             try:
-                async with self.client.messages.stream(
-                    model=self.settings.claude_opus_model,
-                    max_tokens=16000,
-                    system=system_prompt + "\n\n" + ANTI_HALLUCINATION_RULES,
-                    messages=final_messages,
-                ) as stream:
-                    async for text in stream.text_stream:
-                        yield text
+                response = await chat_final.send_message_async(final_prompt, stream=True)
+                async for chunk in response:
+                    if chunk.text:
+                        yield chunk.text
             except Exception as e:
                 logger.error(f"Streaming error: {e}")
                 yield f"\n\n⚠️ Error generating response: {str(e)}"
@@ -4734,7 +4227,7 @@ class AIService:
             "quality_metrics": quality_metrics,
             "search_rounds": search_round_details,
         }
-    
+
     async def _enhanced_retrieve_context(
         self, 
         query: str, 
@@ -4743,18 +4236,11 @@ class AIService:
     ) -> List[Dict[str, Any]]:
         """
         Advanced retrieval with hybrid search, multi-query expansion, and re-ranking.
-        
-        Pipeline:
-        1. Generate query variants (original, dictionary-translated, keyword-extracted)
-        2. Run hybrid search (semantic + BM25) for each variant
-        3. Merge results with Reciprocal Rank Fusion
-        4. Apply primary code boosting
-        5. Re-rank top candidates with Voyage AI
         """
         filter_metadata = {"source": filter_source} if filter_source else None
         
         # ── Step 1: Generate query variants ──
-        query_variants = [query]  # Always include original
+        query_variants = [query]
         
         # Fast dictionary translation (no LLM call)
         dict_translated = fast_translate_to_uzbek(query)
@@ -4770,9 +4256,9 @@ class AIService:
                 query_variants.append(keyword_query)
                 logger.info(f"Keyword query: '{keyword_query}'")
         
-        # LLM translation as fallback (only if dictionary didn't translate much)
+        # LLM translation as fallback
         dict_coverage = sum(1 for w in query.lower().split() if w in LEGAL_TERMINOLOGY_RU_UZ)
-        if dict_coverage < len(query.split()) * 0.3:  # Less than 30% words translated
+        if dict_coverage < len(query.split()) * 0.3:
             try:
                 llm_translated = await self._translate_to_uzbek(query)
                 if llm_translated and llm_translated != query and llm_translated not in query_variants:
@@ -4785,7 +4271,7 @@ class AIService:
         
         # ── Step 2: Run hybrid search for each variant ──
         all_results = []
-        per_variant_k = max(top_k, 60)  # Get enough candidates per variant
+        per_variant_k = max(top_k, 60)
         
         for variant in query_variants:
             try:
@@ -4821,11 +4307,9 @@ class AIService:
                 result["similarity"] = min(0.99, current_sim * 1.15)
                 result["is_primary"] = True
         
-        # Re-sort after boosting
         merged = sorted(merged, key=lambda x: x.get("similarity", 0), reverse=True)
         
         # ── Step 5: Re-rank top candidates with Voyage AI ──
-        # Only rerank if we have enough results and it's worth the API call
         rerank_candidates = merged[:min(top_k * 2, 150)]
         
         if len(rerank_candidates) > 5:
@@ -4835,7 +4319,6 @@ class AIService:
                     rerank_candidates,
                     top_k=top_k,
                 )
-                # Re-apply primary code boost after reranking
                 for result in reranked:
                     source_name = result.get("metadata", {}).get("source", "")
                     source_check = source_name.replace("_", " ")
@@ -4853,25 +4336,15 @@ class AIService:
         return merged[:top_k]
     
     def _format_enhanced_context(self, results: List[Dict[str, Any]]) -> str:
-        """
-        Format context with quality indicators and structured metadata.
-        
-        IMPROVEMENTS:
-        - Quality score indicators (🟢🟡🔴)
-        - Better metadata display
-        - Clearer source attribution
-        """
         if not results:
             return "⚠️ No relevant legal documents found meeting quality threshold."
         
         context_parts = []
-        
         for i, result in enumerate(results, 1):
             metadata = result.get("metadata", {})
             content = result.get("content", "")
             similarity = result.get("similarity", 0)
             
-            # Quality indicator
             if similarity >= HIGH_QUALITY_THRESHOLD:
                 quality_icon = "🟢"
                 quality_label = "HIGH"
@@ -4889,7 +4362,6 @@ class AIService:
             section = metadata.get("section", "")
             title = metadata.get("title", "")
             
-            # Primary sourcing indicator
             is_primary = result.get("is_primary", False)
             primary_badge = "⭐️ PRIMARY SOURCE" if is_primary else ""
             
@@ -4904,18 +4376,14 @@ class AIService:
                 f"{content}\n"
                 f"───────────────────────────────────────────"
             )
-        
         return "\n\n".join(context_parts)
     
     def _format_sources_with_quality(self, results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Format sources with quality indicators for UI display."""
         sources = []
-        
         for idx, result in enumerate(results):
             metadata = result.get("metadata", {})
             similarity = result.get("similarity", 0)
             
-            # Determine quality level
             if similarity >= HIGH_QUALITY_THRESHOLD:
                 quality_level = "high"
             elif similarity >= MEDIUM_QUALITY_THRESHOLD:
@@ -4925,8 +4393,6 @@ class AIService:
             
             article = metadata.get("article_display", metadata.get("article_number", "Unknown"))
             source_filename = metadata.get("source", "Unknown")
-            
-            # Use dynamic title parsing
             code_name = self._get_source_title(source_filename)
             
             sources.append({
@@ -4940,35 +4406,21 @@ class AIService:
                 "similarity": f"{similarity * 100:.1f}%",
                 "quality_level": quality_level,
             })
-        
         return sources
     
     def _get_source_title(self, source_filename: str) -> str:
-        """Extract a clean title from the source filename or mapping."""
         if not source_filename or source_filename == "Unknown":
             return "Unknown"
-            
-            
-        # 2. Parse dynamic filename pattern (e.g., -24724_Law_Title.txt)
-        # Remove extension
         base_name = source_filename.rsplit('.', 1)[0]
-        
-        # Strip leading hyphen and underscores
         clean_name = base_name.lstrip('-_')
-        
-        # Check if it has an ID prefix (e.g., 24724_)
         if '_' in clean_name:
             parts = clean_name.split('_', 1)
-            # If the first part is numeric or looks like an ID prefix
-            # (starts with dash or has numbers followed by underscore)
             if parts[0].isdigit() or (len(parts[0]) > 2 and any(c.isdigit() for c in parts[0])):
                 title = parts[1]
             else:
                 title = clean_name
         else:
             title = clean_name
-            
-        # Replace remaining underscores with spaces
         return title.replace('_', ' ')
 
     def _build_search_result_summary(
@@ -4979,7 +4431,6 @@ class AIService:
         medium_q: int,
         low_q: int
     ) -> str:
-        """Build detailed search result summary with quality breakdown."""
         quality_breakdown = []
         if high_q > 0:
             quality_breakdown.append(f"🟢 {high_q} высококачественных (≥70%)")
@@ -4989,8 +4440,6 @@ class AIService:
             quality_breakdown.append(f"🟠 {low_q} низкокачественных (50-55%)")
         
         quality_text = ", ".join(quality_breakdown)
-        
-        # Format context
         context_str = self._format_enhanced_context(results)
         
         summary = (
@@ -5000,60 +4449,29 @@ class AIService:
             f"{'─' * 60}\n\n"
             f"{context_str}"
         )
-        
         return summary
     
-    def _build_messages(
-        self,
-        history: Optional[List[Dict[str, str]]],
-        question: str
-    ) -> List[Dict[str, str]]:
-        """Build conversation messages from history and current question."""
-        messages = []
-        
-        if history:
-            for msg in history[-6:]:  # Last 6 messages for context
-                messages.append({
-                    "role": msg["role"],
-                    "content": msg["content"]
-                })
-        
-        messages.append({"role": "user", "content": question})
-        
-        return messages
-    
-    def _build_final_messages(
-        self,
-        history: Optional[List[Dict[str, str]]],
-        question: str,
-        combined_context: str,
-        extra_context: Optional[str],
-        quality_metrics: Dict[str, Any]
-    ) -> List[Dict[str, str]]:
-        """Build final messages for Opus with context and quality info."""
-        final_messages = []
-        
-        # Include conversation history
-        if history:
-            for msg in history[-6:]:
-                final_messages.append({
-                    "role": msg["role"],
-                    "content": msg["content"]
-                })
-        
-        # Build comprehensive user message
+    def _convert_history_to_gemini(self, history: List[Dict[str, str]]) -> List[Dict[str, Any]]:
+        gemini_history = []
+        if not history:
+            return []
+        for msg in history:
+            role = "user" if msg["role"] == "user" else "model"
+            content_text = str(msg.get("content", ""))
+            gemini_history.append({
+                "role": role,
+                "parts": [content_text]
+            })
+        return gemini_history
+
+    def _build_final_prompt(self, question, combined_context, extra_context, quality_metrics) -> str:
         extra_context_section = ""
         if extra_context:
             extra_context_section = (
-                f"📋 КОНТЕКСТ ЗАДАЧИ ПОЛЬЗОВАТЕЛЯ:\n\n"
-                f"{extra_context}\n\n"
-                f"{'─' * 60}\n\n"
+                f"📋 КОНТЕКСТ ЗАДАЧИ ПОЛЬЗОВАТЕЛЯ:\n\n{extra_context}\n\n{'─' * 60}\n\n"
             )
         
-        # Quality indicators for the context
-        quality_indicator = ""
         avg_score = quality_metrics.get('avg_relevance_score', 0)
-        
         if avg_score >= 0.70:
             quality_indicator = "🟢 ВЫСОКОЕ КАЧЕСТВО КОНТЕКСТА (средняя релевантность: {:.1%})".format(avg_score)
         elif avg_score >= 0.55:
@@ -5085,26 +4503,19 @@ class AIService:
                 f"Дайте полный, структурированный, профессиональный ответ."
             )
         else:
-            final_user_content = (
+             final_user_content = (
                 f"{extra_context_section}"
                 f"🔴 НЕТ РЕЛЕВАНТНОГО КОНТЕКСТА ИЗ БАЗЫ ДАННЫХ\n\n"
                 f"{question}\n\n"
                 f"⚠️ В базе данных не найдено релевантной информации для этого вопроса. "
                 f"Сообщите пользователю о необходимости обращения к специалисту."
             )
-        
-        final_messages.append({"role": "user", "content": final_user_content})
-        
-        return final_messages
-    
+        return final_user_content
+
     def _deduplicate_sources(self, sources: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Deduplicate sources by article key, keeping highest quality."""
         seen_keys = {}
-        
         for src in sources:
             key = f"{src.get('source_filename', '')}_{src.get('article', '')}"
-            
-            # Keep source with highest similarity
             if key not in seen_keys:
                 seen_keys[key] = src
             else:
@@ -5112,39 +4523,28 @@ class AIService:
                 new_sim = float(src.get('similarity', '0%').rstrip('%'))
                 if new_sim > existing_sim:
                     seen_keys[key] = src
-        
         return list(seen_keys.values())
-    
+
     def _get_system_prompt(self, chat_mode: str) -> str:
-        """Get appropriate system prompt based on chat mode."""
         return CHAT_MODE_PROMPTS.get(chat_mode, CONSULTANT_PROMPT)
-    
+
     async def _translate_to_uzbek(self, text: str) -> str:
-        """Translate Russian query to Uzbek using dictionary + LLM fallback."""
-        # First try fast dictionary translation
         dict_result = fast_translate_to_uzbek(text)
         if dict_result != text and dict_result.lower() != text.lower():
             return dict_result
-        
-        # Fallback to LLM for complex queries
         try:
-            response = await self.client.messages.create(
-                model=self.settings.claude_haiku_model,
-                max_tokens=300,
-                messages=[{"role": "user", "content": text}],
-                system=(
-                    "You are a Russian-to-Uzbek legal translator. Translate the given Russian legal query "
-                    "into Uzbek (Latin script). Output ONLY the Uzbek translation, nothing else. "
-                    "Use proper Uzbek legal terminology. Keep it concise — output only search keywords."
-                ),
+            model = genai.GenerativeModel(self.settings.gemini_flash_model)
+            response = await model.generate_content_async(
+                contents=f"Translate the following Russian legal query into Uzbek (Latin script). Output ONLY the Uzbek translation, nothing else. Query: {text}",
+                generation_config=GenerationConfig(temperature=0.1)
             )
-            translated = response.content[0].text.strip()
+            translated = response.text.strip()
             logger.info(f"LLM Translated: '{text}' → '{translated}'")
             return translated
         except Exception as e:
             logger.warning(f"LLM Translation failed: {e}")
             return text
-    
+
     async def _simple_query(
         self,
         question: str,
@@ -5152,22 +4552,21 @@ class AIService:
         chat_mode: str,
         system_prompt: str
     ) -> Dict[str, Any]:
-        """Handle simple queries without full agentic RAG."""
-        messages = self._build_messages(history, question)
+        gemini_history = self._convert_history_to_gemini(history)
+        model = genai.GenerativeModel(
+            model_name=self.settings.gemini_flash_model,
+            system_instruction=system_prompt
+        )
+        chat = model.start_chat(history=gemini_history)
         
         async def stream_response():
-            async with self.client.messages.stream(
-                model=self.settings.claude_haiku_model,
-                max_tokens=2048,
-                system=system_prompt,
-                messages=messages,
-            ) as stream:
-                async for text in stream.text_stream:
-                    yield text
+            response = await chat.send_message_async(question, stream=True)
+            async for chunk in response:
+                if chunk.text:
+                    yield chunk.text
         
         return {
             "response": stream_response(),
             "sources": [],
             "quality_metrics": {},
         }
-    

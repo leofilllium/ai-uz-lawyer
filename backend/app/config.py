@@ -18,20 +18,9 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expiry_days: int = 365
     
-    # AI APIs
-    anthropic_api_key: str = ""
-    openai_api_key: str = ""
-    
-    # Telegram Integration
-    telegram_bot_token: str = ""
-    telegram_chat_id: str = ""
-    
-    # Claude Models
-    claude_haiku_model: str = "claude-haiku-4-5-20251001"
-    claude_sonnet_model: str = "claude-sonnet-4-5-20250929"
-    claude_opus_model: str = "claude-haiku-4-5-20251001" # claude-opus-4-6
-    thinking_budget_tokens: int = 8000
-    max_output_tokens: int = 16000
+    # Google Gemini AI
+    google_api_key: str = ""
+    gemini_flash_model: str = "gemini-3-flash-preview"
     
     # OpenAI Models
     voyage_api_key: str = ""
