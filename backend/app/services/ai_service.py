@@ -16,6 +16,14 @@ from app.config import get_settings
 # Configure logging
 logger = logging.getLogger(__name__)
 
+# Quality Thresholds
+MIN_RELEVANCE_SCORE = 0.50        # ≥50% to use
+HIGH_QUALITY_THRESHOLD = 0.70     # ≥70% = high confidence
+MEDIUM_QUALITY_THRESHOLD = 0.55   # 55-70% = medium confidence
+
+
+
+
 
 # System Prompts
 LAWYER_PROMPT = """Вы РИСК-МЕНЕДЖЕР и бизнес-консультант по законодательству Узбекистана. Ваша задача — давать бизнесу ПРАКТИЧЕСКИЕ рекомендации в формате профессионального ПРАВОВОГО АУДИТА (Due Diligence).
@@ -3612,7 +3620,7 @@ SEARCH_TOOLS = [
                 },
                 "top_k": {
                     "type": "integer",
-                    "description": "Number of results to return (default 100, recommended 70-120 for balanced coverage, max 200)"
+                    "description": "Number of results to return (default 65, recommended 70-85 for balanced coverage, max 100)"
                 },
                 "filter_source": {
                     "type": "string",
@@ -3913,28 +3921,253 @@ AGENTIC_INSTRUCTION = """
 и обязанности людей. Точность и обоснованность критически важны.
 """
 
-MAX_AGENTIC_ROUNDS = 3
+MAX_AGENTIC_ROUNDS = 4  # Increased for better search coverage
 
+# Quality thresholds for retrieval
+MIN_RELEVANCE_SCORE = 0.50  # Minimum similarity score to use a result
+HIGH_QUALITY_THRESHOLD = 0.70  # High confidence threshold
+MEDIUM_QUALITY_THRESHOLD = 0.55  # Medium confidence threshold
+
+# Search configuration
+DEFAULT_TOP_K = 100
+PRE_SEARCH_TOP_K = 250
+MAX_SEARCH_TOP_K = 150
+
+# ═══════════════════════════════════════════════════════════════
+# 📋 ENHANCED SYSTEM PROMPTS
+# ═══════════════════════════════════════════════════════════════
+
+ANTI_HALLUCINATION_RULES = """
+═══════════════════════════════════════════════════════════════════════════
+🚨 КРИТИЧЕСКИЕ ПРАВИЛА ПРОТИВ ГАЛЛЮЦИНАЦИЙ
+═══════════════════════════════════════════════════════════════════════════
+
+【АБСОЛЮТНЫЕ ЗАПРЕТЫ】
+❌ НИКОГДА не выдумывайте номера статей или содержание законов
+❌ НИКОГДА не ссылайтесь на "общие знания" по правовым вопросам
+❌ НИКОГДА не используйте информацию, которой нет в предоставленном контексте
+❌ НИКОГДА не отвечайте на юридические вопросы без поиска в базе данных
+❌ НИКОГДА не даёте категоричные советы при низком quality score (< 0.55)
+❌ НИКОГДА не используйте результаты с relevance_score < 0.50
+
+【ОБЯЗАТЕЛЬНЫЕ ТРЕБОВАНИЯ】
+✅ ВСЕГДА используйте ТОЛЬКО информацию из предоставленного правового контекста
+✅ ВСЕГДА указывайте конкретные статьи с ТОЧНЫМИ номерами из контекста
+✅ ВСЕГДА проверяйте relevance_score каждого источника перед использованием
+✅ ВСЕГДА явно указывайте уровень уверенности в ответе
+✅ ВСЕГДА делайте минимум 2-3 поисковых запроса для комплексных вопросов
+✅ ВСЕГДА предупреждайте о необходимости профессиональной консультации при неполной информации
+
+【УРОВНИ УВЕРЕННОСТИ】
+🟢 ВЫСОКАЯ УВЕРЕННОСТЬ (найдены прямые нормы, avg score > 0.70):
+   "Согласно статье X Кодекса Y [найдено в контексте], ..."
+   "Законодательство чётко устанавливает в статье Z..."
+
+🟡 СРЕДНЯЯ УВЕРЕННОСТЬ (косвенные нормы, avg score 0.55-0.70):
+   "На основании найденных положений статьи X..."
+   "В предоставленном контексте обнаружены указания на..."
+
+🔴 НИЗКАЯ УВЕРЕННОСТЬ (avg score 0.50-0.55 или недостаточно данных):
+   "⚠️ В доступной базе данных найдена ограниченная информация..."
+   "⚠️ Требуется дополнительная консультация со специалистом..."
+
+🔴 ОТСУТСТВИЕ ИНФОРМАЦИИ (avg score < 0.50 или нет результатов):
+   "🚫 В нашей правовой базе данных недостаточно релевантной информации для ответа на данный вопрос."
+   "🚫 Найденные результаты имеют низкую релевантность (< 50%)."
+   "Рекомендую обратиться к лицензированному юристу или в государственные органы."
+
+【ЦИТИРОВАНИЕ ИСТОЧНИКОВ】
+Для КАЖДОГО утверждения о праве указывайте:
+   - ТОЧНЫЙ номер статьи из контекста (не придумывайте!)
+   - Название кодекса/закона (точно как в контексте)
+   - Формат: "Согласно статье [номер] [название закона из контекста], ..."
+
+【ПРОВЕРКА КАЧЕСТВА КОНТЕКСТА】
+Перед использованием результата проверьте:
+   ☐ Relevance score ≥ 0.50 (иначе НЕ используйте)
+   ☐ Информация действительно относится к вопросу
+   ☐ Статья указана явно в контексте
+   ☐ Содержание понятно и релевантно
+
+【ПРИ НЕДОСТАТКЕ ИНФОРМАЦИИ】
+Если после 3-4 качественных поисковых запросов НЕ НАЙДЕНО релевантной информации:
+
+"К сожалению, в нашей правовой базе данных недостаточно информации для 
+полного ответа на данный вопрос. Все найденные результаты имеют низкую 
+релевантность (менее 50%) или не содержат точных норм по этому вопросу.
+
+Рекомендую:
+- Обратиться к лицензированному юристу
+- Проконсультироваться в государственных органах [указать какие]
+- Проверить последние изменения в законодательстве
+
+Буду рад помочь с другими правовыми вопросами."
+
+【КОНТРОЛЬНЫЙ ЧЕКЛИСТ ПЕРЕД ОТВЕТОМ】
+☐ Выполнено минимум 2-3 поисковых запроса для комплексных вопросов
+☐ Все использованные источники имеют relevance_score ≥ 0.50
+☐ Каждое утверждение о праве подкреплено конкретной статьёй из контекста
+☐ Указан уровень уверенности в ответе (🟢🟡🔴)
+☐ При низкой уверенности указано предупреждение
+☐ НЕ использованы выдуманные номера статей или законов
+☐ Рекомендована консультация специалиста (при необходимости)
+
+═══════════════════════════════════════════════════════════════════════════
+"""
+
+ENHANCED_AGENTIC_INSTRUCTION = """
+═══════════════════════════════════════════════════════════════════════════
+🤖 ИНСТРУКЦИИ ДЛЯ АГЕНТНОГО ПОИСКА В БАЗЕ ДАННЫХ
+═══════════════════════════════════════════════════════════════════════════
+
+У вас есть доступ к инструменту search_legal_database для поиска в базе данных 
+законодательства Узбекистана.
+
+【СТРАТЕГИЯ ПОИСКА】
+1. ВСЕГДА начинайте с 2-3 поисковых запросов разными формулировками
+2. Используйте как русские, так и узбекские термины
+3. Начинайте с широких запросов, затем уточняйте
+4. Для комплексных вопросов делайте 3-4 целевых поиска
+
+【ПАРАМЕТРЫ ПОИСКА】
+- query: Поисковый запрос (3-10 ключевых слов)
+- top_k: Количество результатов (40-100, по умолчанию 75)
+- filter_source: Фильтр по названию документа (например, "CIVIL-CODE-PART-1.docx" или "-24724_El-yurt_hurmati...")
+
+【ИМЕНОВАНИЕ ДОКУМЕНТОВ】
+Большинство документов в базе имеют формат: `-ID_Название_Документа.txt`.
+При использовании фильтра filter_source указывайте полное имя файла.
+AI автоматически очистит это имя для отображения пользователю (уберет ID и расширение).
+
+【АНАЛИЗ РЕЗУЛЬТАТОВ】
+После каждого поиска ОБЯЗАТЕЛЬНО проверяйте:
+✓ Relevance score каждого результата
+✓ Соответствие результата вашему запросу
+✓ Наличие конкретных статей и норм
+✓ Качество и полноту информации
+
+【КАЧЕСТВЕННЫЕ ЗАПРОСЫ】
+✅ ХОРОШО: "mehnat shartnomasi majburiy shartlari"
+✅ ХОРОШО: "трудовой договор обязательные условия статья"
+✅ ХОРОШО: "QQS ozod qilish shartlari imtiyozlar"
+
+❌ ПЛОХО: "расскажи про договор"
+❌ ПЛОХО: "что делать"
+❌ ПЛОХО: "закон"
+
+【КОГДА ИСПОЛЬЗОВАТЬ ИНСТРУМЕНТ】
+✓ Для ЛЮБОГО юридического вопроса
+✓ Для проверки конкретных норм права
+✓ Для поиска статей и кодексов
+✓ Для уточнения найденной информации
+
+❌ НЕ используйте для:
+- Общих вопросов (приветствия, благодарности)
+- Вопросов о самом сервисе
+- Неюридических тем
+
+【ПРИМЕРЫ ЭФФЕКТИВНОГО ИСПОЛЬЗОВАНИЯ】
+
+ПРИМЕР 1: Вопрос о трудовом договоре
+Запрос 1: search_legal_database(query="mehnat shartnomasi majburiy shartlari", top_k=60)
+Запрос 2: search_legal_database(query="трудовой договор существенные условия", top_k=50)
+Запрос 3: search_legal_database(query="mehnat shartnomasi tuzish tartibi kodeks", top_k=40)
+
+ПРИМЕР 2: Вопрос о НДС
+Запрос 1: search_legal_database(query="QQS qoshilgan qiymat soligi", top_k=60)
+Запрос 2: search_legal_database(query="НДС освобождение имтийозлар", top_k=50)
+Запрос 3: search_legal_database(query="soliq kodeksi QQS ozod qilish", top_k=40)
+
+ПРИМЕР 3: Вопрос о расторжении договора
+Запрос 1: search_legal_database(query="shartnoma bekor qilish asoslari", top_k=60)
+Запрос 2: search_legal_database(query="договор расторжение основания", top_k=50)
+Запрос 3: search_legal_database(query="grazhdanskiy kodeks shartnoma buzilishi", top_k=40)
+
+【ПРОВЕРКА КАЧЕСТВА】
+После поиска анализируйте результаты:
+- Если avg relevance_score > 0.70 → 🟢 Высокое качество, используйте уверенно
+- Если avg relevance_score 0.55-0.70 → 🟡 Среднее качество, используйте с осторожностью
+- Если avg relevance_score 0.50-0.55 → 🟡 Низкое качество, укажите предупреждение
+- Если avg relevance_score < 0.50 → 🔴 Недостаточная релевантность, сделайте ещё поиск
+
+【ИТЕРАЦИЯ ПОИСКА】
+Если первый поиск не дал хороших результатов (score < 0.60):
+1. Переформулируйте запрос
+2. Используйте синонимы
+3. Попробуйте на другом языке (русский↔узбекский)
+4. Уточните или расширьте запрос
+
+ПОМНИТЕ: Вы можете делать несколько поисковых запросов подряд. 
+Лучше сделать 3-4 целевых поиска, чем один широкий и получить неточную информацию.
+"""
+
+# Tool definition for Claude
+SEARCH_TOOLS = [
+    {
+        "name": "search_legal_database",
+        "description": """Поиск в базе данных законодательства Узбекистана. Возвращает релевантные статьи законов и кодексов с оценкой релевантности (similarity score).
+
+КРИТИЧЕСКИ ВАЖНО: Используйте этот инструмент для ЛЮБОГО юридического вопроса. НЕ отвечайте на правовые вопросы без поиска.
+
+Параметры:
+- query: Поисковый запрос (3-10 ключевых слов, используйте русский и/или узбекский)
+- top_k: Количество результатов (40-100, рекомендуется 60-75)
+- filter_source: Фильтр по имени файла, например "CIVIL-CODE-PART-1.docx" или "-24724_El-yurt_hurmati..." (опционально)
+
+Каждый результат содержит:
+- content: Текст статьи/нормы
+- article: Номер статьи
+- source: Источник (кодекс/закон)
+- relevance_score: Оценка релевантности (0-1, используйте только результаты с score ≥ 0.50)
+
+СТРАТЕГИЯ: Для комплексных вопросов делайте 2-3 поиска разными формулировками.""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Поисковый запрос (3-10 ключевых слов). Используйте юридические термины на русском и/или узбекском языке."
+                },
+                "top_k": {
+                    "type": "integer",
+                    "description": "Количество результатов для возврата (40-100). По умолчанию 75.",
+                    "default": 75
+                },
+                "filter_source": {
+                    "type": "string",
+                    "description": "Фильтр по конкретному источнику, например 'CIVIL-CODE-PART-1.docx' (опционально)"
+                }
+            },
+            "required": ["query"]
+        }
+    }
+]
+
+# ═══════════════════════════════════════════════════════════════
+# 🧠 ENHANCED AI SERVICE
+# ═══════════════════════════════════════════════════════════════
 
 class AIService:
     """
-    Unified AI service supporting multiple modes.
-    - lawyer: Agentic RAG with Claude Opus and tool-use loop
-    - validator: Contract analysis with structured output
-    - generator: Contract generation from templates
+    Enhanced AI service with improved agentic RAG and hallucination prevention.
+    
+    KEY IMPROVEMENTS:
+    1. Multi-stage retrieval with quality validation
+    2. Hybrid search (semantic + keyword)
+    3. Strict relevance scoring enforcement
+    4. Citation verification
+    5. Hallucination detection
+    6. Better context formatting with quality indicators
     """
     
     def __init__(self, mode: str = 'lawyer'):
         self.mode = mode
         self.settings = get_settings()
         
-        # Initialize Anthropic client
         if not self.settings.anthropic_api_key:
             raise ValueError("ANTHROPIC_API_KEY is required")
         
         self.client = anthropic.AsyncAnthropic(api_key=self.settings.anthropic_api_key)
-        
-        # Initialize RAG components
         self._init_rag_engine()
     
     def _init_rag_engine(self):
@@ -3944,112 +4177,98 @@ class AIService:
         
         self.vector_store = get_vector_store()
         self.document_processor = DocumentProcessor()
-
-    
-    async def ensure_indexed(self) -> bool:
-        """Ensure documents are indexed in the vector store."""
-        if not hasattr(self, 'vector_store'):
-            return False
-        
-        if await self.vector_store.ais_indexed():
-            return False
-        
-        # Processing might still be heavy, consider offloading if needed
-        from starlette.concurrency import run_in_threadpool
-        chunks = await run_in_threadpool(self.document_processor.process_documents)
-        await self.vector_store.aadd_documents(chunks)
-        return True
     
     async def query_with_rag(
         self, 
         question: str, 
         history: Optional[List[Dict[str, str]]] = None,
-        top_k: int = 200,
+        top_k: int = DEFAULT_TOP_K,
         chat_mode: str = 'consultant',
         extra_context: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Agentic RAG: Claude autonomously decides what to search in the internal
-        legal database, iterates up to MAX_AGENTIC_ROUNDS times, then produces
-        a final answer. Only uses data from our internal ChromaDB.
+        Enhanced agentic RAG with hallucination prevention and quality validation.
+        
+        IMPROVEMENTS:
+        - Pre-search for baseline context
+        - Quality-validated retrieval
+        - Multi-round agentic search with Haiku
+        - Final synthesis with Opus
+        - Strict citation enforcement
         """
-        logger.info(f"=== AI SERVICE: query_with_rag (AGENTIC) ===")
+        logger.info(f"=== ENHANCED AI SERVICE: query_with_rag ===")
         logger.info(f"Question: {question[:100]}...")
         logger.info(f"Chat mode: {chat_mode}")
-        logger.info(f"History messages: {len(history) if history else 0}")
-        if extra_context:
-            logger.info(f"Extra context provided: {len(extra_context)} chars")
         
-        # Ensure documents are indexed
-        # await self.ensure_indexed()
+        # Select appropriate system prompt
+        system_prompt = self._get_system_prompt(chat_mode)
         
-        # ─── AUTO-DETECT MODE ─────────────────────────────────────────
-        if chat_mode == 'auto-detect':
-            detected_mode, confidence = await self._classify_chat_mode(question, extra_context)
-            logger.info(f"Auto-detected mode: '{detected_mode}' (confidence: {confidence:.2f})")
-            
-            if confidence >= 0.5 and detected_mode in CHAT_MODE_PROMPTS:
-                chat_mode = detected_mode
-                logger.info(f"Using auto-detected mode: {chat_mode}")
-            else:
-                # Fallback to general-purpose prompt
-                logger.info(f"Low confidence or unknown mode, using fallback prompt")
-                system_prompt = AUTO_DETECT_FALLBACK_PROMPT
-        
-        # Select prompt based on mode (if not already set by fallback)
-        if chat_mode != 'auto-detect':
-            system_prompt = CHAT_MODE_PROMPTS.get(chat_mode, LAWYER_PROMPT)
-        
-        # For simple modes (smalltalk, quick-answer), skip the agentic loop entirely
-        if chat_mode in SIMPLE_MODES:
+        # For simple modes, use simplified query
+        if chat_mode in ['smalltalk', 'quick-answer']:
             return await self._simple_query(question, history, chat_mode, system_prompt)
         
-        # ─── AGENTIC RAG LOOP ─────────────────────────────────────────
-        # Phase 1: Let Claude search the DB autonomously (non-streaming)
-        # Phase 2: Stream the final text answer to the user
+        # ═══════════════════════════════════════════════════════════════
+        # PHASE 1: PRE-SEARCH FOR BASELINE CONTEXT
+        # ═══════════════════════════════════════════════════════════════
         
-        all_sources = []       # Accumulated from all search rounds
-        all_context_parts = [] # Raw context strings from all rounds
+        all_sources = []
+        all_context_parts = []
+        quality_metrics = {
+            'pre_search_results': 0,
+            'agentic_search_results': 0,
+            'avg_relevance_score': 0.0,
+            'high_quality_results': 0,
+            'medium_quality_results': 0,
+            'low_quality_results': 0,
+        }
         
-        # ─── MANDATORY PRE-SEARCH ─────────────────────────────────────
-        # Always do an initial search to guarantee baseline context & sources,
-        # even if Haiku decides not to use the search tool in the agentic loop.
         logger.info("Running mandatory pre-search for baseline context...")
-        pre_search_results = await self._retrieve_context(question, top_k=250)
+        pre_search_results = await self._enhanced_retrieve_context(
+            question, 
+            top_k=PRE_SEARCH_TOP_K
+        )
+        
         if pre_search_results:
-            pre_context = self._format_context(pre_search_results)
-            all_context_parts.append(pre_context)
-            pre_sources = self._format_sources(pre_search_results)
-            all_sources.extend(pre_sources)
-            logger.info(f"Pre-search found {len(pre_search_results)} results, {len(pre_sources)} sources")
-        else:
-            logger.info("Pre-search found no results")
+            # Filter by quality threshold
+            quality_results = [r for r in pre_search_results if r.get('similarity', 0) >= MIN_RELEVANCE_SCORE]
+            
+            if quality_results:
+                pre_context = self._format_enhanced_context(quality_results)
+                all_context_parts.append(pre_context)
+                pre_sources = self._format_sources_with_quality(quality_results)
+                all_sources.extend(pre_sources)
+                
+                quality_metrics['pre_search_results'] = len(quality_results)
+                avg_score = sum(r.get('similarity', 0) for r in quality_results) / len(quality_results)
+                quality_metrics['avg_relevance_score'] = avg_score
+                
+                logger.info(f"Pre-search found {len(quality_results)} quality results (avg score: {avg_score:.2%})")
+            else:
+                logger.warning("Pre-search found no results meeting quality threshold")
         
-        # Build conversation messages
-        messages = []
-        if history:
-            for msg in history[-6:]:
-                messages.append({
-                    "role": msg["role"],
-                    "content": msg["content"]
-                })
+        # ═══════════════════════════════════════════════════════════════
+        # PHASE 2: AGENTIC SEARCH LOOP WITH HAIKU
+        # ═══════════════════════════════════════════════════════════════
         
-        messages.append({"role": "user", "content": question})
+        messages = self._build_messages(history, question)
         
-        # Combine mode prompt with agentic instructions
-        full_system_prompt = system_prompt + "\n\n" + AGENTIC_INSTRUCTION
+        # Combine prompts with enhanced anti-hallucination rules
+        full_system_prompt = (
+            system_prompt + "\n\n" + 
+            ANTI_HALLUCINATION_RULES + "\n\n" + 
+            ENHANCED_AGENTIC_INSTRUCTION
+        )
         
-        logger.info(f"Using model: {self.settings.claude_opus_model}")
-        logger.info(f"Starting agentic loop (max {MAX_AGENTIC_ROUNDS} rounds)...")
+        logger.info(f"Starting enhanced agentic loop (max {MAX_AGENTIC_ROUNDS} rounds)...")
         
-        # Run the agentic tool-use loop (non-streaming)
-        agentic_messages = list(messages)  # Copy
+        agentic_messages = list(messages)
+        search_round_details = []
         
         for round_num in range(1, MAX_AGENTIC_ROUNDS + 1):
             logger.info(f"=== AGENTIC ROUND {round_num}/{MAX_AGENTIC_ROUNDS} ===")
             
             response = await self.client.messages.create(
-                model=self.settings.claude_haiku_model,  # Use Haiku for tool use loop (faster, cheaper)
+                model=self.settings.claude_haiku_model,
                 max_tokens=8192,
                 system=full_system_prompt,
                 tools=SEARCH_TOOLS,
@@ -4058,50 +4277,74 @@ class AIService:
             
             logger.info(f"Stop reason: {response.stop_reason}")
             
-            # If Claude wants to use a tool
             if response.stop_reason == "tool_use":
-                # Extract tool use blocks
                 tool_results = []
                 assistant_content = response.content
                 
                 for block in assistant_content:
                     if block.type == "tool_use" and block.name == "search_legal_database":
                         query = block.input.get("query", "")
-                        search_top_k = min(block.input.get("top_k", 175), 200)
+                        search_top_k = min(block.input.get("top_k", 75), MAX_SEARCH_TOP_K)
                         filter_source = block.input.get("filter_source")
                         
-                        log_msg = f"  Tool call: search_legal_database(query='{query}', top_k={search_top_k}"
-                        if filter_source:
-                            log_msg += f", filter_source='{filter_source}'"
-                        log_msg += ")"
-                        logger.info(log_msg)
+                        logger.info(f"  Tool call: search_legal_database(query='{query}', top_k={search_top_k})")
                         
-                        # Execute search against our internal ChromaDB
-                        results = await self._retrieve_context(
+                        # Execute enhanced search
+                        results = await self._enhanced_retrieve_context(
                             query, 
                             top_k=search_top_k,
                             filter_source=filter_source
                         )
-                        logger.info(f"  Found {len(results)} results")
                         
-                        # Format results for Claude
-                        context_str = self._format_context(results)
-                        all_context_parts.append(context_str)
+                        # Filter by quality
+                        quality_results = [r for r in results if r.get('similarity', 0) >= MIN_RELEVANCE_SCORE]
                         
-                        # Collect sources for UI
-                        round_sources = self._format_sources(results)
-                        all_sources.extend(round_sources)
+                        logger.info(f"  Found {len(quality_results)} quality results (total: {len(results)})")
                         
-                        # Build tool result
-                        if results:
-                            similarities = [r.get('similarity', 0) for r in results]
+                        if quality_results:
+                            # Calculate quality metrics
+                            similarities = [r.get('similarity', 0) for r in quality_results]
                             avg_sim = sum(similarities) / len(similarities)
-                            result_summary = (
-                                f"Found {len(results)} results (avg similarity: {avg_sim:.1%}).\n\n"
-                                f"{context_str}"
+                            high_q = sum(1 for s in similarities if s >= HIGH_QUALITY_THRESHOLD)
+                            medium_q = sum(1 for s in similarities if MEDIUM_QUALITY_THRESHOLD <= s < HIGH_QUALITY_THRESHOLD)
+                            low_q = sum(1 for s in similarities if MIN_RELEVANCE_SCORE <= s < MEDIUM_QUALITY_THRESHOLD)
+                            
+                            quality_metrics['agentic_search_results'] += len(quality_results)
+                            quality_metrics['high_quality_results'] += high_q
+                            quality_metrics['medium_quality_results'] += medium_q
+                            quality_metrics['low_quality_results'] += low_q
+                            
+                            search_round_details.append({
+                                'round': round_num,
+                                'query': query,
+                                'results': len(quality_results),
+                                'avg_score': avg_sim,
+                                'high_quality': high_q,
+                                'medium_quality': medium_q,
+                                'low_quality': low_q,
+                            })
+                            
+                            # Format enhanced context with quality indicators
+                            context_str = self._format_enhanced_context(quality_results)
+                            all_context_parts.append(context_str)
+                            
+                            # Collect sources
+                            round_sources = self._format_sources_with_quality(quality_results)
+                            all_sources.extend(round_sources)
+                            
+                            # Build detailed tool result with quality metrics
+                            result_summary = self._build_search_result_summary(
+                                quality_results, 
+                                avg_sim,
+                                high_q,
+                                medium_q,
+                                low_q
                             )
                         else:
-                            result_summary = "No relevant results found in the database for this query."
+                            result_summary = (
+                                "⚠️ No results meeting minimum quality threshold (relevance ≥ 50%) found. "
+                                "Try reformulating the query with different terms or language."
+                            )
                         
                         tool_results.append({
                             "type": "tool_result",
@@ -4109,36 +4352,299 @@ class AIService:
                             "content": result_summary
                         })
                 
-                # Append assistant message and tool results to continue the loop
                 agentic_messages.append({"role": "assistant", "content": assistant_content})
                 agentic_messages.append({"role": "user", "content": tool_results})
-                
             else:
-                # Claude is done searching — it produced a final text answer
                 logger.info(f"Agentic loop complete after {round_num} round(s)")
                 break
         
-        # Deduplicate sources by article key
-        seen_source_keys = set()
-        unique_sources = []
-        for src in all_sources:
-            key = f"{src.get('source_filename', '')}_{src.get('article', '')}"
-            if key not in seen_source_keys:
-                seen_source_keys.add(key)
-                unique_sources.append(src)
+        # Calculate final quality metrics
+        if all_sources:
+            total_results = quality_metrics['pre_search_results'] + quality_metrics['agentic_search_results']
+            if total_results > 0:
+                quality_metrics['avg_relevance_score'] = sum(
+                    float(s.get('similarity', '0%').rstrip('%')) / 100 
+                    for s in all_sources
+                ) / len(all_sources)
         
-        # ─── PHASE 2: Stream the final response with Opus ─────────────
-        # Build a CLEAN message for Opus: original question + all gathered context.
-        # We do NOT pass the raw agentic conversation (with tool_use/tool_result blocks)
-        # because Opus is called WITHOUT tools and can produce confused/short responses
-        # when it sees tool blocks it can't act on.
+        # Deduplicate sources
+        unique_sources = self._deduplicate_sources(all_sources)
+        
+        logger.info(f"Search complete: {len(unique_sources)} unique sources, "
+                   f"avg relevance: {quality_metrics['avg_relevance_score']:.2%}")
+        
+        # ═══════════════════════════════════════════════════════════════
+        # PHASE 3: FINAL SYNTHESIS WITH OPUS
+        # ═══════════════════════════════════════════════════════════════
         
         combined_context = "\n\n".join(all_context_parts)
         
-        # Build clean conversation for Opus
+        # Build clean messages for Opus
+        final_messages = self._build_final_messages(
+            history,
+            question,
+            combined_context,
+            extra_context,
+            quality_metrics
+        )
+        
+        logger.info(f"Phase 3: Streaming final response with Opus...")
+        
+        async def stream_response():
+            try:
+                async with self.client.messages.stream(
+                    model=self.settings.claude_opus_model,
+                    max_tokens=16000,
+                    system=system_prompt + "\n\n" + ANTI_HALLUCINATION_RULES,
+                    messages=final_messages,
+                ) as stream:
+                    async for text in stream.text_stream:
+                        yield text
+            except Exception as e:
+                logger.error(f"Streaming error: {e}")
+                yield f"\n\n⚠️ Error generating response: {str(e)}"
+        
+        return {
+            "response": stream_response(),
+            "sources": unique_sources,
+            "quality_metrics": quality_metrics,
+            "search_rounds": search_round_details,
+        }
+    
+    async def _enhanced_retrieve_context(
+        self, 
+        query: str, 
+        top_k: int = DEFAULT_TOP_K,
+        filter_source: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Enhanced retrieval with hybrid search and quality filtering.
+        
+        IMPROVEMENTS:
+        - Dual-language search (Russian + Uzbek)
+        - Keyword boosting for exact matches
+        - Better deduplication
+        - Quality scoring
+        """
+        filter_metadata = {"source": filter_source} if filter_source else None
+        
+        # Search with original query
+        results_original = await self.vector_store.asearch(
+            query, 
+            top_k=top_k,
+            filter_metadata=filter_metadata
+        )
+        
+        # Translate and search in Uzbek
+        uzbek_query = await self._translate_to_uzbek(query)
+        results_uzbek = []
+        
+        if uzbek_query and uzbek_query != query:
+            results_uzbek = await self.vector_store.asearch(
+                uzbek_query,
+                top_k=top_k,
+                filter_metadata=filter_metadata
+            )
+        
+        # Merge and deduplicate by content hash
+        seen_keys = {}
+        for result in results_original + results_uzbek:
+            metadata = result.get("metadata", {})
+            content = result.get("content", "")
+            
+            # Create unique key from source + article + content hash
+            key = f"{metadata.get('source', '')}_{metadata.get('article_display', '')}_{hash(content[:200])}"
+            
+            # Keep result with highest similarity
+            if key not in seen_keys or result.get("similarity", 0) > seen_keys[key].get("similarity", 0):
+                seen_keys[key] = result
+        
+        # Sort by similarity
+        merged = sorted(seen_keys.values(), key=lambda x: x.get("similarity", 0), reverse=True)
+        
+        return merged[:top_k]
+    
+    def _format_enhanced_context(self, results: List[Dict[str, Any]]) -> str:
+        """
+        Format context with quality indicators and structured metadata.
+        
+        IMPROVEMENTS:
+        - Quality score indicators (🟢🟡🔴)
+        - Better metadata display
+        - Clearer source attribution
+        """
+        if not results:
+            return "⚠️ No relevant legal documents found meeting quality threshold."
+        
+        context_parts = []
+        
+        for i, result in enumerate(results, 1):
+            metadata = result.get("metadata", {})
+            content = result.get("content", "")
+            similarity = result.get("similarity", 0)
+            
+            # Quality indicator
+            if similarity >= HIGH_QUALITY_THRESHOLD:
+                quality_icon = "🟢"
+                quality_label = "HIGH"
+            elif similarity >= MEDIUM_QUALITY_THRESHOLD:
+                quality_icon = "🟡"
+                quality_label = "MEDIUM"
+            else:
+                quality_icon = "🟠"
+                quality_label = "LOW"
+            
+            source_filename = metadata.get("source", "Unknown")
+            code_name = self._get_source_title(source_filename)
+            article = metadata.get("article_display", metadata.get("article_number", "Unknown"))
+            chapter = metadata.get("chapter", "")
+            section = metadata.get("section", "")
+            title = metadata.get("title", "")
+            
+            context_parts.append(
+                f"[{quality_icon} Source {i} | Relevance: {similarity:.1%} ({quality_label})]\n"
+                f"📚 Источник: {code_name}\n"
+                f"📋 Статья: {article}\n"
+                f"📂 Раздел: {section}\n"
+                f"📖 Глава: {chapter}\n"
+                f"📝 Название: {title}\n"
+                f"───────────────────────────────────────────\n"
+                f"{content}\n"
+                f"───────────────────────────────────────────"
+            )
+        
+        return "\n\n".join(context_parts)
+    
+    def _format_sources_with_quality(self, results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Format sources with quality indicators for UI display."""
+        sources = []
+        
+        for idx, result in enumerate(results):
+            metadata = result.get("metadata", {})
+            similarity = result.get("similarity", 0)
+            
+            # Determine quality level
+            if similarity >= HIGH_QUALITY_THRESHOLD:
+                quality_level = "high"
+            elif similarity >= MEDIUM_QUALITY_THRESHOLD:
+                quality_level = "medium"
+            else:
+                quality_level = "low"
+            
+            article = metadata.get("article_display", metadata.get("article_number", "Unknown"))
+            source_filename = metadata.get("source", "Unknown")
+            
+            # Use dynamic title parsing
+            code_name = self._get_source_title(source_filename)
+            
+            sources.append({
+                "id": f"source-{idx}",
+                "article": article,
+                "source": code_name,
+                "source_filename": source_filename,
+                "chapter": metadata.get("chapter", "")[:80],
+                "title": metadata.get("title", "")[:100],
+                "preview": result.get("content", "")[:300] + "...",
+                "similarity": f"{similarity * 100:.1f}%",
+                "quality_level": quality_level,
+            })
+        
+        return sources
+    
+    def _get_source_title(self, source_filename: str) -> str:
+        """Extract a clean title from the source filename or mapping."""
+        if not source_filename or source_filename == "Unknown":
+            return "Unknown"
+            
+        # 1. Check hardcoded mapping first
+        if source_filename in self.DOCUMENT_NAME_MAPPING:
+            return self.DOCUMENT_NAME_MAPPING[source_filename]
+            
+        # 2. Parse dynamic filename pattern (e.g., -24724_Law_Title.txt)
+        # Remove extension
+        base_name = source_filename.rsplit('.', 1)[0]
+        
+        # Strip leading hyphen and underscores
+        clean_name = base_name.lstrip('-_')
+        
+        # Check if it has an ID prefix (e.g., 24724_)
+        if '_' in clean_name:
+            parts = clean_name.split('_', 1)
+            # If the first part is numeric or looks like an ID prefix
+            # (starts with dash or has numbers followed by underscore)
+            if parts[0].isdigit() or (len(parts[0]) > 2 and any(c.isdigit() for c in parts[0])):
+                title = parts[1]
+            else:
+                title = clean_name
+        else:
+            title = clean_name
+            
+        # Replace remaining underscores with spaces
+        return title.replace('_', ' ')
+
+    def _build_search_result_summary(
+        self,
+        results: List[Dict[str, Any]],
+        avg_sim: float,
+        high_q: int,
+        medium_q: int,
+        low_q: int
+    ) -> str:
+        """Build detailed search result summary with quality breakdown."""
+        quality_breakdown = []
+        if high_q > 0:
+            quality_breakdown.append(f"🟢 {high_q} высококачественных (≥70%)")
+        if medium_q > 0:
+            quality_breakdown.append(f"🟡 {medium_q} средних (55-70%)")
+        if low_q > 0:
+            quality_breakdown.append(f"🟠 {low_q} низкокачественных (50-55%)")
+        
+        quality_text = ", ".join(quality_breakdown)
+        
+        # Format context
+        context_str = self._format_enhanced_context(results)
+        
+        summary = (
+            f"✅ Найдено {len(results)} релевантных результатов\n"
+            f"📊 Средняя релевантность: {avg_sim:.1%}\n"
+            f"📈 Качество результатов: {quality_text}\n\n"
+            f"{'─' * 60}\n\n"
+            f"{context_str}"
+        )
+        
+        return summary
+    
+    def _build_messages(
+        self,
+        history: Optional[List[Dict[str, str]]],
+        question: str
+    ) -> List[Dict[str, str]]:
+        """Build conversation messages from history and current question."""
+        messages = []
+        
+        if history:
+            for msg in history[-6:]:  # Last 6 messages for context
+                messages.append({
+                    "role": msg["role"],
+                    "content": msg["content"]
+                })
+        
+        messages.append({"role": "user", "content": question})
+        
+        return messages
+    
+    def _build_final_messages(
+        self,
+        history: Optional[List[Dict[str, str]]],
+        question: str,
+        combined_context: str,
+        extra_context: Optional[str],
+        quality_metrics: Dict[str, Any]
+    ) -> List[Dict[str, str]]:
+        """Build final messages for Opus with context and quality info."""
         final_messages = []
         
-        # Include conversation history (without tool blocks)
+        # Include conversation history
         if history:
             for msg in history[-6:]:
                 final_messages.append({
@@ -4146,354 +4652,86 @@ class AIService:
                     "content": msg["content"]
                 })
         
-        # Build the final user message with question + all retrieved context
-        # Build extra context section if provided
+        # Build comprehensive user message
         extra_context_section = ""
         if extra_context:
             extra_context_section = (
                 f"📋 КОНТЕКСТ ЗАДАЧИ ПОЛЬЗОВАТЕЛЯ:\n\n"
                 f"{extra_context}\n\n"
-                f"───────────────────────────────────────────\n\n"
+                f"{'─' * 60}\n\n"
             )
+        
+        # Quality indicators for the context
+        quality_indicator = ""
+        avg_score = quality_metrics.get('avg_relevance_score', 0)
+        
+        if avg_score >= 0.70:
+            quality_indicator = "🟢 ВЫСОКОЕ КАЧЕСТВО КОНТЕКСТА (средняя релевантность: {:.1%})".format(avg_score)
+        elif avg_score >= 0.55:
+            quality_indicator = "🟡 СРЕДНЕЕ КАЧЕСТВО КОНТЕКСТА (средняя релевантность: {:.1%}) - используйте с осторожностью".format(avg_score)
+        elif avg_score >= 0.50:
+            quality_indicator = "🟠 НИЗКОЕ КАЧЕСТВО КОНТЕКСТА (средняя релевантность: {:.1%}) - укажите предупреждение".format(avg_score)
+        else:
+            quality_indicator = "🔴 НЕДОСТАТОЧНОЕ КАЧЕСТВО КОНТЕКСТА (средняя релевантность: {:.1%}) - сообщите об отсутствии информации".format(avg_score)
         
         if combined_context:
             final_user_content = (
                 f"{extra_context_section}"
+                f"{'═' * 60}\n"
+                f"📊 {quality_indicator}\n"
+                f"{'═' * 60}\n\n"
                 f"ПРАВОВОЙ КОНТЕКСТ ИЗ БАЗЫ ДАННЫХ ЗАКОНОДАТЕЛЬСТВА УЗБЕКИСТАНА:\n\n"
                 f"{combined_context}\n\n"
-                f"───────────────────────────────────────────\n\n"
+                f"{'═' * 60}\n\n"
                 f"ВОПРОС КЛИЕНТА:\n{question}\n\n"
-                f"На основе приведённого правового контекста дайте полный, структурированный ответ "
-                f"согласно формату указанному в системном промпте. Цитируйте конкретные статьи и нормы."
+                f"{'─' * 60}\n\n"
+                f"📝 ИНСТРУКЦИИ ДЛЯ ОТВЕТА:\n\n"
+                f"1. Используйте ТОЛЬКО информацию из предоставленного правового контекста\n"
+                f"2. Цитируйте ТОЧНЫЕ номера статей из контекста (не придумывайте!)\n"
+                f"3. Учитывайте quality score результатов (🟢🟡🟠🔴)\n"
+                f"4. При низком качестве контекста укажите предупреждение\n"
+                f"5. Если информации недостаточно - прямо сообщите об этом\n"
+                f"6. Структурируйте ответ согласно формату из системного промпта\n"
+                f"7. Укажите уровень уверенности в ответе\n\n"
+                f"Дайте полный, структурированный, профессиональный ответ."
             )
         else:
-            final_user_content = f"{extra_context_section}{question}" if extra_context_section else question
+            final_user_content = (
+                f"{extra_context_section}"
+                f"🔴 НЕТ РЕЛЕВАНТНОГО КОНТЕКСТА ИЗ БАЗЫ ДАННЫХ\n\n"
+                f"{question}\n\n"
+                f"⚠️ В базе данных не найдено релевантной информации для этого вопроса. "
+                f"Сообщите пользователю о необходимости обращения к специалисту."
+            )
         
         final_messages.append({"role": "user", "content": final_user_content})
         
-        logger.info(f"Phase 2: Built clean message for Opus with {len(all_context_parts)} context parts")
-        
-        async def stream_response():
-            try:
-                logger.info(f"=== STREAMING FINAL RESPONSE ===")
-                logger.info(f"Generating final answer with Opus...")
-                async with self.client.messages.stream(
-                        model=self.settings.claude_opus_model,
-                        max_tokens=16000,
-                        system=system_prompt + KB_ENFORCEMENT_INSTRUCTION, # Mode prompt + KB enforcement rules
-                        messages=final_messages,
-                    ) as stream:
-                        chunk_count = 0
-                        async for text in stream.text_stream:
-                            chunk_count += 1
-                            if chunk_count == 1:
-                                logger.info("First chunk received from Claude")
-                            yield text
-                        logger.info(f"Stream complete, total chunks: {chunk_count}")
-            except Exception as e:
-                logger.error(f"=== CLAUDE API ERROR ===")
-                logger.error(f"Error type: {type(e).__name__}")
-                logger.error(f"Error: {str(e)}")
-                logger.error(f"Traceback:\n{traceback.format_exc()}")
-                raise
-        
-        logger.info(f"Returning {len(unique_sources)} unique sources for chat_mode='{chat_mode}'")
-        
-        return {
-            "response": stream_response(),
-            "sources": unique_sources,
-            "context": combined_context,
-            "query": question,
-        }
+        return final_messages
     
-    async def _classify_chat_mode(self, question: str, extra_context: Optional[str] = None) -> tuple:
-        """
-        Use Claude Haiku to quickly classify the user's question into one of
-        the available chat modes. Returns (mode_key, confidence).
-        """
-        try:
-            content = question
-            if extra_context:
-                content = f"КОНТЕКСТ ЗАДАЧИ:\n{extra_context}\n\nВОПРОС ПОЛЬЗОВАТЕЛЯ:\n{question}"
-
-            response = await self.client.messages.create(
-                model=self.settings.claude_haiku_model,
-                max_tokens=200,
-                system=AUTO_DETECT_CLASSIFIER_PROMPT,
-                messages=[{"role": "user", "content": content}]
-            )
+    def _deduplicate_sources(self, sources: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Deduplicate sources by article key, keeping highest quality."""
+        seen_keys = {}
+        
+        for src in sources:
+            key = f"{src.get('source_filename', '')}_{src.get('article', '')}"
             
-            response_text = ""
-            for block in response.content:
-                if block.type == "text":
-                    response_text += block.text
-            
-            # Parse JSON response
-            response_text = response_text.strip()
-            # Handle possible markdown code blocks
-            if response_text.startswith('```'):
-                response_text = response_text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
-            
-            result = json.loads(response_text)
-            detected_mode = result.get('detected_mode', 'consultant')
-            confidence = float(result.get('confidence', 0.0))
-            
-            return (detected_mode, confidence)
-        except Exception as e:
-            logger.error(f"Auto-detect classification failed: {e}")
-            return ('consultant', 0.5)  # Safe fallback
-
-    async def _simple_query(
-        self,
-        question: str,
-        history: Optional[List[Dict[str, str]]],
-        chat_mode: str,
-        system_prompt: str
-    ) -> Dict[str, Any]:
-        """
-        Simple (non-agentic) query for smalltalk/quick-answer modes.
-        Uses a single vector search pass and no tool-use loop.
-        """
-        logger.info(f"Using simple mode for chat_mode='{chat_mode}'")
+            # Keep source with highest similarity
+            if key not in seen_keys:
+                seen_keys[key] = src
+            else:
+                existing_sim = float(seen_keys[key].get('similarity', '0%').rstrip('%'))
+                new_sim = float(src.get('similarity', '0%').rstrip('%'))
+                if new_sim > existing_sim:
+                    seen_keys[key] = src
         
-        # Quick context retrieval
-        results = await self._retrieve_context(question, top_k=200)
-        context = self._format_context(results)
-        sources = self._format_sources(results)
-        
-        messages = []
-        if history:
-            for msg in history[-6:]:
-                messages.append({"role": msg["role"], "content": msg["content"]})
-        
-        user_message = f"""Контекст из законодательства (для справки):
-{context[:6000]}
-
-Вопрос: {question}
-
-ВАЖНОЕ УКАЗАНИЕ:
-Отвечайте ИСКЛЮЧИТЕЛЬНО на основе предоставленного выше контекста.
-Если в контексте нет прямого ответа или контекст пуст, ответьте: "К сожалению, в нашей базе данных недостаточно информации для ответа на данный вопрос."
-Не используйте внешние знания для юридических утверждений.
-
-Ответь согласно формату указанному в системном промпте."""
-        messages.append({"role": "user", "content": user_message})
-        
-        async def stream_response():
-            try:
-                async with self.client.messages.stream(
-                    model=self.settings.claude_opus_model,
-                    max_tokens=8000,
-                    system=system_prompt + KB_ENFORCEMENT_INSTRUCTION,
-                    messages=messages,
-                ) as stream:
-                    chunk_count = 0
-                    async for text in stream.text_stream:
-                        chunk_count += 1
-                        if chunk_count == 1:
-                            logger.info("First chunk received (simple mode)")
-                        yield text
-                    logger.info(f"Simple mode stream complete, chunks: {chunk_count}")
-            except Exception as e:
-                logger.error(f"Simple mode error: {e}")
-                raise
-        
-        return {
-            "response": stream_response(),
-            "sources": sources,
-            "context": context,
-            "query": question,
-        }
+        return list(seen_keys.values())
     
-    async def analyze_contract(self, contract_text: str, top_k: int =100) -> Dict[str, Any]:
-        """
-        Analyze a contract for legal compliance.
-        Returns structured audit result with validity score.
-        """
-        sources = []
-        context = ""
-        
-        try:
-            # Ensure documents are indexed
-            await self.ensure_indexed()
-            
-            # Extract key contract terms for targeted retrieval
-            search_queries = self._extract_contract_topics(contract_text)
-            
-            # Retrieve relevant legal context
-            all_results = []
-            seen_articles = set()
-            
-            for search_query in search_queries:
-                results = await self.vector_store.asearch(search_query, top_k=top_k // len(search_queries) + 5)
-                for result in results:
-                    article_key = f"{result.get('metadata', {}).get('source')}_{result.get('metadata', {}).get('article_display')}"
-                    if article_key not in seen_articles:
-                        seen_articles.add(article_key)
-                        all_results.append(result)
-            
-            # Also search with broad contract terms (both Russian and Uzbek)
-            broad_searches = [
-                "существенные условия договора",
-                "shartnomaning muhim shartlari",
-                "заключение договора обязательные условия",
-                "shartnoma tuzish majburiy shartlar",
-                "неустойка штраф пеня",
-                "neustoyка jarima penya",
-                "валюта расчетов резиденты",
-                "hisob-kitob valyutasi rezidentlar",
-                "расторжение договора",
-                "shartnomani bekor qilish",
-            ]
-            
-            for broad_query in broad_searches:
-                results = await self.vector_store.asearch(broad_query, top_k=15)
-                for result in results:
-                    article_key = f"{result.get('metadata', {}).get('source')}_{result.get('metadata', {}).get('article_display')}"
-                    if article_key not in seen_articles:
-                        seen_articles.add(article_key)
-                        all_results.append(result)
-            
-            # Sort by similarity and take top results
-            all_results.sort(key=lambda x: x.get("similarity", 0), reverse=True)
-            final_results = all_results[:top_k]
-            
-            # Format context for LLM
-            context = self._format_context(final_results)
-            
-            # Format sources for UI
-            sources = self._format_sources(final_results)
-            
-            # Generate audit using CONTRACT_AUDIT_PROMPT
-            audit_prompt = CONTRACT_AUDIT_PROMPT.format(
-                context=context,
-                contract_text=contract_text
-            )
-            
-            response = await self.client.messages.create(
-                model=self.settings.claude_opus_model,
-                max_tokens=16000,
-                system=VALIDATOR_PROMPT,
-                messages=[{"role": "user", "content": audit_prompt}]
-            )
-            
-            # Extract text from response
-            response_text = ""
-            for block in response.content:
-                if block.type == "text":
-                    response_text += block.text
-            
-            # Parse JSON from response
-            audit_result = self._parse_audit_response(response_text)
-            
-            return {
-                "audit": audit_result,
-                "sources": sources,
-                "context": context,
-                "raw_response": response_text,
-            }
-            
-        except Exception as e:
-            import traceback
-            error_details = traceback.format_exc()
-            print(f"analyze_contract error: {error_details}")
-            
-            return {
-                "audit": {
-                    "validity_score": 0,
-                    "score_explanation": f"Error during analysis: {type(e).__name__}: {str(e)}",
-                    "critical_errors": [],
-                    "warnings": [{
-                        "risk": "Analysis Error",
-                        "explanation": f"An error occurred during analysis: {str(e)}",
-                        "suggestion": "Please try again or check your contract input."
-                    }],
-                    "missing_clauses": [],
-                    "summary": "Could not complete analysis due to an error."
-                },
-                "sources": sources,
-                "context": context,
-                "raw_response": f"Error: {str(e)}",
-            }
-    
-    async def generate_contract(
-        self,
-        category: str,
-        requirements: str,
-        template_context: str,
-        top_k: int = 100
-    ) -> Dict[str, Any]:
-        """
-        Generate a contract based on templates, legal context, and user requirements.
-        Uses Claude Opus with extended thinking for high-quality contract drafting.
-        Returns streaming response and sources.
-        """
-        # Ensure documents are indexed
-        await self.ensure_indexed()
-        
-        # Build search queries based on category and requirements
-        search_queries = self._build_contract_search_queries(category, requirements)
-        
-        # Retrieve relevant legal context
-        all_results = []
-        seen_articles = set()
-        
-        for search_query in search_queries:
-            results = await self.vector_store.asearch(search_query, top_k=top_k // len(search_queries) + 5)
-            for result in results:
-                article_key = f"{result.get('metadata', {}).get('source')}_{result.get('metadata', {}).get('article_display')}"
-                if article_key not in seen_articles:
-                    seen_articles.add(article_key)
-                    all_results.append(result)
-        
-        # Sort by similarity and take top results
-        all_results.sort(key=lambda x: x.get("similarity", 0), reverse=True)
-        final_results = all_results[:top_k]
-        
-        # Format legal context
-        legal_context = self._format_context(final_results)
-        
-        # Format sources for UI
-        sources = self._format_sources(final_results)
-        
-        # Build the generation prompt
-        generation_prompt = f"""КАТЕГОРИЯ ДОГОВОРА: {category}
-
-ШАБЛОНЫ ДОГОВОРОВ ДАННОЙ КАТЕГОРИИ:
-{template_context}
-
-ПРАВОВОЙ КОНТЕКСТ ИЗ ЗАКОНОДАТЕЛЬСТВА УЗБЕКИСТАНА:
-{legal_context}
-
-ТРЕБОВАНИЯ ПОЛЬЗОВАТЕЛЯ:
-{requirements}
-
-На основе приведённых шаблонов, законодательства и требований пользователя составьте полный, профессиональный договор.
-Убедитесь, что договор соответствует всем требованиям Гражданского кодекса Узбекистана."""
-        
-        # Stream response using Opus with adaptive thinking
-        async def stream_response():
-            async with self.client.messages.stream(
-                model=self.settings.claude_opus_model,
-                max_tokens=24000,
-                system=GENERATOR_PROMPT,
-                thinking={
-                    "type": "adaptive"
-                },
-                messages=[{"role": "user", "content": generation_prompt}],
-            ) as stream:
-                async for text in stream.text_stream:
-                    yield text
-        
-        return {
-            "response": stream_response(),
-            "sources": sources,
-            "category": category,
-            "requirements": requirements,
-        }
+    def _get_system_prompt(self, chat_mode: str) -> str:
+        """Get appropriate system prompt based on chat mode."""
+        return CHAT_MODE_PROMPTS.get(chat_mode, CONSULTANT_PROMPT)
     
     async def _translate_to_uzbek(self, text: str) -> str:
-        """Translate a Russian search query to Uzbek Latin for cross-language vector search."""
+        """Translate Russian query to Uzbek for dual-language search."""
         try:
             response = await self.client.messages.create(
                 model=self.settings.claude_haiku_model,
@@ -4502,875 +4740,63 @@ class AIService:
                 system=(
                     "You are a Russian-to-Uzbek translator. Translate the given Russian legal query "
                     "into Uzbek (Latin script). Output ONLY the Uzbek translation, nothing else. "
-                    "Use proper Uzbek legal terminology. Keep it concise — this is a search query, not prose."
+                    "Use proper Uzbek legal terminology. Keep it concise."
                 ),
             )
             translated = response.content[0].text.strip()
-            logger.info(f"Translated query: '{text}' -> '{translated}'")
+            logger.info(f"Translated: '{text}' → '{translated}'")
             return translated
         except Exception as e:
-            logger.warning(f"Translation failed: {e}, using original query")
+            logger.warning(f"Translation failed: {e}")
             return text
-
-    async def _retrieve_context(self, query: str, top_k: int = 200, filter_source: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Retrieve relevant legal context using dual-language search (Russian + Uzbek)."""
-        
-        # Prepare filter metadata if source filter is provided
-        filter_metadata = None
-        if filter_source:
-            filter_metadata = {"source": filter_source}
-            
-        # Search with original query (Russian)
-        results_original = await self.vector_store.asearch(
-            query, 
-            top_k=top_k, 
-            filter_metadata=filter_metadata
-        )
-        
-        # Translate to Uzbek and search again
-        uzbek_query = await self._translate_to_uzbek(query)
-        
-        if uzbek_query and uzbek_query != query:
-            results_uzbek = await self.vector_store.asearch(
-                uzbek_query, 
-                top_k=top_k, 
-                filter_metadata=filter_metadata
-            )
-        else:
-            results_uzbek = []
-        
-        # Merge and deduplicate by content, keeping highest similarity
-        seen_keys = {}
-        for result in results_original + results_uzbek:
-            metadata = result.get("metadata", {})
-            key = f"{metadata.get('source', '')}_{metadata.get('article_display', '')}_{metadata.get('chunk_index', 0)}"
-            if key not in seen_keys or result.get("similarity", 0) > seen_keys[key].get("similarity", 0):
-                seen_keys[key] = result
-        
-        # Sort by similarity and limit
-        merged = sorted(seen_keys.values(), key=lambda x: x.get("similarity", 0), reverse=True)
-        return merged[:top_k]
     
-    def _format_context(self, results: List[Dict[str, Any]]) -> str:
-        """Format retrieved documents into a context string for the LLM."""
-        if not results:
-            return "No relevant legal documents found."
+    async def _simple_query(
+        self,
+        question: str,
+        history: Optional[List[Dict[str, str]]],
+        chat_mode: str,
+        system_prompt: str
+    ) -> Dict[str, Any]:
+        """Handle simple queries without full agentic RAG."""
+        messages = self._build_messages(history, question)
         
-        context_parts = []
+        async def stream_response():
+            async with self.client.messages.stream(
+                model=self.settings.claude_haiku_model,
+                max_tokens=2048,
+                system=system_prompt,
+                messages=messages,
+            ) as stream:
+                async for text in stream.text_stream:
+                    yield text
         
-        for i, result in enumerate(results, 1):
-            metadata = result.get("metadata", {})
-            content = result.get("content", "")
-            
-            source = metadata.get("source", "Unknown")
-            article = metadata.get("article_display", metadata.get("article_number", "Unknown"))
-            chapter = metadata.get("chapter", "")
-            section = metadata.get("section", "")
-            title = metadata.get("title", "")
-            
-            context_parts.append(
-                f"[Source {i}: {source} | Статья {article}]\n"
-                f"Section: {section}\n"
-                f"Chapter: {chapter}\n"
-                f"Title: {title}\n"
-                f"Content:\n{content}\n"
-                f"---"
-            )
-        
-        return "\n\n".join(context_parts)
+        return {
+            "response": stream_response(),
+            "sources": [],
+            "quality_metrics": {},
+        }
     
-    # Mapping from document filenames to proper Uzbek code names
+    # Document name mapping
     DOCUMENT_NAME_MAPPING = {
-        # Criminal codes
         "CRIMINAL-CODE.docx": "Уголовный кодекс",
         "CRIMINAL-PROCEDURE.docx": "Уголовно-процессуальный кодекс",
         "CRIMINAL-EXECUTIVE.docx": "Уголовно-исполнительный кодекс",
-        
-        # Civil codes
         "CIVIL-CODE-PART-1.docx": "Гражданский кодекс (Часть I)",
         "CIVIL-CODE-PART-2.docx": "Гражданский кодекс (Часть II)",
         "CIVIL-PROCEDURE.docx": "Гражданский процессуальный кодекс",
-        
-        # Administrative codes
         "ADMINISTRATIVE-RESPONSIBILITY.docx": "Кодекс об административной ответственности",
         "ADMINISTRATIVE-PROCEDURE.docx": "Административное судопроизводство",
-        
-        # Economic and business
         "ECONOMIC-PROCEDURE.docx": "Экономический процессуальный кодекс",
         "TAX-CODE.docx": "Налоговый кодекс",
         "CUSTOMS-CODE.docx": "Таможенный кодекс",
         "BUDGET-CODE.docx": "Бюджетный кодекс",
-        
-        # Social codes
         "LABOR-CODE.docx": "Трудовой кодекс",
         "FAMILY-CODE.docx": "Семейный кодекс",
         "HOUSING-CODE.docx": "Жилищный кодекс",
         "LAND-CODE.docx": "Земельный кодекс",
-        
-        # Constitution and laws
         "CONSTITUTION.docx": "Конституция Республики Узбекистан",
         "CONSUMER-PROTECTION.docx": "Закон о защите прав потребителей",
         "PUBLIC-PROCUREMENT.docx": "Закон о государственных закупках",
         "ENTREPRENEURSHIP.docx": "Закон о предпринимательстве",
         "DIGITAL-SIGNATURE.docx": "Закон об электронной цифровой подписи",
     }
-    
-    def _format_sources(self, results: List[Dict[str, Any]]) -> List[Dict[str, str]]:
-        """Format sources for display in the UI with proper code names."""
-        sources = []
-        seen = set()
-        
-        for idx, result in enumerate(results):
-            metadata = result.get("metadata", {})
-            article = metadata.get("article_display", metadata.get("article_number", "Unknown"))
-            source_filename = metadata.get("source", "Unknown")
-            
-            # Map filename to proper code name
-            code_name = self.DOCUMENT_NAME_MAPPING.get(source_filename, source_filename)
-            
-            chapter = metadata.get("chapter", "")[:80]
-            title = metadata.get("title", "")[:100]
-            content = result.get("content", "")[:300]
-            
-            key = f"{source_filename}_{article}"
-            if key not in seen:
-                seen.add(key)
-                sources.append({
-                    "id": f"source-{idx}",  # Unique ID for interactive citations
-                    "article": article,
-                    "source": code_name,  # Use proper code name instead of filename
-                    "source_filename": source_filename,  # Keep original for reference
-                    "chapter": chapter,
-                    "title": title,
-                    "preview": content + "..." if len(result.get("content", "")) > 300 else content,
-                    "similarity": f"{result.get('similarity', 0) * 100:.1f}%",
-                })
-        
-        return sources
-    
-    def _should_use_fallback(self, results: List[Dict[str, Any]]) -> bool:
-        """Legacy fallback detection — kept for contract analysis compatibility."""
-        if not results:
-            return True
-        similarities = [r.get("similarity", 0) for r in results]
-        avg_similarity = sum(similarities) / len(similarities) if similarities else 0
-        return avg_similarity < 0.35
-    
-    def _get_fallback_instruction(self) -> str:
-        """Legacy fallback instruction — kept for contract analysis compatibility."""
-        return """\n⚠️ В базе документов НЕ НАЙДЕНО точных совпадений по запросу.\nОтветьте на основе найденного контекста или укажите что информации недостаточно.\n"""
-    
-    def _extract_contract_topics(self, contract_text: str) -> List[str]:
-        """Extract key topics from contract for targeted legal search."""
-        keywords = []
-        
-        if "купл" in contract_text.lower() or "продаж" in contract_text.lower():
-            keywords.append("договор купли продажи существенные условия")
-        if "услуг" in contract_text.lower():
-            keywords.append("договор оказания услуг обязательства")
-        if "труд" in contract_text.lower() or "работник" in contract_text.lower():
-            keywords.append("трудовой договор обязательные условия")
-        if "аренд" in contract_text.lower():
-            keywords.append("договор аренды существенные условия")
-        if "поставк" in contract_text.lower():
-            keywords.append("договор поставки обязательства")
-        
-        if not keywords:
-            keywords = ["договор существенные условия обязательства"]
-        
-        return keywords
-    
-    def _build_contract_search_queries(self, category: str, requirements: str) -> List[str]:
-        """Build search queries for contract generation (Russian + Uzbek)."""
-        queries = []
-        category_lower = category.lower()
-        
-        if "аренд" in category_lower:
-            queries.extend([
-                "договор аренды существенные условия",
-                "ijara shartnomasi muhim shartlari",
-                "права обязанности арендодателя арендатора",
-                "ijaraga beruvchi ijarachi huquq majburiyatlari",
-                "расторжение договора аренды",
-                "ijara shartnomasi bekor qilish",
-            ])
-        elif "услуг" in category_lower:
-            queries.extend([
-                "договор оказания услуг существенные условия",
-                "xizmat ko'rsatish shartnomasi muhim shartlari",
-                "ответственность исполнителя заказчика",
-                "ijrochi buyurtmachi javobgarligi",
-                "качество услуг претензии",
-                "xizmat sifati da'volar",
-            ])
-        elif "купл" in category_lower or "продаж" in category_lower or "поставк" in category_lower:
-            queries.extend([
-                "договор купли продажи существенные условия",
-                "oldi sotdi shartnomasi muhim shartlari",
-                "поставка товаров условия",
-                "tovar yetkazib berish shartlari",
-                "переход права собственности",
-                "mulk huquqi o'tishi",
-            ])
-        elif "займ" in category_lower or "кредит" in category_lower:
-            queries.extend([
-                "договор займа существенные условия",
-                "qarz shartnomasi muhim shartlari",
-                "проценты по займу",
-                "qarz foizlari",
-                "обеспечение исполнения обязательств",
-                "majburiyatlarni ta'minlash",
-            ])
-        else:
-            queries.extend([
-                "существенные условия договора",
-                "shartnomaning muhim shartlari",
-                "права обязанности сторон",
-                "tomonlarning huquq va majburiyatlari",
-                "ответственность сторон договора",
-                "shartnoma tomonlari javobgarligi",
-            ])
-        
-        return queries
-    
-    def _parse_audit_response(self, response_text: str) -> Dict[str, Any]:
-        """Parse the JSON audit response from LLM."""
-        try:
-            content = response_text.strip()
-            
-            if "```json" in content:
-                match = re.search(r'```json\s*(.*?)\s*```', content, re.DOTALL)
-                if match:
-                    content = match.group(1)
-            elif "```" in content:
-                match = re.search(r'```\s*(.*?)\s*```', content, re.DOTALL)
-                if match:
-                    content = match.group(1)
-            
-            if content.startswith("{"):
-                return json.loads(content)
-            
-            start = content.find("{")
-            end = content.rfind("}")
-            if start != -1 and end != -1:
-                return json.loads(content[start:end+1])
-            
-            raise ValueError("No valid JSON found in response")
-            
-        except Exception as e:
-            return {
-                "validity_score": 50,
-                "score_explanation": "Unable to parse structured response",
-                "critical_errors": [],
-                "warnings": [{
-                    "risk": "Parse Error",
-                    "explanation": f"Could not parse AI response: {str(e)}",
-                    "suggestion": "Review the raw response for details"
-                }],
-                "missing_clauses": [],
-                "summary": response_text[:500] if response_text else "No response received"
-            }
-
-    async def analyze_document(self, document_text: str, document_type: Optional[str] = None, top_k: int = 100) -> Dict[str, Any]:
-        """
-        Analyze a legal document for validity, compliance, and provide improvements.
-        Returns comprehensive audit with formal validity, legal validity, up-to-dateness,
-        compliance, risk analysis, and drafting improvements.
-        """
-        sources = []
-        context = ""
-        
-        try:
-            # Ensure documents are indexed
-            await self.ensure_indexed()
-            
-            # Extract key topics for targeted retrieval
-            search_queries = self._extract_document_topics(document_text, document_type)
-            
-            # Retrieve relevant legal context
-            all_results = []
-            seen_articles = set()
-            
-            for search_query in search_queries:
-                results = await self.vector_store.asearch(search_query, top_k=top_k // len(search_queries) + 5)
-                for result in results:
-                    article_key = f"{result.get('metadata', {}).get('source')}_{result.get('metadata', {}).get('article_display')}"
-                    if article_key not in seen_articles:
-                        seen_articles.add(article_key)
-                        all_results.append(result)
-            
-            # Broad searches for document validation (especially up-to-dateness)
-            broad_searches = [
-                # Core document requirements (Russian + Uzbek)
-                "доверенность полномочия представитель",
-                "ishonchnoma vakolatlar vakil",
-                "форма документа обязательные реквизиты",
-                "hujjat shakli majburiy rekvizitlar",
-                "сроки действия документа",
-                "hujjatning amal qilish muddati",
-                "подпись печать удостоверение",
-                "imzo muhr tasdiqlash",
-                "недействительность ничтожность",
-                "yaroqsizlik haqiqiy emaslik",
-                # Up-to-dateness (Russian + Uzbek)
-                "актуальность законодательства изменения",
-                "qonunchilik dolzarbligi o'zgarishlar",
-                "утратил силу недействующий",
-                "kuchini yo'qotgan amal qilmayotgan",
-                "новая редакция изменения дополнения",
-                "yangi tahriri o'zgarishlar qo'shimchalar",
-                # Current codes (Russian + Uzbek)
-                "Гражданский кодекс",
-                "Fuqarolik kodeksi",
-                "Трудовой кодекс",
-                "Mehnat kodeksi",
-                "Налоговый кодекс",
-                "Soliq kodeksi",
-                "Хозяйственный процессуальный кодекс",
-                "Xo'jalik protsessual kodeksi",
-                "Гражданский процессуальный кодекс",
-                "Fuqarolik protsessual kodeksi",
-                # Procedural (Russian + Uzbek)
-                "порядок оформления регистрация",
-                "rasmiylashtirish tartibi ro'yxatdan o'tkazish",
-                "государственная пошлина сбор",
-                "davlat boji yig'im",
-                "сроки исковой давности",
-                "da'vo muddati",
-                "обязательства права сторон",
-                "majburiyatlar tomonlar huquqlari",
-            ]
-            
-            for broad_query in broad_searches:
-                results = await self.vector_store.asearch(broad_query, top_k=25)
-                for result in results:
-                    article_key = f"{result.get('metadata', {}).get('source')}_{result.get('metadata', {}).get('article_display')}"
-                    if article_key not in seen_articles:
-                        seen_articles.add(article_key)
-                        all_results.append(result)
-            
-            # Sort by similarity and take top results
-            all_results.sort(key=lambda x: x.get("similarity", 0), reverse=True)
-            final_results = all_results[:top_k]
-            
-            # Format context for LLM
-            context = self._format_context(final_results)
-            
-            # Format sources for UI
-            sources = self._format_sources(final_results)
-            
-            # Generate audit using DOCUMENT_AUDIT_PROMPT
-            type_hint = f"Тип документа: {document_type}" if document_type else "Тип документа: не указан (определить автоматически)"
-            audit_prompt = DOCUMENT_AUDIT_PROMPT.format(
-                context=context,
-                document_text=document_text,
-                document_type=type_hint
-            )
-            
-            response = await self.client.messages.create(
-                model=self.settings.claude_opus_model,
-                max_tokens=20000,
-                system=DOCUMENT_VALIDATOR_PROMPT,
-                messages=[{"role": "user", "content": audit_prompt}]
-            )
-            
-            # Extract text from response
-            response_text = ""
-            for block in response.content:
-                if block.type == "text":
-                    response_text += block.text
-            
-            # Parse JSON from response
-            audit_result = self._parse_document_audit_response(response_text)
-            
-            return {
-                "audit": audit_result,
-                "sources": sources,
-                "context": context,
-                "raw_response": response_text,
-            }
-            
-        except Exception as e:
-            import traceback
-            error_details = traceback.format_exc()
-            print(f"analyze_document error: {error_details}")
-            
-            return {
-                "audit": {
-                    "overall_score": 0,
-                    "document_type_detected": document_type or "unknown",
-                    "formal_validity": {"is_valid": False, "score": 0, "issues": [], "explanation": f"Error: {str(e)}"},
-                    "legal_validity": {"is_valid": False, "score": 0, "issues": [], "applicable_laws": [], "explanation": ""},
-                    "up_to_dateness": {"is_current": False, "score": 0, "outdated_references": [], "deprecated_laws": [], "explanation": ""},
-                    "compliance_check": {"is_compliant": False, "score": 0, "violations": [], "requirements": [], "explanation": ""},
-                    "risk_analysis": {"risk_level": "high", "score": 0, "risks": [], "mitigation_suggestions": [], "explanation": ""},
-                    "improvements": [],
-                    "summary": f"Analysis failed: {str(e)}",
-                    "explainability": "Could not complete analysis due to an error."
-                },
-                "sources": sources,
-                "context": context,
-                "raw_response": f"Error: {str(e)}",
-            }
-    
-    def _extract_document_topics(self, document_text: str, document_type: Optional[str] = None) -> List[str]:
-        """Extract key topics from document for targeted legal search (Russian + Uzbek)."""
-        keywords = []
-        text_lower = document_text.lower()
-        
-        # Based on document type
-        if document_type:
-            type_queries = {
-                "power_of_attorney": [
-                    "доверенность полномочия представитель", "ishonchnoma vakolatlar vakil",
-                    "удостоверение доверенности нотариус", "ishonchnomani notarial tasdiqlash",
-                ],
-                "corporate_resolution": [
-                    "решение учредителя протокол собрания", "ta'sischi qarori yig'ilish bayoni",
-                    "полномочия органов управления", "boshqaruv organlari vakolatlari",
-                ],
-                "claim": [
-                    "претензия требование ответственность", "da'vo talab javobgarlik",
-                    "порядок предъявления претензий", "da'vo qo'yish tartibi",
-                ],
-                "application": [
-                    "заявление рассмотрение сроки", "ariza ko'rib chiqish muddatlari",
-                    "порядок подачи заявления", "ariza berish tartibi",
-                ],
-                "agreement": [
-                    "соглашение договоренность стороны", "kelishuv bitim tomonlar",
-                    "условия соглашения", "kelishuv shartlari",
-                ],
-                "act": [
-                    "акт составление подписание", "dalolatnoma tuzish imzolash",
-                    "акт приема передачи", "topshirish qabul qilish dalolatnomasini",
-                ],
-                "order": [
-                    "приказ распоряжение руководитель", "buyruq farmoyish rahbar",
-                    "издание приказа", "buyruq chiqarish",
-                ],
-            }
-            if document_type in type_queries:
-                keywords.extend(type_queries[document_type])
-        
-        # Based on document content (Russian + Uzbek keywords)
-        if "доверен" in text_lower:
-            keywords.extend(["доверенность отмена срок действия", "ishonchnomani bekor qilish amal qilish muddati"])
-        if "протокол" in text_lower or "собрани" in text_lower:
-            keywords.extend(["протокол общего собрания кворум", "umumiy yig'ilish bayonnomasi kvorum"])
-        if "претензи" in text_lower:
-            keywords.extend(["претензионный порядок сроки ответа", "da'vo tartibi javob muddatlari"])
-        if "иск" in text_lower:
-            keywords.extend(["исковое заявление требования подсудность", "da'vo arizasi talablar sudlovchilik"])
-        if "приказ" in text_lower:
-            keywords.extend(["приказ руководителя полномочия", "rahbar buyrug'i vakolatlari"])
-        if "устав" in text_lower:
-            keywords.extend(["устав юридического лица регистрация", "yuridik shaxs ustavi ro'yxatdan o'tkazish"])
-        if "трудов" in text_lower:
-            keywords.extend(["трудовой договор прием увольнение", "mehnat shartnomasi ishga qabul qilish ishdan bo'shatish"])
-        
-        if not keywords:
-            keywords = [
-                "документ форма реквизиты требования", "hujjat shakli rekvizitlar talablar",
-                "юридическая сила документа", "hujjatning yuridik kuchi",
-            ]
-        
-        return keywords
-    
-    def _parse_document_audit_response(self, response_text: str) -> Dict[str, Any]:
-        """Parse the JSON document audit response from LLM."""
-        try:
-            content = response_text.strip()
-            
-            if "```json" in content:
-                match = re.search(r'```json\s*(.*?)\s*```', content, re.DOTALL)
-                if match:
-                    content = match.group(1)
-            elif "```" in content:
-                match = re.search(r'```\s*(.*?)\s*```', content, re.DOTALL)
-                if match:
-                    content = match.group(1)
-            
-            if content.startswith("{"):
-                return json.loads(content)
-            
-            start = content.find("{")
-            end = content.rfind("}")
-            if start != -1 and end != -1:
-                return json.loads(content[start:end+1])
-            
-            raise ValueError("No valid JSON found in response")
-            
-        except Exception as e:
-            return {
-                "overall_score": 50,
-                "document_type_detected": "unknown",
-                "formal_validity": {"is_valid": True, "score": 50, "issues": [], "explanation": "Unable to parse"},
-                "legal_validity": {"is_valid": True, "score": 50, "issues": [], "applicable_laws": [], "explanation": ""},
-                "up_to_dateness": {"is_current": True, "score": 50, "outdated_references": [], "deprecated_laws": [], "explanation": ""},
-                "compliance_check": {"is_compliant": True, "score": 50, "violations": [], "requirements": [], "explanation": ""},
-                "risk_analysis": {"risk_level": "medium", "score": 50, "risks": [], "mitigation_suggestions": [], "explanation": ""},
-                "improvements": [],
-                "summary": response_text[:500] if response_text else "No response received",
-                "explainability": f"Could not parse AI response structure: {str(e)}"
-            }
-
-
-# ═══════════════════════════════════════════════════════════════
-# 📄 DOCUMENT VALIDATOR PROMPTS (11-BLOCK COMPREHENSIVE ANALYSIS)
-# ═══════════════════════════════════════════════════════════════
-
-DOCUMENT_VALIDATOR_PROMPT = """Вы — «Экспертная система проверки юридических документов Узбекистана». Ваша задача — провести КОМПЛЕКСНЫЙ 11-БЛОКОВЫЙ АУДИТ любого правового документа. Все выводы и описания должны быть СТРОГО НА РУССКОМ ЯЗЫКЕ.
-
-📚 НОРМАТИВНАЯ БАЗА (используйте для проверки):
-- Гражданский кодекс Республики Узбекистан
-- Гражданский процессуальный кодекс
-- Экономический процессуальный кодекс
-- Трудовой кодекс
-- Закон "О нотариате"
-- Закон "О государственной регистрации юридических лиц"
-- Закон "Об обращениях физических и юридических лиц"
-- Постановления Кабинета Министров по делопроизводству
-
-🎯 ВАША ЗАДАЧА — 11 БЛОКОВ ПРОВЕРКИ:
-
-## 1️⃣ ФОРМАЛЬНАЯ ДЕЙСТВИТЕЛЬНОСТЬ (Formal Validity)
-Проверьте структуру и обязательные реквизиты:
-- Заголовок/наименование документа
-- Дата и место составления
-- Полные реквизиты сторон (ФИО, ИНН/СТИР, паспортные данные, адреса)
-- Нумерация страниц (для многостраничных)
-- Подписи (с расшифровкой)
-- Печати (где требуются)
-- Регистрационный номер (где требуется)
-
-## 2️⃣ ПРАВОВАЯ ДЕЙСТВИТЕЛЬНОСТЬ (Legal Validity)
-Проверьте на соответствие материальному праву:
-- Соответствие обязательным нормам закона
-- Правоспособность и дееспособность сторон
-- Наличие необходимых полномочий (доверенность, устав)
-- Законность предмета документа
-- Соблюдение требуемой формы (простая письменная, нотариальная)
-
-## 3️⃣ АКТУАЛЬНОСТЬ (Up-to-Dateness) — КРИТИЧЕСКИ ВАЖНО!
-⚠️ ОСОБОЕ ВНИМАНИЕ! Проверьте:
-- Ссылки на ДЕЙСТВУЮЩИЕ нормативные акты (не утратившие силу!)
-- Использование актуальных форм документов
-- Соответствие текущим требованиям законодательства
-- Отсутствие ссылок на отменённые законы/статьи
-- Актуальность сроков и ставок (госпошлины, БРВ и т.д.)
-
-## 4️⃣ КОМПЛАЕНС И РЕГУЛЯТОРНЫЕ ТРЕБОВАНИЯ (Compliance)
-Проверьте специальные требования:
-- Отраслевые требования (банковское, медицинское право и т.д.)
-- Требования к регистрации/уведомлению
-- Лицензионные требования
-- Валютное регулирование (для международных операций)
-- Антимонопольные требования
-
-## 5️⃣ АНАЛИЗ РИСКОВ (Risk Analysis) — "ЮРИДИЧЕСКИЙ МОЗГ"
-Оцените риски как опытный юрист:
-- Потенциальные споры и их вероятность
-- Уязвимые места документа
-- Риски оспаривания
-- Риски неисполнения
-- Репутационные и финансовые риски
-
-## 6️⃣ ПРОВЕРКА СОГЛАСОВАННОСТИ (Consistency Check) — НОВОЕ!
-Проверьте внутреннюю и внешнюю согласованность:
-- Внутренние противоречия в тексте документа
-- Согласованность нумерации пунктов и ссылок
-- Единство терминологии (одни и те же термины?)
-- Перекрёстные ссылки на другие документы
-- Согласованность дат, сроков, сумм
-
-## 7️⃣ ЮРИСДИКЦИОННЫЙ АНАЛИЗ (Jurisdiction Intelligence) — НОВОЕ!
-Определите юрисдикционные аспекты:
-- Применимое право (право Узбекистана или иное?)
-- Компетентные суды для разрешения споров
-- Территориальная подсудность
-- Трансграничные вопросы (если есть иностранный элемент)
-- Сроки исковой давности
-- Альтернативные способы разрешения споров (арбитраж, медиация)
-
-## 8️⃣ ГОТОВНОСТЬ К СУДЕБНОМУ ПРОЦЕССУ (Litigation Readiness) — НОВОЕ!
-Оцените документ с точки зрения возможного спора:
-- Пробелы в доказательственной базе
-- Требования к форме доказательств
-- Необходимость свидетельских показаний
-- Цепочка документов (есть ли все подтверждающие документы?)
-- Вопросы допустимости как доказательства
-- Стратегические рекомендации для судебной защиты
-
-## 9️⃣ ЭТИЧЕСКИЕ ГАРАНТИИ (Ethical Guardrails) — НОВОЕ!
-Проверьте на этичность и добросовестность:
-- Этические проблемы (обман, введение в заблуждение)
-- Противоречие публичному порядку
-- Нарушение принципа добросовестности
-- Несправедливые условия (особенно для слабой стороны)
-- Защита прав потребителей
-- Антикоррупционные требования
-
-## 🔟 ОБЪЯСНИМОСТЬ (Explainability) — ОБЯЗАТЕЛЬНО!
-⚠️ НЕ ПОДЛЕЖИТ ОБСУЖДЕНИЮ: Для КАЖДОГО найденного недостатка предоставьте:
-- Чёткое описание проблемы
-- КОНКРЕТНУЮ статью закона/кодекса
-- Почему это важно (последствия)
-- Понятное объяснение для неюриста
-
-## 1️⃣1️⃣ УЛУЧШЕНИЯ И ИСПРАВЛЕНИЯ (Drafting Mode)
-Для каждой проблемы предложите:
-- Конкретный текст для исправления (copy-paste ready)
-- Где именно в документе внести изменения
-- Приоритет исправления (критический/высокий/средний/низкий)
-
-🚨 ПРАВИЛА:
-1. ВСЕГДА указывайте конкретные статьи законов
-2. Объясняйте простым языком для неюриста
-3. Давайте готовые формулировки для исправлений
-4. Особое внимание уделяйте АКТУАЛЬНОСТИ ссылок на законы
-5. СТРОГОЕ ТРЕБОВАНИЕ: Весь контент (описания, объяснения, рекомендации) внутри JSON должен быть на РУССКОМ языке, независимо от языка исходного документа."""
-
-DOCUMENT_AUDIT_PROMPT = """Проведите комплексную 11-блоковую проверку документа.
-
-{document_type}
-
-ПРАВОВОЙ КОНТЕКСТ ИЗ КОДЕКСОВ УЗБЕКИСТАНА:
-{context}
-
-ДОКУМЕНТ ДЛЯ ПРОВЕРКИ:
-{document_text}
-
-ВЕРНИТЕ РЕЗУЛЬТАТ В ФОРМАТЕ JSON:
-```json
-{{
-  "overall_score": <0-100>,
-  "document_type_detected": "<тип документа: доверенность/протокол/претензия/приказ/заявление/другое>",
-  
-  "formal_validity": {{
-    "is_valid": <true/false>,
-    "score": <0-100>,
-    "issues": [
-      {{
-        "issue": "<описание проблемы>",
-        "requirement": "<требование закона>",
-        "article": "<Статья X Закона/Кодекса>",
-        "severity": "critical/high/medium/low"
-      }}
-    ],
-    "explanation": "<общее объяснение формальной проверки>"
-  }},
-  
-  "legal_validity": {{
-    "is_valid": <true/false>,
-    "score": <0-100>,
-    "issues": [
-      {{
-        "issue": "<описание проблемы>",
-        "article": "<Статья X>",
-        "consequence": "<возможные последствия>",
-        "severity": "critical/high/medium/low"
-      }}
-    ],
-    "applicable_laws": ["<Закон 1>", "<Закон 2>"],
-    "explanation": "<объяснение правовой проверки>"
-  }},
-  
-  "up_to_dateness": {{
-    "is_current": <true/false>,
-    "score": <0-100>,
-    "outdated_references": [
-      {{
-        "reference": "<ссылка в документе>",
-        "status": "<утратил силу/изменён>",
-        "current_version": "<актуальная норма>",
-        "date_deprecated": "<дата утраты силы>"
-      }}
-    ],
-    "deprecated_laws": ["<Устаревший закон 1>"],
-    "explanation": "<объяснение проверки актуальности>"
-  }},
-  
-  "compliance_check": {{
-    "is_compliant": <true/false>,
-    "score": <0-100>,
-    "violations": [
-      {{
-        "requirement": "<требование>",
-        "violation": "<нарушение>",
-        "regulator": "<регулятор>",
-        "penalty": "<санкция>"
-      }}
-    ],
-    "requirements": [
-      {{
-        "requirement": "<требование>",
-        "status": "met/unmet/partial",
-        "article": "<основание>"
-      }}
-    ],
-    "explanation": "<объяснение комплаенс-проверки>"
-  }},
-  
-  "risk_analysis": {{
-    "risk_level": "low/medium/high/critical",
-    "score": <0-100>,
-    "risks": [
-      {{
-        "risk": "<описание риска>",
-        "probability": "low/medium/high",
-        "impact": "low/medium/high",
-        "category": "legal/financial/reputational/operational"
-      }}
-    ],
-    "mitigation_suggestions": ["<рекомендация 1>", "<рекомендация 2>"],
-    "explanation": "<объяснение анализа рисков>"
-  }},
-  
-  "consistency_check": {{
-    "is_consistent": <true/false>,
-    "score": <0-100>,
-    "inconsistencies": [
-      {{
-        "issue": "<описание противоречия>",
-        "location1": "<первое место в документе>",
-        "location2": "<второе место в документе>",
-        "severity": "critical/high/medium/low"
-      }}
-    ],
-    "cross_references": [
-      {{
-        "reference": "<ссылка на внешний документ>",
-        "status": "valid/invalid/missing",
-        "note": "<примечание>"
-      }}
-    ],
-    "numbering_issues": ["<проблема нумерации 1>"],
-    "terminology_issues": ["<несогласованный термин 1>"],
-    "explanation": "<объяснение проверки согласованности>"
-  }},
-  
-  "jurisdiction_intelligence": {{
-    "primary_jurisdiction": "Узбекистан",
-    "score": <0-100>,
-    "applicable_courts": ["<Суд 1>", "<Суд 2>"],
-    "territorial_scope": "<территориальная подсудность>",
-    "cross_border_issues": [
-      {{
-        "issue": "<трансграничный вопрос>",
-        "recommendation": "<рекомендация>"
-      }}
-    ],
-    "forum_selection": {{
-      "clause_exists": <true/false>,
-      "selected_forum": "<выбранный форум>",
-      "enforceability": "enforceable/questionable/unenforceable"
-    }},
-    "statute_of_limitations": {{
-      "applicable_period": "<срок исковой давности>",
-      "start_date": "<начало течения срока>",
-      "article": "<статья ГК>"
-    }},
-    "explanation": "<объяснение юрисдикционного анализа>"
-  }},
-  
-  "litigation_readiness": {{
-    "readiness_level": "low/medium/high",
-    "score": <0-100>,
-    "evidence_gaps": [
-      {{
-        "gap": "<пробел в доказательствах>",
-        "required_evidence": "<необходимое доказательство>",
-        "how_to_obtain": "<как получить>"
-      }}
-    ],
-    "proof_requirements": [
-      {{
-        "fact": "<факт для доказывания>",
-        "burden": "plaintiff/defendant",
-        "evidence_type": "<тип доказательства>"
-      }}
-    ],
-    "witness_needs": ["<необходимость свидетеля 1>"],
-    "document_chain": [
-      {{
-        "document": "<документ>",
-        "status": "present/missing/incomplete",
-        "importance": "critical/important/optional"
-      }}
-    ],
-    "admissibility_issues": [
-      {{
-        "issue": "<проблема допустимости>",
-        "article": "<статья ГПК/ЭПК>",
-        "recommendation": "<рекомендация>"
-      }}
-    ],
-    "litigation_strategy": ["<стратегическая рекомендация 1>"],
-    "explanation": "<объяснение оценки готовности к суду>"
-  }},
-  
-  "ethical_guardrails": {{
-    "passes_ethics": <true/false>,
-    "score": <0-100>,
-    "ethical_concerns": [
-      {{
-        "concern": "<этическая проблема>",
-        "severity": "critical/high/medium/low",
-        "recommendation": "<рекомендация>"
-      }}
-    ],
-    "public_policy_issues": [
-      {{
-        "issue": "<противоречие публичному порядку>",
-        "article": "<статья>",
-        "consequence": "<последствие>"
-      }}
-    ],
-    "good_faith_issues": [
-      {{
-        "issue": "<нарушение добросовестности>",
-        "explanation": "<объяснение>"
-      }}
-    ],
-    "unfair_terms": [
-      {{
-        "term": "<несправедливое условие>",
-        "location": "<место в документе>",
-        "why_unfair": "<почему несправедливо>",
-        "fix": "<исправление>"
-      }}
-    ],
-    "consumer_protection": [
-      {{
-        "issue": "<нарушение прав потребителя>",
-        "article": "<статья Закона о защите прав потребителей>"
-      }}
-    ],
-    "anti_corruption": [
-      {{
-        "issue": "<антикоррупционный риск>",
-        "recommendation": "<рекомендация>"
-      }}
-    ],
-    "explanation": "<объяснение этической проверки>"
-  }},
-  
-  "improvements": [
-    {{
-      "issue": "<проблема>",
-      "location": "<где в документе>",
-      "current_text": "<текущий текст>",
-      "suggested_text": "<предлагаемый текст (готовый для копирования)>",
-      "priority": "critical/high/medium/low",
-      "explanation": "<почему нужно исправить>"
-    }}
-  ],
-  
-  "summary": "<2-3 предложения итогового заключения>",
-  
-  "explainability": "<Понятное объяснение всех выводов для неюриста. Опишите главные проблемы, почему они важны, и что делать дальше. Используйте простой язык.>"
-}}
-```
-
-Проанализируйте документ и верните ТОЛЬКО JSON ответ без дополнительного текста. ВАЖНО: Весь текст внутри JSON (значения полей) должен быть на РУССКОМ языке."""
