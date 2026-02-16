@@ -142,10 +142,10 @@ async def chat(
                 try:
                     # Wait for progress update with 3s timeout
                     status = await asyncio.wait_for(progress_queue.get(), timeout=3.0)
-                    yield f"data: {json.dumps({'progress': status})}\\n\\n"
+                    yield f"data: {json.dumps({'progress': status})}\n\n"
                 except asyncio.TimeoutError:
                     # Send comment to keep connection alive
-                    yield ": keep-alive\\n\\n"
+                    yield ": keep-alive\n\n"
                 except Exception:
                     pass
             

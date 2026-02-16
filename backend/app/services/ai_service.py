@@ -3676,7 +3676,7 @@ DEFAULT_TOP_K = 35
 PRE_SEARCH_TOP_K = 50
 MIN_RELEVANCE_SCORE = 0.35  # Minimum similarity score for RAG results
 MAX_AGENTIC_ROUNDS = 10 # Max rounds for agentic search
-MAX_OUTPUT_TOKENS = 65536 # Gemini 3 Flash maximum for exhaustive, detailed responses
+MAX_OUTPUT_TOKENS = 32768 # Gemini 3 Flash maximum for exhaustive, detailed responses
 
 # ═══════════════════════════════════════════════════════════════
 # 🛡️ SAFETY & QUALITY INSTRUCTIONS
