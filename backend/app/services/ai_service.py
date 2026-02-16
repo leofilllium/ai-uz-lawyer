@@ -21,6 +21,30 @@ MIN_RELEVANCE_SCORE = 0.35        # ≥35% to use (lowered for debugging)
 HIGH_QUALITY_THRESHOLD = 0.70     # ≥70% = high confidence
 MEDIUM_QUALITY_THRESHOLD = 0.55   # 55-70% = medium confidence
 
+# Primary Legal Codes (Prioritized)
+PRIMARY_CODES_KEYWORDS = [
+    "Fuqarolik kodeksi",
+    "Fuqarolik protsessual kodeksi",
+    "Iqtisodiy protsessual kodeksi",
+    "Jinoyat kodeksi",
+    "Jinoyat-protsessual kodeksi",
+    "Jinoyat-ijro kodeksi",
+    "Ma’muriy javobgarlik to‘g‘risidagi kodeksi",
+    "Mehnat kodeksi",
+    "Oila kodeksi",
+    "Uy-joy kodeksi",
+    "Yer kodeksi",
+    "Suv kodeksi",
+    "O‘rmon kodeksi",
+    "Yer qazilmalari to‘g‘risidagi kodeksi",
+    "Soliq kodeksi",
+    "Byudjet kodeksi",
+    "Bojxona kodeksi",
+    "Shaharsozlik kodeksi",
+    "Saylov kodeksi",
+    "Havo kodeksi"
+]
+
 
 
 
@@ -4023,6 +4047,11 @@ ENHANCED_AGENTIC_INSTRUCTION = """
 У вас есть доступ к инструменту search_legal_database для поиска в базе данных 
 законодательства Узбекистана.
 
+【ПРИОРИТЕТ ИСТОЧНИКОВ ⭐️】
+1. В первую очередь ВСЕГДА проверяйте ОСНОВНЫЕ КОДЕКСЫ (Конституция, Гражданский, Уголовный, Налоговый и др.).
+2. Они имеют высшую юридическую силу и приоритет над другими актами.
+3. Ищите результаты с пометкой "⭐️ PRIMARY SOURCE".
+
 【СТРАТЕГИЯ ПОИСКА】
 1. ВСЕГДА начинайте с 2-3 поисковых запросов разными формулировками
 2. Используйте как русские, так и узбекские термины
@@ -4268,7 +4297,7 @@ class AIService:
             logger.info(f"=== AGENTIC ROUND {round_num}/{MAX_AGENTIC_ROUNDS} ===")
             
             response = await self.client.messages.create(
-                model=self.settings.claude_sonnet_model,
+                model=self.settings.claude_haiku_model,
                 max_tokens=8192,
                 system=full_system_prompt,
                 tools=SEARCH_TOOLS,
@@ -4457,6 +4486,18 @@ class AIService:
             
             # Keep result with highest similarity
             if key not in seen_keys or result.get("similarity", 0) > seen_keys[key].get("similarity", 0):
+                # Apply priority boost for Primary Codes
+                source_name = metadata.get("source", "")
+                # Normalize source name (replace underscores with spaces) for keyword matching
+                source_check = source_name.replace("_", " ")
+                if any(code in source_check for code in PRIMARY_CODES_KEYWORDS):
+                    # Boost relevance by 20% for primary codes to ensure they bubble up
+                    # But cap at 0.99
+                    current_sim = result.get("similarity", 0)
+                    boosted_sim = min(0.99, current_sim * 1.2)
+                    result["similarity"] = boosted_sim
+                    result["is_primary"] = True
+                
                 seen_keys[key] = result
         
         # Sort by similarity
@@ -4501,8 +4542,12 @@ class AIService:
             section = metadata.get("section", "")
             title = metadata.get("title", "")
             
+            # Primary sourcing indicator
+            is_primary = result.get("is_primary", False)
+            primary_badge = "⭐️ PRIMARY SOURCE" if is_primary else ""
+            
             context_parts.append(
-                f"[{quality_icon} Source {i} | Relevance: {similarity:.1%} ({quality_label})]\n"
+                f"[{quality_icon} Source {i} | Relevance: {similarity:.1%} ({quality_label}) {primary_badge}]\n"
                 f"📚 Источник: {code_name}\n"
                 f"📋 Статья: {article}\n"
                 f"📂 Раздел: {section}\n"
@@ -4731,8 +4776,8 @@ class AIService:
         """Translate Russian query to Uzbek for dual-language search."""
         try:
             response = await self.client.messages.create(
-                model=self.settings.claude_sonnet_model,
-                max_tokens=2000,
+                model=self.settings.claude_haiku_model,
+                max_tokens=500,
                 messages=[{"role": "user", "content": text}],
                 system=(
                     "You are a Russian-to-Uzbek translator. Translate the given Russian legal query "
@@ -4759,7 +4804,7 @@ class AIService:
         
         async def stream_response():
             async with self.client.messages.stream(
-                model=self.settings.claude_sonnet_model,
+                model=self.settings.claude_haiku_model,
                 max_tokens=2048,
                 system=system_prompt,
                 messages=messages,
