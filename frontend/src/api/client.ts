@@ -160,6 +160,7 @@ export interface Source {
   title?: string;
   preview?: string;
   similarity?: string;
+  quality_level?: 'high' | 'medium' | 'low';
 }
 
 export interface ContractAnalysis {
@@ -460,7 +461,7 @@ export async function sendChatMessage(
   message: string, 
   sessionId?: number,
   onChunk?: (chunk: string) => void,
-  onDone?: (sessionId: number, sources: Source[]) => void,
+  onDone?: (sessionId: number, sources: Source[], qualityMetrics?: any, searchRounds?: any[]) => void,
   chatMode: 'auto-detect' | 'risk-manager' | 'smalltalk' | 'consultant' | 'practitioner' | 'litigator' | 'legal-audit' | 'compliance' | 'tax' | 'corporate' | 'commercial' | 'negotiator' | 'startup' | 'procedural' | 'deadlines' | 'hr' | 'worker-protection' | 'analyst' | 'skeptic' | 'judge-questions' | 'odds' | 'strategist' | 'what-if' | 'interview-practice' | 'family' | 'real-estate' | 'notary' | 'ip' | 'criminal-defense' | 'criminal-prosecution' | 'admin-defense' | 'admin-procedure' | 'customs' | 'procurement' | 'enforcement' | 'arbitration' | 'constitutional' | 'consumer-protection' | 'housing' | 'land-disputes' | 'digital-law' | 'environmental' | 'antitrust' | 'insurance' | 'banking' | 'securities' | 'investor-protection' | 'mediation' | 'doc-review' | 'legal-letter' | 'compliance-hr' | 'debt-collection' | 'bankruptcy' | 'merger-acquisition' | 'licensing' | 'regulatory' | 'cross-border' | 'forensic-legal' | 'quick-answer' = 'risk-manager',
   taskContext?: { name?: string; description?: string; fileText?: string }
 ): Promise<void> {
@@ -511,7 +512,7 @@ export async function sendChatMessage(
             onChunk(data.chunk);
           }
           if (data.done && onDone) {
-            onDone(data.session_id, data.sources || []);
+            onDone(data.session_id, data.sources || [], data.quality_metrics, data.search_rounds);
           }
           if (data.error) {
             throw new Error(data.error);

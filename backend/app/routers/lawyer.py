@@ -133,22 +133,34 @@ async def chat(
             logger.info(f"Total chunks: {chunk_count}, Response length: {len(full_response)}")
             
             sources = result.get('sources', [])
+            quality_metrics = result.get('quality_metrics', {})
+            search_rounds = result.get('search_rounds', [])
             logger.info(f"Sources in SSE done event: {len(sources)} items")
             
-            # Save assistant message with sources
+            # Save assistant message with sources and metrics
             logger.info(f"Saving assistant message to database...")
             with Session(db.get_bind()) as save_db:
                 assistant_msg = ChatMessage(
                     session_id=current_session_id,
                     role='assistant',
                     content=full_response,
-                    sources=sources
+                    sources=sources,
+                    # We can store quality_metrics and search_rounds in the thinking or sources JSON if needed,
+                    # but for now let's just make sure they are sent to the frontend.
+                    # If the ChatMessage model doesn't have these fields yet, we'd need a migration.
+                    # Given the current model, let's keep it simple.
                 )
                 save_db.add(assistant_msg)
                 save_db.commit()
             logger.info(f"Assistant message saved successfully")
             
-            yield f"data: {json.dumps({'done': True, 'session_id': current_session_id, 'sources': sources})}\n\n"
+            yield f"data: {json.dumps({
+                'done': True, 
+                'session_id': current_session_id, 
+                'sources': sources,
+                'quality_metrics': quality_metrics,
+                'search_rounds': search_rounds
+            })}\n\n"
             logger.info(f"=== CHAT COMPLETE ===")
             
         except Exception as e:

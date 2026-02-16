@@ -28,6 +28,8 @@ class ChatMessageResponse(BaseModel):
     role: str
     content: str
     sources: list[dict] | None = None
+    quality_metrics: dict | None = None
+    search_rounds: list[dict] | None = None
     created_at: datetime | None = None
     
     class Config:
@@ -59,6 +61,8 @@ class StreamChunk(BaseModel):
     done: bool = False
     session_id: int | None = None
     sources: list[dict] | None = None
+    quality_metrics: dict | None = None
+    search_rounds: list[dict] | None = None
     error: str | None = None
 
 

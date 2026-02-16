@@ -14,6 +14,8 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   sources?: Source[];
+  qualityMetrics?: any;
+  searchRounds?: any[];
   attachedTask?: {
     id: number;
     title: string;
@@ -299,14 +301,19 @@ export default function Lawyer() {
             return [...newMessages];
           });
         },
-        (newSessionId, sources) => {
+        (newSessionId, sources, qualityMetrics, searchRounds) => {
           setSessionId(newSessionId);
           setMessages((prev) => {
             const newMessages = [...prev];
             const lastMessage = newMessages[newMessages.length - 1];
             if (lastMessage?.role === 'assistant') {
               // Create a new object so React detects the change
-              newMessages[newMessages.length - 1] = { ...lastMessage, sources };
+              newMessages[newMessages.length - 1] = { 
+                ...lastMessage, 
+                sources,
+                qualityMetrics,
+                searchRounds
+              };
             }
             return newMessages;
           });
@@ -652,8 +659,9 @@ export default function Lawyer() {
                       <summary>📚 Источники ({msg.sources.length})</summary>
                       <ul className="sources-list">
                         {msg.sources.map((source, i) => (
-                          <li key={i} id={`source-${idx}-${i}`} className="source-item-entry">
+                          <li key={i} id={`source-${idx}-${i}`} className={`source-item-entry quality-${source.quality_level || 'low'}`}>
                             <div className="source-header-info">
+                              <span className={`quality-indicator-dot ${source.quality_level || 'low'}`} title={`Релевантность: ${source.similarity}`}></span>
                               <strong>{source.source}</strong>
                               <span className="source-article-badge">Статья {source.article}</span>
                             </div>
@@ -663,6 +671,21 @@ export default function Lawyer() {
                           </li>
                         ))}
                       </ul>
+                    </details>
+                  )}
+                  {msg.searchRounds && msg.searchRounds.length > 0 && (
+                    <details className="search-details-expander">
+                      <summary>🔍 Процесс поиска ({msg.searchRounds.length} итераций)</summary>
+                      <div className="search-rounds-list">
+                        {msg.searchRounds.map((round: any, i: number) => (
+                          <div key={i} className="search-round-item">
+                            <span className="round-num">Раунд {round.round}:</span>
+                            <span className="round-query">"{round.query}"</span>
+                            <span className="round-results">Результатов: {round.results}</span>
+                            <span className="round-score">Сред. балл: {(round.avg_score * 100).toFixed(0)}%</span>
+                          </div>
+                        ))}
+                      </div>
                     </details>
                   )}
                 </div>
