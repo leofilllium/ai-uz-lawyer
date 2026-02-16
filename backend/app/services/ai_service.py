@@ -5154,6 +5154,192 @@ class AIService:
     def _get_system_prompt(self, chat_mode: str) -> str:
         return CHAT_MODE_PROMPTS.get(chat_mode, CONSULTANT_PROMPT)
 
+    def _extract_contract_topics(self, contract_text: str) -> List[str]:
+        """Extract key topics from contract for targeted legal search."""
+        keywords = []
+        text_lower = contract_text.lower()
+        
+        if "купл" in text_lower or "продаж" in text_lower:
+            keywords.append("договор купли продажи существенные условия")
+        if "услуг" in text_lower:
+            keywords.append("договор оказания услуг обязательства")
+        if "труд" in text_lower or "работник" in text_lower:
+            keywords.append("трудовой договор обязательные условия")
+        if "аренд" in text_lower:
+            keywords.append("договор аренды существенные условия")
+        if "поставк" in text_lower:
+            keywords.append("договор поставки обязательства")
+        if "займ" in text_lower or "кредит" in text_lower:
+            keywords.append("договор займа условия")
+        
+        if not keywords:
+            keywords = ["договор существенные условия законодательство"]
+        
+        return keywords
+
+    def _extract_document_topics(self, document_text: str, document_type: Optional[str] = None) -> List[str]:
+        """Extract key topics from document for targeted legal search."""
+        keywords = []
+        text_lower = document_text.lower()
+        
+        # Based on document type
+        if document_type:
+            type_queries = {
+                "power_of_attorney": ["доверенность полномочия представитель", "удостоверение доверенности нотариус"],
+                "corporate_resolution": ["решение учредителя протокол собрания", "полномочия органов управления"],
+                "claim": ["претензия требование ответственность", "порядок предъявления претензий"],
+                "application": ["заявление рассмотрение сроки", "порядок подачи заявления"],
+                "agreement": ["соглашение договоренность стороны", "условия соглашения"],
+                "act": ["акт составление подписание", "акт приема передачи"],
+                "order": ["приказ распоряжение руководитель", "издание приказа"],
+            }
+            # Handle both exact matches and partial
+            for key, queries in type_queries.items():
+                if key in str(document_type).lower():
+                    keywords.extend(queries)
+
+        # Based on document content
+        if "доверен" in text_lower:
+            keywords.append("доверенность отмена срок действия")
+        if "протокол" in text_lower or "собрани" in text_lower:
+            keywords.append("протокол общего собрания кворум")
+        if "претензи" in text_lower:
+            keywords.append("претензионный порядок сроки ответа")
+        if "иск" in text_lower:
+            keywords.append("исковое заявление требования подсудность")
+        if "приказ" in text_lower:
+            keywords.append("приказ руководителя полномочия")
+        if "устав" in text_lower:
+            keywords.append("устав юридического лица регистрация")
+        if "трудов" in text_lower:
+            keywords.append("трудовой договор прием увольнение")
+            
+        if not keywords:
+            keywords = ["документ форма реквизиты требования", "юридическая сила документа"]
+        
+        return keywords
+
+    def _build_contract_search_queries(self, category: str, requirements: str) -> List[str]:
+        """Build search queries for contract generation."""
+        queries = []
+        category_lower = category.lower()
+        
+        if "аренд" in category_lower:
+            queries.extend([
+                "договор аренды существенные условия",
+                "права обязанности арендодателя арендатора",
+                "расторжение договора аренды",
+            ])
+        elif "услуг" in category_lower:
+            queries.extend([
+                "договор оказания услуг существенные условия",
+                "ответственность исполнителя заказчика",
+                "качество услуг претензии",
+            ])
+        elif "купл" in category_lower or "продаж" in category_lower or "поставк" in category_lower:
+            queries.extend([
+                "договор купли продажи существенные условия",
+                "поставка товаров условия",
+                "переход права собственности",
+            ])
+        elif "займ" in category_lower or "кредит" in category_lower:
+            queries.extend([
+                "договор займа существенные условия",
+                "проценты по займу",
+                "обеспечение исполнения обязательств",
+            ])
+        else:
+            queries.extend([
+                "существенные условия договора",
+                "права обязанности сторон",
+                "ответственность сторон договора",
+            ])
+        
+        # Add requirements-based query
+        if len(requirements) > 10:
+            queries.append(requirements[:100])
+            
+        return queries
+
+    def _parse_audit_response(self, response_text: str) -> Dict[str, Any]:
+        """Parse the JSON audit response from LLM."""
+        try:
+            content = response_text.strip()
+            
+            # Extract JSON block
+            if "```json" in content:
+                match = re.search(r'```json\s*(.*?)\s*```', content, re.DOTALL)
+                if match:
+                    content = match.group(1)
+            elif "```" in content:
+                match = re.search(r'```\s*(.*?)\s*```', content, re.DOTALL)
+                if match:
+                    content = match.group(1)
+            
+            # Cleanup common JSON errors from LLM
+            content = content.strip()
+            if content.startswith("json"):
+                content = content[4:].strip()
+                
+            if content.startswith("{"):
+                return json.loads(content)
+            
+            # Try to find { ... }
+            start = content.find("{")
+            end = content.rfind("}")
+            if start != -1 and end != -1:
+                return json.loads(content[start:end+1])
+            
+            raise ValueError("No valid JSON found in response")
+            
+        except Exception as e:
+            logger.error(f"JSON Parse Error: {e}")
+            return {
+                "validity_score": 0,
+                "score_explanation": "Error parsing AI response",
+                "critical_errors": [],
+                "warnings": [{"risk": "Parse Error", "explanation": str(e), "suggestion": "Try again"}],
+                "missing_clauses": [],
+                "summary": response_text[:500]
+            }
+
+    def _parse_document_audit_response(self, response_text: str) -> Dict[str, Any]:
+        """Parse the JSON document audit response from LLM."""
+        try:
+            content = response_text.strip()
+            
+            if "```json" in content:
+                match = re.search(r'```json\s*(.*?)\s*```', content, re.DOTALL)
+                if match:
+                    content = match.group(1)
+            elif "```" in content:
+                match = re.search(r'```\s*(.*?)\s*```', content, re.DOTALL)
+                if match:
+                    content = match.group(1)
+            
+            content = content.replace("True", "true").replace("False", "false") # Fix Python booleans
+            
+            if content.startswith("{"):
+                return json.loads(content)
+                
+            start = content.find("{")
+            end = content.rfind("}")
+            if start != -1 and end != -1:
+                return json.loads(content[start:end+1])
+            
+            raise ValueError("No valid JSON found")
+            
+        except Exception as e:
+             logger.error(f"Doc Audit JSON Parse Error: {e}")
+             # Return empty structure to avoid crash
+             return {
+                "overall_score": 0,
+                "document_type_detected": "unknown",
+                "formal_validity": {"is_valid": False, "explanation": f"Error: {str(e)}"},
+                "legal_validity": {"is_valid": False, "explanation": "Parse error"},
+                "summary": response_text[:200]
+             }
+
     async def _translate_to_uzbek(self, text: str) -> str:
         dict_result = fast_translate_to_uzbek(text)
         if dict_result != text and dict_result.lower() != text.lower():
