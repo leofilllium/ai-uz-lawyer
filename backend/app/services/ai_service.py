@@ -4522,9 +4522,19 @@ class AIService:
             'low_quality_results': 0,
         }
         
+        # Prepare search query with context if available
+        search_query = question
+        if extra_context:
+            # Extract keywords from the first 2000 chars of context
+            ctx_keywords = extract_search_keywords(extra_context[:2000])
+            if ctx_keywords:
+                # Append extracted Uzbek terms to the query for better recall
+                search_query = f"{question} {' '.join(ctx_keywords[:10])}"  # Limit to top 10 keywords
+                logger.info(f"Augmented search query with context keywords: {search_query}")
+
         logger.info("Running mandatory pre-search for baseline context...")
         pre_search_results = await self._enhanced_retrieve_context(
-            question, 
+            search_query, 
             top_k=PRE_SEARCH_TOP_K
         )
         
@@ -4553,8 +4563,14 @@ class AIService:
         messages = self._build_messages(history, question)
         
         # Combine prompts with enhanced anti-hallucination rules
+        # Inject extra context into system prompt so agent knows about the task
+        task_context_section = ""
+        if extra_context:
+            task_context_section = f"\n\nCONTEXT FROM USER TASK:\n{extra_context}\n\n"
+
         full_system_prompt = (
             system_prompt + "\n\n" + 
+            task_context_section +
             ANTI_HALLUCINATION_RULES + "\n\n" + 
             ENHANCED_AGENTIC_INSTRUCTION
         )
