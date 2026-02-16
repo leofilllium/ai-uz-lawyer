@@ -3668,7 +3668,7 @@ OUTPUT FORMAT:
 DEFAULT_TOP_K = 35
 PRE_SEARCH_TOP_K = 50
 MIN_RELEVANCE_SCORE = 0.35  # Minimum similarity score for RAG results
-MAX_AGENTIC_ROUNDS = 4 # Max rounds for agentic search
+MAX_AGENTIC_ROUNDS = 10 # Max rounds for agentic search
 MAX_OUTPUT_TOKENS = 24000 # Increased to maximum possible for extremely detailed responses
 
 # ═══════════════════════════════════════════════════════════════
@@ -3682,6 +3682,17 @@ ANTI_HALLUCINATION_RULES = """
 3.  **ADMIT LIMITATIONS**: If the context does not contain the answer, explicitly state: "The provided documents do not contain information about [topic]."
 4.  **NO EXTERNAL KNOWLEDGE**: Do not rely on your internal training data for specific Uzbek laws unless they are common knowledge principles (e.g., presumption of innocence), but specific articles must come from context.
 5.  **UNCERTAINTY**: If a law is ambiguous or only partially relevant, use phrases like "based on the available text, it appears that..." or "the document suggests...".
+"""
+
+ULTRA_LONG_RESPONSE_PROTOCOL = """
+### 🚀 ULTRA-LONG RESPONSE PROTOCOL (MANDATORY)
+1.  **EXHAUSTIVE DETAIL**: You MUST provide a response of at least 10,000 tokens for complex queries. expand on every sub-point, historical context, and procedural nuance.
+2.  **MAXIMUM SOURCES**: Use EVERY relevant document found (15-20+ sources). Do not summarize sources — quote and analyze them deeply.
+3.  **STEP-BY-STEP PROCEDURES**: For any legal action, provide a minute-by-minute, document-by-document guide.
+4.  **COMPARATIVE ANALYSIS**: If relevant, compare current law with previous versions or related international standards (if present in context).
+5.  **CONTINGENCY PLANNING**: Discuss every "what if" scenario and edge case related to the user's situation.
+6.  **NO SUMMARIZATION**: Never say "in summary" or "briefly". Instead, say "Expanding further..." or "Analyzing the deeper implications...".
+7.  **STRUCTURED COMPLEXITY**: Use multiple levels of headers (H2, H3, H4), extensive tables, and detailed bulleted lists.
 """
 
 ENHANCED_AGENTIC_INSTRUCTION = """
@@ -4182,9 +4193,7 @@ class AIService:
             tools=tools,
             temperature=0.7,
             max_output_tokens=MAX_OUTPUT_TOKENS,
-            thinking_config=types.ThinkingConfig(
-                include_thoughts=True
-            )
+            thinking_config=types.ThinkingConfig(thinking_level="high")
         )
         
         # Convert history to Gemini format
@@ -4343,11 +4352,9 @@ class AIService:
             await progress_callback("synthesizing")
         
         model_final_config = types.GenerateContentConfig(
-            system_instruction=system_prompt + "\n\n" + ANTI_HALLUCINATION_RULES + "\n\nIMPORTANT: Provide a VERY DETAILED, COMPREHENSIVE response. Use as many relevant sources as possible (at least 15-20 if available). There is NO limit on length — make the answer as long and thorough as theoretically possible.",
+            system_instruction=system_prompt + "\n\n" + ANTI_HALLUCINATION_RULES + "\n\n" + ULTRA_LONG_RESPONSE_PROTOCOL + "\n\nIMPORTANT: Provide a VERY DETAILED, COMPREHENSIVE response. Use as many relevant sources as possible (at least 15-20 if available). Target 10,000+ tokens.",
             max_output_tokens=MAX_OUTPUT_TOKENS,
-            thinking_config=types.ThinkingConfig(
-                include_thoughts=True
-            )
+            thinking_config=types.ThinkingConfig(thinking_level="high")
         )
         
         async def stream_response():
