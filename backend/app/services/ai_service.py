@@ -3973,15 +3973,116 @@ CONTRACT_AUDIT_PROMPT = """Проведите комплексный 3-этап�
   ],
   "summary": "<общая оценка в 2-3 предложениях>"
 }}
-```
+```"""
 
-ПРАВОВОЙ КОНТЕКСТ ИЗ КОДЕКСОВ УЗБЕКИСТАНА:
+DOCUMENT_VALIDATOR_PROMPT = """Вы — «Универсальный аналитик правовых документов Узбекистана» (Uzbekistan Legal Document Intelligence). Ваша цель — проводить ГЛУБОКИЙ МНОГОАСПЕКТНЫЙ АУДИТ любых юридических документов (приказы, протоколы, письма, доверенности, заявления и т.д.) на соответствие законодательству РУз.
+
+ВАШИ ПРИНЦИПЫ:
+1. **Точность:** Ссылки только на действующие нормы права РУз.
+2. **Полнота:** Анализ по 9 измерениям (форма, право, актуальность, комплаенс, риски, согласованность, юрисдикция, суд, этика).
+3. **Объяснимость:** Сложные юридические проблемы объяснять простым языком для неюристов.
+4. **Формат:** СТРОЖАЙШЕЕ соблюдение JSON схемы вывода.
+
+СТРОГОЕ ТРЕБОВАНИЕ ЯЗЫКА: Весь контент внутри JSON (значения полей) должен быть на РУССКОМ языке."""
+
+DOCUMENT_AUDIT_PROMPT = """Проведите комплексный аудит этого документа по 9 измерениям.
+Тип документа (заявленный): {document_type}
+
+ПРАВОВОЙ КОНТЕКСТ:
 {context}
 
-ДОГОВОР ДЛЯ ПРОВЕРКИ:
-{contract_text}
+ДОКУМЕНТ ДЛЯ АНАЛИЗА:
+{document_text}
 
-Проанализируйте договор и верните ТОЛЬКО ответ в формате JSON без дополнительного текста. ВАЖНО: Весь текст внутри JSON (значения полей) должен быть на РУССКОМ языке."""
+ФОРМАТ ВЫВОДА (JSON):
+```json
+{{
+  "document_type_detected": "<определенный тип документа>",
+  "overall_score": <0-100>,
+  "formal_validity": {{
+    "is_valid": <true/false>,
+    "score": <0-100>,
+    "explanation": "<комментарий>",
+    "issues": [
+      {{ "issue": "...", "severity": "critical/high/medium/low", "requirement": "...", "article": "..." }}
+    ]
+  }},
+  "legal_validity": {{
+    "is_valid": <true/false>,
+    "score": <0-100>,
+    "explanation": "<комментарий>",
+    "issues": [
+      {{ "issue": "...", "severity": "...", "article": "...", "consequence": "..." }}
+    ]
+  }},
+  "up_to_dateness": {{
+    "is_current": <true/false>,
+    "score": <0-100>,
+    "explanation": "<комментарий>",
+    "outdated_references": [
+      {{ "reference": "...", "status": "...", "current_version": "..." }}
+    ]
+  }},
+  "compliance_check": {{
+    "is_compliant": <true/false>,
+    "score": <0-100>,
+    "explanation": "<комментарий>",
+    "violations": [
+      {{ "violation": "...", "requirement": "...", "regulator": "...", "penalty": "..." }}
+    ]
+  }},
+  "risk_analysis": {{
+    "risk_level": "low/medium/high/critical",
+    "score": <0-100>,
+    "explanation": "<комментарий>",
+    "risks": [
+      {{ "risk": "...", "probability": "low/medium/high", "impact": "low/medium/high", "category": "..." }}
+    ],
+    "mitigation_suggestions": ["..."]
+  }},
+  "consistency_check": {{
+    "is_consistent": <true/false>,
+    "score": <0-100>,
+    "explanation": "<комментарий>",
+    "inconsistencies": [
+      {{ "issue": "...", "location1": "...", "location2": "..." }}
+    ]
+  }},
+  "jurisdiction_intelligence": {{
+    "score": <0-100>,
+    "primary_jurisdiction": "...",
+    "explanation": "...",
+    "applicable_courts": ["..."],
+    "statute_of_limitations": {{ "applicable_period": "...", "article": "..." }}
+  }},
+  "litigation_readiness": {{
+    "readiness_level": "low/medium/high",
+    "score": <0-100>,
+    "explanation": "...",
+    "evidence_gaps": [
+      {{ "gap": "...", "required_evidence": "...", "how_to_obtain": "..." }}
+    ],
+    "litigation_strategy": ["..."]
+  }},
+  "ethical_guardrails": {{
+    "passes_ethics": <true/false>,
+    "score": <0-100>,
+    "explanation": "...",
+    "ethical_concerns": [
+      {{ "concern": "...", "severity": "...", "recommendation": "..." }}
+    ],
+    "unfair_terms": [
+      {{ "term": "...", "why_unfair": "...", "fix": "..." }}
+    ]
+  }},
+  "improvements": [
+    {{ "issue": "...", "priority": "critical/high/medium/low", "location": "...", "current_text": "...", "suggested_text": "...", "explanation": "..." }}
+  ],
+  "summary": "<краткое резюме>",
+  "explainability": "<простое объяснение смысла документа для школьника>"
+}}
+```"""
+
 
 GENERATOR_PROMPT = """Вы профессиональный юрист-составитель договоров Узбекистана. Ваша задача — создавать юридически грамотные, полные и соответствующие законодательству договоры.
 
@@ -4845,3 +4946,240 @@ class AIService:
             "sources": [],
             "quality_metrics": {},
         }
+
+    async def generate_contract(
+        self,
+        category: str,
+        requirements: str,
+        template_context: str
+    ) -> Dict[str, Any]:
+        """
+        Generate a contract using Gemini Flash based on templates, legal context, and user requirements.
+        Returns streaming response compatible with the generator router.
+        """
+        logger.info(f"=== GENERATE CONTRACT ===")
+        logger.info(f"Category: {category}")
+        logger.info(f"Requirements length: {len(requirements)} chars")
+        logger.info(f"Template context length: {len(template_context)} chars")
+        
+        # Build the user prompt with template context and requirements
+        user_prompt = (
+            f"📂 КАТЕГОРИЯ ДОГОВОРА: {category}\n\n"
+            f"📋 ШАБЛОНЫ ДОГОВОРОВ ДАННОЙ КАТЕГОРИИ:\n"
+            f"{'─' * 60}\n"
+            f"{template_context}\n"
+            f"{'─' * 60}\n\n"
+            f"📝 ТРЕБОВАНИЯ ПОЛЬЗОВАТЕЛЯ:\n{requirements}\n\n"
+            f"Составьте полный, готовый к использованию договор на основе шаблонов и требований. "
+            f"Используйте структуру из шаблонов, но адаптируйте под конкретные требования пользователя."
+        )
+        
+        config = types.GenerateContentConfig(
+            system_instruction=GENERATOR_PROMPT,
+            max_output_tokens=MAX_OUTPUT_TOKENS,
+            temperature=0.3,
+            thinking_config=types.ThinkingConfig(
+                thinking_level="high"
+            ),
+        )
+        
+        async def stream_response():
+            try:
+                stream = await self.client.aio.models.generate_content_stream(
+                    model=self.settings.gemini_flash_model,
+                    contents=user_prompt,
+                    config=config
+                )
+                async for chunk in stream:
+                    if chunk.text:
+                        yield chunk.text
+            except Exception as e:
+                logger.error(f"Contract generation error: {e}")
+                yield f"\n\n⚠️ Ошибка генерации договора: {str(e)}"
+        
+        return {
+            "response": stream_response(),
+            "sources": [],
+        }
+
+    async def analyze_contract(
+        self,
+        contract_text: str
+    ) -> Dict[str, Any]:
+        """
+        Analyze a contract for legal compliance using Gemini Flash.
+        Returns structured audit result with validity score, errors, warnings, and missing clauses.
+        """
+        logger.info(f"=== ANALYZE CONTRACT ===")
+        logger.info(f"Contract text length: {len(contract_text)} chars")
+        
+        # Retrieve legal context for contract analysis
+        try:
+            self._init_rag_engine()
+            context_results = await self._enhanced_retrieve_context(
+                query="существенные условия договора обязательные требования гражданский кодекс",
+                top_k=15
+            )
+            legal_context = self._format_enhanced_context(context_results)
+            sources = self._format_sources_with_quality(context_results)
+        except Exception as e:
+            logger.warning(f"RAG retrieval failed for contract analysis: {e}")
+            legal_context = "Правовой контекст недоступен."
+            sources = []
+        
+        # Build the audit prompt with the contract text and legal context
+        audit_prompt = CONTRACT_AUDIT_PROMPT.format(
+            context=legal_context,
+            contract_text=contract_text
+        )
+        
+        try:
+            response = await self.client.aio.models.generate_content(
+                model=self.settings.gemini_flash_model,
+                contents=audit_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=VALIDATOR_PROMPT,
+                    temperature=0.2,
+                    max_output_tokens=MAX_OUTPUT_TOKENS,
+                    thinking_config=types.ThinkingConfig(
+                        thinking_level="high"
+                    ),
+                )
+            )
+            
+            raw_text = response.text.strip() if response.text else ""
+            
+            # Extract JSON from response (handle markdown code blocks)
+            json_text = raw_text
+            if "```" in json_text:
+                parts = json_text.split("```")
+                for part in parts:
+                    stripped = part.strip()
+                    if stripped.startswith("json"):
+                        stripped = stripped[4:].strip()
+                    if stripped.startswith("{"):
+                        json_text = stripped
+                        break
+            
+            audit = json.loads(json_text)
+            
+            logger.info(f"Contract analysis complete. Score: {audit.get('validity_score', 'N/A')}")
+            
+            return {
+                "audit": audit,
+                "sources": sources,
+                "raw_response": raw_text,
+            }
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse contract audit JSON: {e}")
+            logger.error(f"Raw response: {raw_text[:500]}")
+            # Return a fallback audit
+            return {
+                "audit": {
+                    "validity_score": 0,
+                    "score_explanation": "Не удалось выполнить автоматический анализ. Попробуйте снова.",
+                    "critical_errors": [],
+                    "warnings": [],
+                    "missing_clauses": [],
+                    "summary": raw_text[:1000] if raw_text else "Ошибка анализа"
+                },
+                "sources": sources,
+                "raw_response": raw_text,
+            }
+        except Exception as e:
+            logger.error(f"Contract analysis error: {e}")
+            raise
+
+    async def analyze_document(
+        self,
+        document_text: str,
+        document_type: str,
+        top_k: int = 50
+    ) -> Dict[str, Any]:
+        """
+        Analyze any legal document (not just contracts) using the comprehensive 9-point audit.
+        Returns detailed JSON analysis.
+        """
+        logger.info(f"=== ANALYZE DOCUMENT ===")
+        logger.info(f"Type: {document_type}, Length: {len(document_text)} chars")
+        
+        # 1. Retrieve legal context
+        try:
+            self._init_rag_engine()
+            # Combine doc type + keywords for better retrieval
+            search_query = f"{document_type} требования оформление обязательные реквизиты закон узбекистан"
+            context_results = await self._enhanced_retrieve_context(
+                query=search_query,
+                top_k=top_k
+            )
+            legal_context = self._format_enhanced_context(context_results)
+            sources = self._format_sources_with_quality(context_results)
+            logger.info(f"Retrieved {len(sources)} sources for document analysis")
+        except Exception as e:
+            logger.warning(f"RAG retrieval failed for document analysis: {e}")
+            legal_context = "Правовой контекст недоступен. Анализируйте на основе общих знаний законодательства РУз."
+            sources = []
+            
+        # 2. Build Prompt
+        prompt = DOCUMENT_AUDIT_PROMPT.format(
+            document_type=document_type,
+            context=legal_context,
+            document_text=document_text[:30000] # Limit context window just in case
+        )
+        
+        # 3. Call AI
+        try:
+            response = await self.client.aio.models.generate_content(
+                model=self.settings.gemini_flash_model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=DOCUMENT_VALIDATOR_PROMPT,
+                    temperature=0.1, # Very low temp for strict JSON adherence
+                    max_output_tokens=MAX_OUTPUT_TOKENS,
+                    thinking_config=types.ThinkingConfig(
+                        thinking_level="high"
+                    ),
+                )
+            )
+            
+            raw_text = response.text.strip() if response.text else ""
+            
+            # 4. Extract & Parse JSON
+            json_text = raw_text
+            if "```" in json_text:
+                parts = json_text.split("```")
+                for part in parts:
+                    stripped = part.strip()
+                    if stripped.startswith("json"):
+                        stripped = stripped[4:].strip()
+                    if stripped.startswith("{"):
+                        json_text = stripped
+                        break
+            
+            audit = json.loads(json_text)
+            logger.info(f"Document analysis success. Score: {audit.get('overall_score', 'N/A')}")
+            
+            return {
+                "audit": audit,
+                "sources": sources,
+                "raw_response": raw_text
+            }
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse document audit JSON: {e}")
+            # Robust fallback
+            return {
+                "audit": {
+                    "overall_score": 0,
+                    "document_type_detected": document_type,
+                    "summary": f"Ошибка анализатора: не удалось прочитать структуру ответа AI. \n\nRaw text start: {raw_text[:200]}...",
+                    "formal_validity": {"is_valid": False, "explanation": "JSON Parse Error"},
+                    "legal_validity": {"is_valid": False, "explanation": "JSON Parse Error"},
+                },
+                "sources": sources,
+                "raw_response": raw_text
+            }
+        except Exception as e:
+            logger.error(f"Analyze document fatal error: {e}")
+            raise
