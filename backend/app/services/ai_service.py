@@ -3915,7 +3915,7 @@ SEARCH_TOOLS = [
                 },
                 "top_k": {
                     "type": "integer",
-                    "description": "Number of results to return (default 65, recommended 70-85 for balanced coverage, max 100)"
+                    "description": "Number of results to return (default 50, recommended 50-55 for balanced coverage, max 60)"
                 },
                 "filter_source": {
                     "type": "string",
@@ -3958,17 +3958,17 @@ AGENTIC_INSTRUCTION = """
 ▶ Поиск 1 (ШИРОКИЙ): Общая концепция
    Пример: "mehnat shartnomasi tuziladigan tartib"
    Цель: Понять общую структуру регулирования
-   Параметр: top_k=60-80
+   Параметр: top_k=30-40
 
 ▶ Поиск 2 (УТОЧНЯЮЩИЙ): Конкретный аспект
    Пример: "mehnat shartnomasi majburiy shartlari"
    Цель: Найти специфические требования
-   Параметр: top_k=40-60
+   Параметр: top_k=20-30
 
 ▶ Поиск 3 (ЦЕЛЕВОЙ): Специфические нормы
    Пример: "mehnat shartnomasi bekor qilish asoslari"
    Цель: Точные правовые основания
-   Параметр: top_k=20-40
+   Параметр: top_k=10-20
 
 ▶ Поиск 4+ (ПО НЕОБХОДИМОСТИ): Смежные вопросы
    Примеры: санкции, процедуры, исключения, судебная практика
@@ -4144,27 +4144,27 @@ AGENTIC_INSTRUCTION = """
 Пользователь: "Какие обязательные условия должны быть в трудовом договоре?"
 
 Стратегия:
-1. search_legal_database("mehnat shartnomasi majburiy shartlari", top_k=60)
-2. search_legal_database("mehnat shartnomasi tuzish tartibi", top_k=50)
-3. search_legal_database("mehnat shartnomasi mazmuni talablar", top_k=40)
+1. search_legal_database("mehnat shartnomasi majburiy shartlari", top_k=30)
+2. search_legal_database("mehnat shartnomasi tuzish tartibi", top_k=25)
+3. search_legal_database("mehnat shartnomasi mazmuni talablar", top_k=20)
 
 【ПРИМЕР 2: Вопрос о НДС】
 Пользователь: "Кто освобождается от уплаты НДС?"
 
 Стратегия:
-1. search_legal_database("QQS qoshilgan qiymat soligi imtiyozlar", top_k=60)
-2. search_legal_database("QQS tolovchilar roʻyxatga olish", top_k=50)
-3. search_legal_database("QQS ozod qilish shartlari chegirmalar", top_k=40)
-4. search_legal_database("soliq imtiyozlari QQS", top_k=30)
+1. search_legal_database("QQS qoshilgan qiymat soligi imtiyozlar", top_k=30)
+2. search_legal_database("QQS tolovchilar roʻyxatga olish", top_k=25)
+3. search_legal_database("QQS ozod qilish shartlari chegirmalar", top_k=20)
+4. search_legal_database("soliq imtiyozlari QQS", top_k=15)
 
 【ПРИМЕР 3: Вопрос о расторжении договора】
 Пользователь: "По каким основаниям можно расторгнуть договор купли-продажи?"
 
 Стратегия:
-1. search_legal_database("shartnoma bekor qilish asoslari", top_k=60)
-2. search_legal_database("sotib olish sotish shartnomasi buzilishi", top_k=50)
-3. search_legal_database("shartnoma majburiyatlarini bajarmagan tartib", top_k=40)
-4. search_legal_database("birtaraflama shartnomadan voz kechish", top_k=30)
+1. search_legal_database("shartnoma bekor qilish asoslari", top_k30)
+2. search_legal_database("sotib olish sotish shartnomasi buzilishi", top_k=25)
+3. search_legal_database("shartnoma majburiyatlarini bajarmagan tartib", top_k=20)
+4. search_legal_database("birtaraflama shartnomadan voz kechish", top_k=15)
 
 ═══════════════════════════════════════════════════════════════════════════
 ⚠️ СПЕЦИАЛЬНЫЕ СЛУЧАИ
@@ -4224,9 +4224,9 @@ HIGH_QUALITY_THRESHOLD = 0.70  # High confidence threshold
 MEDIUM_QUALITY_THRESHOLD = 0.55  # Medium confidence threshold
 
 # Search configuration
-DEFAULT_TOP_K = 80
-PRE_SEARCH_TOP_K = 80
-MAX_SEARCH_TOP_K = 120
+DEFAULT_TOP_K = 50
+PRE_SEARCH_TOP_K = 40
+MAX_SEARCH_TOP_K = 60
 
 # ═══════════════════════════════════════════════════════════════
 # 📋 ENHANCED SYSTEM PROMPTS
@@ -4411,7 +4411,7 @@ SEARCH_TOOLS = [
 
 Параметры:
 - query: Поисковый запрос (3-10 ключевых слов, используйте русский и/или узбекский)
-- top_k: Количество результатов (40-100, рекомендуется 60-75)
+- top_k: Количество результатов (40-60, рекомендуется 50-55)
 - filter_source: Фильтр по имени файла, например "CIVIL-CODE-PART-1.docx" или "-24724_El-yurt_hurmati..." (опционально)
 
 Каждый результат содержит:
@@ -4430,8 +4430,8 @@ SEARCH_TOOLS = [
                 },
                 "top_k": {
                     "type": "integer",
-                    "description": "Количество результатов для возврата (40-100). По умолчанию 75.",
-                    "default": 75
+                    "description": "Количество результатов для возврата (40-60). По умолчанию 50.",
+                    "default": 50
                 },
                 "filter_source": {
                     "type": "string",

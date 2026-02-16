@@ -295,7 +295,7 @@ async def analyze_document(
     try:
         # Analyze document
         ai_service = AIService(mode='document-validator')
-        result = await ai_service.analyze_document(document_text, document_type, top_k=100)
+        result = await ai_service.analyze_document(document_text, document_type, top_k=50)
         
         audit = result.get('audit', {})
         
