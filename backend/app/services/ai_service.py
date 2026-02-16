@@ -4352,7 +4352,8 @@ class AIService:
                 ANTI_HALLUCINATION_RULES + "\n\n" + 
                 "IMPORTANT: You are a SENIOR IN FIELD YOU SPECIALIZE TO. Your goal is to provide a comprehensive, "
                 "deeply reasoned, and legally grounded answer. "
-                "Target 5,000+ words of high-quality legal analysis in your field, use as much words you can, make answers as detailed as it can be."
+                "Target 5,000+ words of high-quality legal analysis in your field, use as much words you can, make answers as detailed as it can be. "
+                "MUST START RESPONSE WITH THE TITLE/HEADER DEFINED IN THE FORMAT."
             ),
             max_output_tokens=MAX_OUTPUT_TOKENS,
             # thinking_config=types.ThinkingConfig(thinking_level="high") # Not supported in all models yet, safely removed for now
@@ -4623,21 +4624,11 @@ class AIService:
                 f"📋 КОНТЕКСТ ЗАДАЧИ ПОЛЬЗОВАТЕЛЯ:\n\n{extra_context}\n\n{'─' * 60}\n\n"
             )
         
-        avg_score = quality_metrics.get('avg_relevance_score', 0)
-        if avg_score >= 0.70:
-            quality_indicator = "🟢 ВЫСОКОЕ КАЧЕСТВО КОНТЕКСТА (средняя релевантность: {:.1%})".format(avg_score)
-        elif avg_score >= 0.55:
-            quality_indicator = "🟡 СРЕДНЕЕ КАЧЕСТВО КОНТЕКСТА (средняя релевантность: {:.1%}) - используйте с осторожностью".format(avg_score)
-        elif avg_score >= 0.50:
-            quality_indicator = "🟠 НИЗКОЕ КАЧЕСТВО КОНТЕКСТА (средняя релевантность: {:.1%}) - укажите предупреждение".format(avg_score)
-        else:
-            quality_indicator = "🔴 НЕДОСТАТОЧНОЕ КАЧЕСТВО КОНТЕКСТА (средняя релевантность: {:.1%}) - сообщите об отсутствии информации".format(avg_score)
         
         if combined_context:
             final_user_content = (
                 f"{extra_context_section}"
                 f"{'═' * 60}\n"
-                f"📊 {quality_indicator}\n"
                 f"{'═' * 60}\n\n"
                 f"ПРАВОВОЙ КОНТЕКСТ ИЗ БАЗЫ ДАННЫХ ЗАКОНОДАТЕЛЬСТВА УЗБЕКИСТАНА:\n\n"
                 f"{combined_context}\n\n"
@@ -4645,14 +4636,13 @@ class AIService:
                 f"ВОПРОС КЛИЕНТА:\n{question}\n\n"
                 f"{'─' * 60}\n\n"
                 f"📝 ИНСТРУКЦИИ ДЛЯ ОТВЕТА:\n\n"
-                f"1. Используйте ТОЛЬКО информацию из предоставленного правового контекста\n"
-                f"2. Цитируйте ТОЧНЫЕ номера статей из контекста (не придумывайте!)\n"
-                f"3. Учитывайте quality score результатов (🟢🟡🟠🔴)\n"
-                f"4. При низком качестве контекста укажите предупреждение\n"
-                f"5. Если информации недостаточно - прямо сообщите об этом\n"
-                f"6. Структурируйте ответ согласно формату из системного промпта\n"
-                f"7. Укажите уровень уверенности в ответе\n\n"
-                f"Дайте полный, структурированный, профессиональный ответ."
+                f"1. НАЧНИТЕ СВОЙ ОТВЕТ ТОЧНО С ЗАГОЛОВКА/ЗАГОЛОВКА, определенного в формате системной подсказки.\n"
+                f"2. НЕ ПРОПУСКАЙТЕ НИКАКИЕ РАЗДЕЛЫ. Строго следуйте требуемой структуре.\n"
+                f"3. Используйте ТОЛЬКО информацию из предоставленного правового контекста\n"
+                f"4. Цитируйте ТОЧНЫЕ номера статей из контекста (не придумывайте!)\n"
+                f"5. При низком качестве контекста укажите предупреждение\n"
+                f"6. Если информации недостаточно - прямо сообщите об этом\n"
+                f"Дайте полный, структурированный, профессиональный ответ. НАЧНИТЕ С ЗАГОЛОВКА."
             )
         else:
              final_user_content = (
