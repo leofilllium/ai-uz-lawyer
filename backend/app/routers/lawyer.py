@@ -137,18 +137,22 @@ async def chat(
             search_rounds = result.get('search_rounds', [])
             logger.info(f"Sources in SSE done event: {len(sources)} items")
             
-            # Save assistant message with sources and metrics
+            # Save assistant message with sources and metrics (in thinking field)
             logger.info(f"Saving assistant message to database...")
+            
+            # Serialize metadata to store in thinking field
+            metadata_json = json.dumps({
+                "quality_metrics": quality_metrics,
+                "search_rounds": search_rounds
+            })
+            
             with Session(db.get_bind()) as save_db:
                 assistant_msg = ChatMessage(
                     session_id=current_session_id,
                     role='assistant',
                     content=full_response,
                     sources=sources,
-                    # We can store quality_metrics and search_rounds in the thinking or sources JSON if needed,
-                    # but for now let's just make sure they are sent to the frontend.
-                    # If the ChatMessage model doesn't have these fields yet, we'd need a migration.
-                    # Given the current model, let's keep it simple.
+                    thinking=metadata_json  # Store metadata here
                 )
                 save_db.add(assistant_msg)
                 save_db.commit()
@@ -216,7 +220,28 @@ async def get_session(
     ).order_by(ChatMessage.created_at).all()
     
     session_dict = session.to_dict()
-    session_dict['messages'] = [ChatMessageResponse.model_validate(m.to_dict()) for m in messages]
+    
+    # Process messages to extract metadata from thinking field
+    message_responses = []
+    for m in messages:
+        msg_dict = m.to_dict()
+        msg_response = ChatMessageResponse.model_validate(msg_dict)
+        
+        # Try to extract metadata from thinking if it's JSON
+        if m.role == 'assistant' and m.thinking:
+            try:
+                if m.thinking.startswith('{'):
+                    meta = json.loads(m.thinking)
+                    if 'quality_metrics' in meta:
+                        msg_response.quality_metrics = meta['quality_metrics']
+                    if 'search_rounds' in meta:
+                        msg_response.search_rounds = meta['search_rounds']
+            except:
+                pass
+        
+        message_responses.append(msg_response)
+        
+    session_dict['messages'] = message_responses
     
     return ChatSessionDetailResponse.model_validate(session_dict)
 

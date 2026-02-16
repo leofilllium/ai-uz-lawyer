@@ -17,7 +17,7 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 # Quality Thresholds
-MIN_RELEVANCE_SCORE = 0.50        # ≥50% to use
+MIN_RELEVANCE_SCORE = 0.35        # ≥35% to use (lowered for debugging)
 HIGH_QUALITY_THRESHOLD = 0.70     # ≥70% = high confidence
 MEDIUM_QUALITY_THRESHOLD = 0.55   # 55-70% = medium confidence
 
