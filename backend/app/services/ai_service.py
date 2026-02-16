@@ -3691,18 +3691,6 @@ ANTI_HALLUCINATION_RULES = """
 5.  **UNCERTAINTY**: If a law is ambiguous or only partially relevant, use phrases like "based on the available text, it appears that..." or "the document suggests...".
 """
 
-ULTRA_LONG_RESPONSE_PROTOCOL = """
-### 🚀 ULTRA-LONG RESPONSE PROTOCOL (MANDATORY)
-1.  **EXHAUSTIVE DETAIL**: You MUST provide a response of at least 10,000 tokens for complex queries. expand on every sub-point, historical context, and procedural nuance.
-2.  **MAXIMUM SOURCES**: Use EVERY relevant document found (15-20+ sources). Do not summarize sources — quote and analyze them deeply.
-3.  **STEP-BY-STEP PROCEDURES**: For any legal action, provide a minute-by-minute, document-by-document guide.
-4.  **COMPARATIVE ANALYSIS**: If relevant, compare current law with previous versions or related international standards (if present in context).
-5.  **CONTINGENCY PLANNING**: Discuss every "what if" scenario and edge case related to the user's situation.
-6.  **NO SUMMARIZATION**: Never say "in summary" or "briefly". Instead, say "Expanding further..." or "Analyzing the deeper implications...".
-7.  **STRUCTURED COMPLEXITY**: Use multiple levels of headers (H2, H3, H4), extensive tables, and detailed bulleted lists.
-8.  **STRICT FORMATTING**: Use horizontal lines (---) only. NEVER use decorative ASCII/Unicode bars (like '=' or '═══').
-"""
-
 ENHANCED_AGENTIC_INSTRUCTION = """
 ### 🧠 ENHANCED AI AGENT INSTRUCTION
 You are an advanced legal AI agent for Uzbekistan law. Your purpose is to provide highly accurate, legally grounded advice.
@@ -4201,7 +4189,6 @@ class AIService:
             tools=tools,
             temperature=0.7,
             max_output_tokens=MAX_OUTPUT_TOKENS,
-            thinking_config=types.ThinkingConfig(thinking_level="high")
         )
         
         # Convert history to Gemini format
@@ -4355,14 +4342,20 @@ class AIService:
             quality_metrics
         )
         
-        logger.info(f"Phase 3: Streaming final response with Gemini Flash...")
+        logger.info(f"Phase 3: Streaming final response with Gemini Pro...")
         if progress_callback:
             await progress_callback("synthesizing")
         
         model_final_config = types.GenerateContentConfig(
-            system_instruction=system_prompt + "\n\n" + ANTI_HALLUCINATION_RULES + "\n\n" + ULTRA_LONG_RESPONSE_PROTOCOL + "\n\nIMPORTANT: Provide a VERY DETAILED, COMPREHENSIVE response. Use as many relevant sources as possible (at least 15-20 if available). Target 10,000+ tokens.",
+            system_instruction=(
+                system_prompt + "\n\n" + 
+                ANTI_HALLUCINATION_RULES + "\n\n" + 
+                "IMPORTANT: You are a SENIOR IN FIELD YOU SPECIALIZE TO. Your goal is to provide a comprehensive, "
+                "deeply reasoned, and legally grounded answer. "
+                "Target 5,000+ words of high-quality legal analysis in your field, use as much words you can, make answers as detailed as it can be."
+            ),
             max_output_tokens=MAX_OUTPUT_TOKENS,
-            thinking_config=types.ThinkingConfig(thinking_level="high")
+            # thinking_config=types.ThinkingConfig(thinking_level="high") # Not supported in all models yet, safely removed for now
         )
         
         async def stream_response():
