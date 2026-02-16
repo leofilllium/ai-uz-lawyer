@@ -154,13 +154,7 @@ async def chat(
                 save_db.commit()
             logger.info(f"Assistant message saved successfully")
             
-            yield f"data: {json.dumps({
-                'done': True, 
-                'session_id': current_session_id, 
-                'sources': sources,
-                'quality_metrics': quality_metrics,
-                'search_rounds': search_rounds
-            })}\n\n"
+            yield f"data: {json.dumps({'done': True, 'session_id': current_session_id, 'sources': sources, 'quality_metrics': quality_metrics, 'search_rounds': search_rounds})}\n\n"
             logger.info(f"=== CHAT COMPLETE ===")
             
         except Exception as e:
