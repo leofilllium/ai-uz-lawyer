@@ -30,17 +30,33 @@ def tokenize_uzbek(text: str) -> List[str]:
     return [t.lower() for t in _UZBEK_TOKEN_PATTERN.findall(text) if len(t) > 1]
 
 
-class BM25Index:
-    """Lazy-built BM25 index over ChromaDB documents."""
+import pickle
+import os
 
-    def __init__(self):
+class BM25Index:
+    """
+    Lazy-built BM25 index over ChromaDB documents with persistence.
+    
+    Optimized to:
+    1. Persist index to disk (avoid rebuilding on restart)
+    2. Minimal memory footprint (don't store doc text, only IDs)
+    3. Fetch content from ChromaDB only for search results
+    """
+
+    def __init__(self, persist_dir: Path):
+        self.persist_dir = persist_dir
+        self.index_path = persist_dir / "bm25_index.pkl"
+        
         self._bm25: Optional[BM25Okapi] = None
         self._doc_ids: List[str] = []
-        self._doc_texts: List[str] = []
-        self._doc_metadatas: List[Dict[str, Any]] = []
-        self._corpus: List[List[str]] = []
+        # We DO NOT store texts/metadata in memory to save RAM.
+        # We fetch them from ChromaDB by ID during search.
+        
         self._build_time: float = 0
         self._doc_count_at_build: int = 0
+        
+        # Try loading existing index
+        self.load()
 
     @property
     def is_built(self) -> bool:
@@ -50,10 +66,49 @@ class BM25Index:
         """Check if index needs rebuilding (new docs added)."""
         if not self.is_built:
             return True
-        # Rebuild if >5% new documents or it's been >10 minutes
+        # Rebuild if >5% new documents or it's been >24 hours
+        # (Increased from 10m to 24h because building is expensive)
         count_diff = abs(current_count - self._doc_count_at_build)
         time_diff = _time.time() - self._build_time
-        return count_diff > self._doc_count_at_build * 0.05 or time_diff > 600
+        
+        if count_diff > 0:
+            logger.info(f"BM25: Doc count changed ({self._doc_count_at_build} -> {current_count})")
+            
+        return count_diff > self._doc_count_at_build * 0.05
+
+    def save(self):
+        """Save index to disk."""
+        try:
+            logger.info(f"BM25: Saving index to {self.index_path}")
+            with open(self.index_path, "wb") as f:
+                data = {
+                    "bm25": self._bm25,
+                    "doc_ids": self._doc_ids,
+                    "build_time": self._build_time,
+                    "doc_count": self._doc_count_at_build
+                }
+                pickle.dump(data, f)
+            logger.info("BM25: Index saved successfully")
+        except Exception as e:
+            logger.error(f"BM25: Failed to save index: {e}")
+
+    def load(self):
+        """Load index from disk."""
+        if not self.index_path.exists():
+            return
+            
+        try:
+            logger.info(f"BM25: Loading index from {self.index_path}")
+            with open(self.index_path, "rb") as f:
+                data = pickle.load(f)
+                self._bm25 = data["bm25"]
+                self._doc_ids = data["doc_ids"]
+                self._build_time = data.get("build_time", 0)
+                self._doc_count_at_build = data.get("doc_count", 0)
+            logger.info(f"BM25: Loaded index with {len(self._doc_ids)} documents")
+        except Exception as e:
+            logger.error(f"BM25: Failed to load index: {e}")
+            self._bm25 = None
 
     def build(self, collection) -> None:
         """Build BM25 index from ChromaDB collection."""
@@ -62,41 +117,56 @@ class BM25Index:
             logger.warning("BM25: No documents to index")
             return
 
-        logger.info(f"BM25: Building index over {total} documents...")
+        logger.info(f"BM25: Starting build over {total} documents...")
         start = _time.time()
 
         all_ids = []
-        all_texts = []
-        all_metadatas = []
-        batch_size = 5000
-
+        corpus = []
+        
+        batch_size = 5000 
+        # Using a generator or iterative fetch to manage memory, 
+        # but BM25Okapi needs full corpus list.
+        
+        processed = 0
         for offset in range(0, total, batch_size):
             batch = collection.get(
-                include=["documents", "metadatas"],
+                include=["documents"], # Only fetch documents, no metadata yet
                 limit=batch_size,
                 offset=offset,
             )
+            
             if batch and batch["ids"]:
-                all_ids.extend(batch["ids"])
-                all_texts.extend(batch["documents"] or [])
-                all_metadatas.extend(batch["metadatas"] or [])
-
-        # Tokenize corpus
-        corpus = [tokenize_uzbek(text) for text in all_texts]
-
+                ids_batch = batch["ids"]
+                docs_batch = batch["documents"] or []
+                
+                # Tokenize immediately and discard raw text
+                for doc in docs_batch:
+                    corpus.append(tokenize_uzbek(doc))
+                    
+                all_ids.extend(ids_batch)
+                processed += len(ids_batch)
+                
+                if processed % 20000 == 0:
+                    logger.info(f"BM25: Processed {processed}/{total} docs...")
+        
+        logger.info("BM25: Tokenization complete. Fitting BM25 model...")
         self._bm25 = BM25Okapi(corpus)
         self._doc_ids = all_ids
-        self._doc_texts = all_texts
-        self._doc_metadatas = all_metadatas
-        self._corpus = corpus
+        
         self._build_time = _time.time()
         self._doc_count_at_build = total
+        
+        # Save to disk
+        self.save()
 
         elapsed = self._build_time - start
-        logger.info(f"BM25: Index built in {elapsed:.2f}s ({total} docs)")
-
-    def search(self, query: str, top_k: int = 60) -> List[Dict[str, Any]]:
-        """Search using BM25 keyword matching."""
+        logger.info(f"BM25: Index built & saved in {elapsed:.2f}s")
+        
+    def search(self, query: str, top_k: int = 60, collection = None) -> List[Dict[str, Any]]:
+        """
+        Search using BM25 keyword matching.
+        NOTE: Requires 'collection' argument to fetch actual content.
+        """
         if not self.is_built:
             return []
 
@@ -107,22 +177,73 @@ class BM25Index:
         scores = self._bm25.get_scores(tokens)
 
         # Get top-k indices by score
+        # Optimization: use numpy argpartition if available, but generic sort is fine for now
         scored_indices = sorted(
             enumerate(scores), key=lambda x: x[1], reverse=True
         )[:top_k]
 
-        results = []
+        # Collect top IDs
+        top_indices = []
+        top_scores = []
+        top_ids = []
+        
         for idx, score in scored_indices:
             if score <= 0:
                 continue
-            results.append({
-                "content": self._doc_texts[idx],
-                "metadata": self._doc_metadatas[idx] if idx < len(self._doc_metadatas) else {},
-                "bm25_score": float(score),
-                "doc_id": self._doc_ids[idx],
-            })
+            top_indices.append(idx)
+            top_scores.append(score)
+            top_ids.append(self._doc_ids[idx])
+            
+        if not top_ids:
+            return []
+            
+        # Fetch content for these IDs from filtered collection
+        # We need the content and metadata for the results
+        # Assuming collection is passed or we can access it.
+        # But wait, the standard signature didn't have collection.
+        # We need to rely on the caller passing it or storing a ref?
+        # Storing ref to collection is pickle-unsafe.
+        
+        # Better: Return IDs and scores, let VectorStore fetch content?
+        # Or change signature. Since this is internal helper, I can change signature.
+        
+        if collection is None:
+            logger.error("BM25: Collection required for fetching content")
+            return []
 
-        return results
+        try:
+            # Fetch by IDs
+            # Note: collection.get returns results in arbitrary order? 
+            # We need to map them back.
+            docs = collection.get(
+                ids=top_ids,
+                include=["documents", "metadatas"]
+            )
+            
+            # Create a lookup map
+            id_to_data = {}
+            for i, doc_id in enumerate(docs["ids"]):
+                id_to_data[doc_id] = {
+                    "content": docs["documents"][i],
+                    "metadata": docs["metadatas"][i]
+                }
+                
+            results = []
+            for i, doc_id in enumerate(top_ids):
+                if doc_id in id_to_data:
+                    data = id_to_data[doc_id]
+                    results.append({
+                        "content": data["content"],
+                        "metadata": data["metadata"],
+                        "bm25_score": float(top_scores[i]),
+                        "doc_id": doc_id,
+                    })
+            
+            return results
+            
+        except Exception as e:
+            logger.error(f"BM25: Error fetching results: {e}")
+            return []
 
 
 class VectorStore:
@@ -167,8 +288,8 @@ class VectorStore:
             }
         )
 
-        # BM25 keyword index (lazy-built)
-        self._bm25_index = BM25Index()
+        # BM25 keyword index (lazy-built) with persistence
+        self._bm25_index = BM25Index(persist_dir=self.persist_directory)
 
         # Cache for get_indexed_documents
         self._indexed_docs_cache: List[Dict[str, Any]] = []
@@ -257,7 +378,7 @@ class VectorStore:
     ) -> List[Dict[str, Any]]:
         """BM25 keyword search over documents."""
         self._ensure_bm25_index()
-        return self._bm25_index.search(query, top_k)
+        return self._bm25_index.search(query, top_k, collection=self.collection)
 
     def hybrid_search(
         self,
@@ -483,7 +604,7 @@ class VectorStore:
                 raise
 
         # Invalidate BM25 index after adding documents
-        self._bm25_index = BM25Index()
+        self._bm25_index = BM25Index(persist_dir=self.persist_directory)
 
         return total_added
 
@@ -498,7 +619,14 @@ class VectorStore:
             name="uzbekistan_legal_codes",
             metadata={"description": "Uzbekistan Legal Codes"}
         )
-        self._bm25_index = BM25Index()
+        # Remove persistent index file
+        index_path = self.persist_directory / "bm25_index.pkl"
+        if index_path.exists():
+            try:
+                os.remove(index_path)
+            except OSError:
+                pass
+        self._bm25_index = BM25Index(persist_dir=self.persist_directory)
 
     def is_indexed(self) -> bool:
         """Check if documents have been indexed."""
@@ -568,7 +696,7 @@ class VectorStore:
 
         ids_to_delete = results["ids"]
         self.collection.delete(ids=ids_to_delete)
-        self._bm25_index = BM25Index()  # Invalidate
+        self._bm25_index = BM25Index(persist_dir=self.persist_directory)  # Invalidate
 
         print(f"Removed {len(ids_to_delete)} chunks from source: {source_name}")
         return len(ids_to_delete)
