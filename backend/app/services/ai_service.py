@@ -8,7 +8,7 @@ import json
 import logging
 import re
 import traceback
-from typing import List, Dict, Any, Generator, Optional
+from typing import List, Dict, Any, Generator, Optional, Callable, Awaitable
 import anthropic
 
 from app.config import get_settings
@@ -4484,7 +4484,8 @@ class AIService:
         history: Optional[List[Dict[str, str]]] = None,
         top_k: int = DEFAULT_TOP_K,
         chat_mode: str = 'consultant',
-        extra_context: Optional[str] = None
+        extra_context: Optional[str] = None,
+        progress_callback: Optional[Callable[[str], Awaitable[None]]] = None
     ) -> Dict[str, Any]:
         """
         Enhanced agentic RAG with hallucination prevention and quality validation.
@@ -4495,6 +4496,7 @@ class AIService:
         - Multi-round agentic search with Haiku
         - Final synthesis with Opus
         - Strict citation enforcement
+        - Progress callback for SSE heartbeats
         """
         logger.info(f"=== ENHANCED AI SERVICE: query_with_rag ===")
         logger.info(f"Question: {question[:100]}...")
@@ -4533,6 +4535,8 @@ class AIService:
                 logger.info(f"Augmented search query with context keywords: {search_query}")
 
         logger.info("Running mandatory pre-search for baseline context...")
+        if progress_callback:
+            await progress_callback("searching")
         pre_search_results = await self._enhanced_retrieve_context(
             search_query, 
             top_k=PRE_SEARCH_TOP_K
@@ -4582,6 +4586,8 @@ class AIService:
         
         for round_num in range(1, MAX_AGENTIC_ROUNDS + 1):
             logger.info(f"=== AGENTIC ROUND {round_num}/{MAX_AGENTIC_ROUNDS} ===")
+            if progress_callback:
+                await progress_callback(f"agentic_round_{round_num}")
             
             response = await self.client.messages.create(
                 model=self.settings.claude_haiku_model,
@@ -4705,6 +4711,8 @@ class AIService:
         )
         
         logger.info(f"Phase 3: Streaming final response with Opus...")
+        if progress_callback:
+            await progress_callback("synthesizing")
         
         async def stream_response():
             try:

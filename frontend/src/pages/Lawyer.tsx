@@ -22,6 +22,40 @@ interface Message {
   };
 }
 
+const THINKING_STEPS = [
+  { icon: '🔍', text: 'Анализирую ваш вопрос...' },
+  { icon: '📚', text: 'Ищу в базе законодательства...' },
+  { icon: '⚖️', text: 'Сопоставляю нормы права...' },
+  { icon: '🧠', text: 'Формирую юридический анализ...' },
+  { icon: '📝', text: 'Подготавливаю ответ...' },
+];
+
+function ThinkingLoader() {
+  const [stepIndex, setStepIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setStepIndex((prev) => (prev + 1) % THINKING_STEPS.length);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, []);
+
+  const step = THINKING_STEPS[stepIndex];
+
+  return (
+    <div className="thinking-loader">
+      <div className="thinking-loader-bar" />
+      <div className="thinking-loader-step">
+        <span className="thinking-loader-icon">{step.icon}</span>
+        <span className="thinking-loader-text">{step.text}</span>
+      </div>
+      <div className="thinking-loader-dots">
+        <span /><span /><span />
+      </div>
+    </div>
+  );
+}
+
 export default function Lawyer() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -693,11 +727,11 @@ export default function Lawyer() {
             );
           })}
 
-          {loading && (
+          {loading && !(messages.length > 0 && messages[messages.length - 1]?.role === 'assistant') && (
             <div className="message assistant loading">
               <div className="message-avatar">⚖️</div>
               <div className="message-content">
-                <span className="typing-indicator">●●●</span>
+                <ThinkingLoader />
               </div>
             </div>
           )}

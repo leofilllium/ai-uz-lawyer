@@ -6,6 +6,7 @@ Full AI Lawyer with Agentic RAG using Claude tool-use loop.
 import json
 import logging
 import traceback
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -111,6 +112,12 @@ async def chat(
         sources = []
         chunk_count = 0
         
+        # Use queue to stream progress updates while waiting for long-running AI task
+        progress_queue = asyncio.Queue()
+        
+        async def on_progress(status: str):
+            await progress_queue.put(status)
+        
         try:
             logger.info(f"=== STARTING AI SERVICE ===")
             logger.info(f"Initializing AIService with mode='lawyer'")
@@ -118,7 +125,33 @@ async def chat(
             
             logger.info(f"Calling query_with_rag with chat_mode='{chat_mode}'")
             logger.info(f"Question length: {len(user_message)} chars")
-            result = await ai_service.query_with_rag(user_message, history, chat_mode=chat_mode, extra_context=extra_context)
+            
+            # Start background task for long-running process
+            process_task = asyncio.create_task(
+                ai_service.query_with_rag(
+                    user_message, 
+                    history, 
+                    chat_mode=chat_mode, 
+                    extra_context=extra_context,
+                    progress_callback=on_progress
+                )
+            )
+            
+            # While processing, send keep-alive pings and progress updates to prevent timeout
+            while not process_task.done():
+                try:
+                    # Wait for progress update with 3s timeout
+                    status = await asyncio.wait_for(progress_queue.get(), timeout=3.0)
+                    yield f"data: {json.dumps({'progress': status})}\\n\\n"
+                except asyncio.TimeoutError:
+                    # Send comment to keep connection alive
+                    yield ": keep-alive\\n\\n"
+                except Exception:
+                    pass
+            
+            # Get result from completed task
+            result = await process_task
+
             logger.info(f"query_with_rag returned. Starting to stream response...")
             
             # Stream the response
