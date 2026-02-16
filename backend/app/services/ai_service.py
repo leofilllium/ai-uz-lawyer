@@ -4954,24 +4954,54 @@ class AIService:
         template_context: str
     ) -> Dict[str, Any]:
         """
-        Generate a contract using Gemini Flash based on templates, legal context, and user requirements.
-        Returns streaming response compatible with the generator router.
-        """
-        logger.info(f"=== GENERATE CONTRACT ===")
-        logger.info(f"Category: {category}")
-        logger.info(f"Requirements length: {len(requirements)} chars")
-        logger.info(f"Template context length: {len(template_context)} chars")
+        Generate a contract using Agentic RAG (Hybrid Search + Gemini Flash).
         
-        # Build the user prompt with template context and requirements
+        Process:
+        1. Search for relevant legal clauses/articles in vector store (BM25 + Semantic).
+        2. Combine with static templates and user requirements.
+        3. Generate legally compliant contract.
+        """
+        logger.info(f"=== GENERATE CONTRACT (AGENTIC RAG) ===")
+        logger.info(f"Category: {category}")
+        
+        # 1. Retrieve Legal Context (Agentic Search)
+        try:
+            self._init_rag_engine()
+            # Formulate search query for legal context
+            search_query = f"{category} существенные условия требования закон узбекистан"
+            
+            logger.info(f"Searching legal database with query: '{search_query}'")
+            context_results = await self._enhanced_retrieve_context(
+                query=search_query,
+                top_k=100 # Get enough context for deep analysis
+            )
+            
+            legal_context = self._format_enhanced_context(context_results)
+            sources = self._format_sources_with_quality(context_results)
+            logger.info(f"Retrieved {len(sources)} legal sources")
+            
+        except Exception as e:
+            logger.warning(f"RAG retrieval failed for contract generation: {e}")
+            legal_context = "Правовой контекст недоступен. Используйте общие нормы законодательства РУз."
+            sources = []
+
+        # 2. Build Comprehensive Prompt
         user_prompt = (
             f"📂 КАТЕГОРИЯ ДОГОВОРА: {category}\n\n"
-            f"📋 ШАБЛОНЫ ДОГОВОРОВ ДАННОЙ КАТЕГОРИИ:\n"
+            f"⚖️ ПРАВОВОЙ КОНТЕКСТ (ЗАКОНОДАТЕЛЬСТВО РУз):\n"
+            f"{'─' * 60}\n"
+            f"{legal_context}\n"
+            f"{'─' * 60}\n\n"
+            f"📋 ШАБЛОНЫ И СТРУКТУРА:\n"
             f"{'─' * 60}\n"
             f"{template_context}\n"
             f"{'─' * 60}\n\n"
             f"📝 ТРЕБОВАНИЯ ПОЛЬЗОВАТЕЛЯ:\n{requirements}\n\n"
-            f"Составьте полный, готовый к использованию договор на основе шаблонов и требований. "
-            f"Используйте структуру из шаблонов, но адаптируйте под конкретные требования пользователя."
+            f"ЗАДАЧА: Составьте полный, готовый к подписанию договор.\n"
+            f"1. Интегрируйте специфику из требований пользователя.\n"
+            f"2. Используйте структуру шаблонов.\n"
+            f"3. ОБЯЗАТЕЛЬНО включите защитные оговорки, основанные на найденном ПРАВОВОМ КОНТЕКСТЕ (см. выше).\n"
+            f"4. Ссылайтесь на конкретные статьи законов в тексте договора, где это уместно."
         )
         
         config = types.GenerateContentConfig(
@@ -4999,7 +5029,7 @@ class AIService:
         
         return {
             "response": stream_response(),
-            "sources": [],
+            "sources": sources, # Return sources so they can be saved/displayed
         }
 
     async def analyze_contract(
