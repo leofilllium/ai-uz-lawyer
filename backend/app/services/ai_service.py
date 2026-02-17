@@ -5597,7 +5597,7 @@ class AIService:
                 )
                 async for chunk in stream:
                     if chunk.text:
-                        yield chunk.text
+                        yield {"type": "content", "text": chunk.text}
             except Exception as e:
                 logger.error(f"Generate Contract Error: {e}")
                 yield f"\n\n⚠️ Error: {str(e)}"
@@ -5651,7 +5651,7 @@ class AIService:
 
 Напишите ПОЛНЫЙ проект договора. Это черновик. Пишите максимально подробно."""
 
-            # yield "📝 **Генерация черновика договора...**\n\n"
+            yield {"type": "status", "text": "📝 **Генерация черновика договора...**"}
 
             try:
                 # Generate Draft
@@ -5666,7 +5666,7 @@ class AIService:
                 )
                 draft_text = draft_response.text
 
-                # yield "🔍 **Проверка черновика на юридические риски...**\n\n"
+                yield {"type": "status", "text": "🔍 **Проверка черновика на юридические риски...**"}
 
                 # Phase 2: Advanced Multi-Layer Validation (with thinking_level="high")
                 max_iterations = 2  # Maximum fix iterations
@@ -5678,7 +5678,7 @@ class AIService:
                     all_errors_found = []
 
                     # 2.1 Deep Structural Audit with thinking_level="high"
-                    # yield f"📜 **Этап 1/4 (Итерация {iteration+1}): Глубокий структурный аудит...**\n\n"
+                    yield {"type": "status", "text": f"📜 **Этап 1/4 (Итерация {iteration+1}): Глубокий структурный аудит...**"}
                     structural_result = await self.analyze_contract(current_text)
                     audit = structural_result['audit']
                     validation_report.append(f"### 📋 Структурный анализ (5-этапный аудит)\nОценка: {audit.get('validity_score')}/100\n{audit.get('score_explanation', '')}")
@@ -5743,7 +5743,7 @@ class AIService:
                         validation_report.append("**Отсутствующие оговорки:**\n" + "\n".join([f"- {m['clause_name']} [{m.get('importance', 'N/A')}]" for m in audit['missing_clauses']]))
 
                     # 2.2 Red Team Analysis with thinking_level="high"
-                    # yield f"⚔️ **Этап 2/4 (Итерация {iteration+1}): Red Team (Поиск лазеек)...**\n\n"
+                    yield {"type": "status", "text": f"⚔️ **Этап 2/4 (Итерация {iteration+1}): Red Team (Поиск лазеек)...**"}
                     red_team_response = await self.client.aio.models.generate_content(
                         model="gemini-3-pro-preview",
                         contents=RED_TEAM_PROMPT + f"\n\nТЕКСТ ДОГОВОРА:\n{current_text}",
@@ -5787,7 +5787,7 @@ class AIService:
                         validation_report.append("### ⚔️ Red Team: Анализ завершен (не удалось распарсить JSON).")
 
                     # 2.3 Risk Simulation (Stress Testing) with thinking_level="high"
-                    # yield f"🌪 **Этап 3/4 (Итерация {iteration+1}): Симуляция стресс-сценариев...**\n\n"
+                    yield {"type": "status", "text": f"🌪 **Этап 3/4 (Итерация {iteration+1}): Симуляция стресс-сценариев...**"}
                     risk_response = await self.client.aio.models.generate_content(
                         model="gemini-3-pro-preview",
                         contents=RISK_SIMULATION_PROMPT + f"\n\nТЕКСТ ДОГОВОРА:\n{current_text}",
@@ -5833,7 +5833,7 @@ class AIService:
                         break
 
                     # Phase 3: Systematic Error Fixing
-                    # yield f"🛠 **Этап 4/4 (Итерация {iteration+1}): Систематическое устранение {len(all_errors_found)} проблем...**\n\n"
+                    yield {"type": "status", "text": f"🛠 **Этап 4/4 (Итерация {iteration+1}): Систематическое устранение {len(all_errors_found)} проблем...**"}
 
                     # Build comprehensive fix instructions
                     fix_instructions = []
@@ -5906,7 +5906,7 @@ class AIService:
 
                         async for chunk in final_stream:
                             if chunk.text:
-                                yield chunk.text
+                                yield {"type": "content", "text": chunk.text}
                         break
                     else:
                         # Generate fixed version for next iteration

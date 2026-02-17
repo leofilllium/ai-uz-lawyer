@@ -652,7 +652,8 @@ export async function generateContract(
   requirements: string,
   onChunk?: (chunk: string) => void,
   onDone?: (contractId: number, sources: Source[]) => void,
-  ultraMode: boolean = false
+  ultraMode: boolean = false,
+  onStatus?: (status: string) => void
 ): Promise<void> {
   const token = getToken();
   const headers: Record<string, string> = {
@@ -692,6 +693,9 @@ export async function generateContract(
       if (line.startsWith('data: ')) {
         try {
           const data = JSON.parse(line.slice(6));
+          if (data.status && onStatus) {
+            onStatus(data.status);
+          }
           if (data.chunk && onChunk) {
             onChunk(data.chunk);
           }

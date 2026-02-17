@@ -17,6 +17,7 @@ export default function Generator() {
   const [ultraMode, setUltraMode] = useState(false);
   const [generatedText, setGeneratedText] = useState('');
   const [sources, setSources] = useState<Source[]>([]);
+  const [statusMessage, setStatusMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -94,7 +95,8 @@ export default function Generator() {
         (_contractId, newSources) => {
           setSources(newSources);
         },
-        ultraMode
+        ultraMode,
+        (status) => setStatusMessage(status)
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка генерации');
@@ -370,6 +372,20 @@ export default function Generator() {
             {loading ? 'Генерация...' : 'Сгенерировать договор'}
           </button>
         </form>
+
+        {loading && statusMessage && (
+          <div className="generation-status" style={{ 
+            marginTop: '20px', 
+            padding: '15px', 
+            background: 'var(--color-surface)', 
+            borderRadius: '8px',
+            borderLeft: '4px solid var(--color-primary)',
+            animation: 'fadeIn 0.5s ease-in'
+          }}>
+            <strong style={{ display: 'block', marginBottom: '5px', color: 'var(--color-primary)' }}>🤖 AI-Юрист работает:</strong>
+            <ReactMarkdown>{statusMessage}</ReactMarkdown>
+          </div>
+        )}
 
         {error && <div className="error-message">{error}</div>}
 

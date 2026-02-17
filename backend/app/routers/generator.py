@@ -99,9 +99,18 @@ async def generate_contract(
             sources = result.get('sources', [])
             
             try:
-                async for chunk in result['response']:
-                    full_response += chunk
-                    yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+                async for item in result['response']:
+                    if isinstance(item, dict):
+                        if item.get("type") == "status":
+                            yield f"data: {json.dumps({'status': item['text']})}\n\n"
+                        elif item.get("type") == "content":
+                            chunk = item['text']
+                            full_response += chunk
+                            yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+                    else:
+                        # Fallback for string chunks (if any)
+                        full_response += item
+                        yield f"data: {json.dumps({'chunk': item})}\n\n"
             except Exception as stream_error:
                 print(f"Streaming error: {stream_error}")
                 yield f"data: {json.dumps({'error': str(stream_error)})}\n\n"
