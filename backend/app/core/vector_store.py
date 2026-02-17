@@ -12,7 +12,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from starlette.concurrency import run_in_threadpool
 import chromadb
 from chromadb.config import Settings
-from langchain_voyageai import VoyageAIEmbeddings
+# from langchain_voyageai import VoyageAIEmbeddings
 # from rank_bm25 import BM25Okapi  # Removed in favor of SimpleBM25Index
 
 from app.config import get_settings
@@ -333,6 +333,7 @@ class VectorStore:
 
         # Initialize Embeddings
         if settings.embedding_provider == "voyage":
+            from langchain_voyageai import VoyageAIEmbeddings
             self.embeddings = VoyageAIEmbeddings(
                 model=settings.embedding_model,
                 voyage_api_key=settings.voyage_api_key,
