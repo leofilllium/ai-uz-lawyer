@@ -60,6 +60,7 @@ class GenerateContractRequest(BaseModel):
     """Request model for contract generation."""
     category: str = Field(..., min_length=1)
     requirements: str = Field(..., min_length=20)
+    ultra_mode: bool = False
 
 
 class ContractCategory(BaseModel):

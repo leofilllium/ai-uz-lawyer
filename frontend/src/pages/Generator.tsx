@@ -14,6 +14,7 @@ export default function Generator() {
   const [categories, setCategories] = useState<ContractCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [requirements, setRequirements] = useState('');
+  const [ultraMode, setUltraMode] = useState(false);
   const [generatedText, setGeneratedText] = useState('');
   const [sources, setSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(false);
@@ -92,7 +93,8 @@ export default function Generator() {
         },
         (_contractId, newSources) => {
           setSources(newSources);
-        }
+        },
+        ultraMode
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка генерации');
@@ -340,6 +342,24 @@ export default function Generator() {
               rows={6}
               disabled={loading}
             />
+          </div>
+
+          <div className="form-group">
+            <label className="checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', marginBottom: '15px' }}>
+              <input
+                type="checkbox"
+                checked={ultraMode}
+                onChange={(e) => setUltraMode(e.target.checked)}
+                disabled={loading}
+                style={{ width: '20px', height: '20px' }}
+              />
+              <div>
+                <strong>🚀 Ultra Mode (Двойная проверка)</strong>
+                <p style={{ margin: 0, fontSize: '0.9em', color: '#666' }}>
+                  Генерация займет больше времени, но договор будет проверен и исправлен ИИ-юристом автоматически.
+                </p>
+              </div>
+            </label>
           </div>
 
           <button 

@@ -651,7 +651,8 @@ export async function generateContract(
   category: string,
   requirements: string,
   onChunk?: (chunk: string) => void,
-  onDone?: (contractId: number, sources: Source[]) => void
+  onDone?: (contractId: number, sources: Source[]) => void,
+  ultraMode: boolean = false
 ): Promise<void> {
   const token = getToken();
   const headers: Record<string, string> = {
@@ -664,7 +665,7 @@ export async function generateContract(
   const response = await fetch(`${API_BASE_URL}/api/generator/generate`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ category, requirements }),
+    body: JSON.stringify({ category, requirements, ultra_mode: ultraMode }),
   });
   
   if (!response.ok) {

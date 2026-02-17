@@ -5510,6 +5510,123 @@ class AIService:
             "sources": sources,
         }
 
+    async def generate_contract_ultra(
+        self,
+        category: str,
+        requirements: str,
+        template_context: str
+    ) -> Dict[str, Any]:
+        """
+        Generate a contract using Ultra Mode (Draft -> Validate -> Fix).
+        """
+        logger.info(f"=== GENERATE CONTRACT (ULTRA) ===")
+        
+        # 1. Build search queries & Retrieve context (Same as standard)
+        search_queries = self._build_contract_search_queries(category, requirements)
+        all_results = []
+        seen_articles = set()
+        
+        for search_query in search_queries:
+            results = await self._enhanced_retrieve_context(search_query, top_k=50)
+            for result in results:
+                article_key = f"{result.get('metadata', {}).get('source')}_{result.get('metadata', {}).get('article_display')}"
+                if article_key not in seen_articles:
+                    seen_articles.add(article_key)
+                    all_results.append(result)
+                    
+        all_results.sort(key=lambda x: x.get("similarity", 0), reverse=True)
+        final_results = all_results[:150]
+        
+        legal_context = self._format_enhanced_context(final_results)
+        sources = self._format_sources_with_quality(final_results)
+        
+        async def stream_ultra_response():
+            # Phase 1: Drafting
+            yield "data: " + json.dumps({"chunk": "🔄 **Анализ требований и законодательства...**\n\n"}) + "\n\n"
+            
+            draft_prompt = f"""КАТЕГОРИЯ ДОГОВОРА: {category}
+ШАБЛОНЫ: {template_context}
+КОНТЕКСТ ЗАКОНОДАТЕЛЬСТВА: {legal_context}
+ТРЕБОВАНИЯ: {requirements}
+
+Напишите ПОЛНЫЙ проект договора. Это черновик. Пишите максимально подробно."""
+
+            yield "data: " + json.dumps({"chunk": "📝 **Генерация черновика договора...**\n\n"}) + "\n\n"
+            
+            try:
+                # Generate Draft
+                draft_response = await self.client.aio.models.generate_content(
+                    model="gemini-3-pro-preview",
+                    contents=draft_prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=GENERATOR_PROMPT,
+                        max_output_tokens=MAX_OUTPUT_TOKENS,
+                        temperature=0.2, # Slightly higher for creativity in draft
+                    )
+                )
+                draft_text = draft_response.text
+                
+                yield "data: " + json.dumps({"chunk": "🔍 **Проверка черновика на юридические риски...**\n\n"}) + "\n\n"
+                
+                # Phase 2: Validation
+                # We can reuse the existing analyze_contract logic or just call the LLM directly
+                # reusing analyze_contract is safer as it has specific prompting
+                
+                validation_result = await self.analyze_contract(draft_text)
+                audit = validation_result.get("audit", {})
+                
+                score = audit.get("validity_score", 0)
+                critical_errors = audit.get("critical_errors", [])
+                missing_clauses = audit.get("missing_clauses", [])
+                warnings = audit.get("warnings", [])
+                
+                validation_summary = f"Оценка черновика: {score}/100.\n"
+                if critical_errors:
+                    validation_summary += f"Критические ошибки: {len(critical_errors)}.\n"
+                if missing_clauses:
+                    validation_summary += f"Отсутствующие пункты: {len(missing_clauses)}.\n"
+                    
+                yield "data: " + json.dumps({"chunk": f"⚖️ **Результаты проверки:**\n{validation_summary}\n🛠 **Исправление и финализация договора...**\n\n"}) + "\n\n"
+                
+                # Phase 3: Finalization (Fixing)
+                fix_prompt = f"""ИСХОДНЫЕ ТРЕБОВАНИЯ: {requirements}
+                
+КАТЕГОРИЯ: {category}
+
+ЧЕРНОВИК ДОГОВОРА:
+{draft_text}
+
+РЕЗУЛЬТАТЫ ЮРИДИЧЕСКОЙ ПРОВЕРКИ (ОШИБКИ И РИСКИ):
+{json.dumps(audit, ensure_ascii=False, indent=2)}
+
+ЗАДАЧА:
+Перепишите договор начисто, ИСПРАВИВ все найденные ошибки, добавив пропущенные пункты и улучшив формулировки.
+Договор должен быть идеальным, защищать интересы пользователя и соответствовать законодательству РУз.
+Выведите ТОЛЬКО текст готового договора в Markdown. Не пишите вступлений типа "Вот исправленный договор"."""
+
+                final_stream = await self.client.aio.models.generate_content_stream(
+                    model="gemini-3-pro-preview",
+                    contents=fix_prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=GENERATOR_PROMPT,
+                        max_output_tokens=MAX_OUTPUT_TOKENS,
+                        temperature=0.1, # Low temp for precision
+                    )
+                )
+                
+                async for chunk in final_stream:
+                    if chunk.text:
+                        yield chunk.text
+                        
+            except Exception as e:
+                logger.error(f"Ultra generation error: {e}")
+                yield f"\n\n⚠️ Ошибка в режиме Ultra: {str(e)}"
+
+        return {
+            "response": stream_ultra_response(),
+            "sources": sources,
+        }
+
     async def analyze_contract(
         self,
         contract_text: str

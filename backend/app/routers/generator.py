@@ -76,11 +76,19 @@ async def generate_contract(
         
         # Generate contract using AI service
         ai_service = AIService(mode='generator')
-        result = await ai_service.generate_contract(
-            category=category,
-            requirements=requirements,
-            template_context=template_context
-        )
+        
+        if request.ultra_mode:
+            result = await ai_service.generate_contract_ultra(
+                category=category,
+                requirements=requirements,
+                template_context=template_context
+            )
+        else:
+            result = await ai_service.generate_contract(
+                category=category,
+                requirements=requirements,
+                template_context=template_context
+            )
         
         async def generate_stream():
             full_response = ""
