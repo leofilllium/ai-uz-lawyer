@@ -5974,6 +5974,14 @@ class AIService:
                         "summary": raw_audit_text[:2000]
                     }
 
+                # Sanitize fields that might be lists but should be strings
+                if isinstance(audit.get('negotiation_strategy'), list):
+                    audit['negotiation_strategy'] = "\n".join(str(s) for s in audit['negotiation_strategy'])
+                if isinstance(audit.get('summary'), list):
+                    audit['summary'] = "\n".join(str(s) for s in audit['summary'])
+                if isinstance(audit.get('score_explanation'), list):
+                    audit['score_explanation'] = "\n".join(str(s) for s in audit['score_explanation'])
+
                 audit['contract_type'] = contract_info.get('contract_type', 'не определен')
                 audit['detected_topics'] = contract_info.get('key_topics', [])
 
@@ -6491,6 +6499,14 @@ class AIService:
                         audit[field] = []
                     else:
                         audit[field] = "Не указано"
+
+            # Sanitize fields that might be lists but should be strings
+            if isinstance(audit.get('negotiation_strategy'), list):
+                audit['negotiation_strategy'] = "\n".join(str(s) for s in audit['negotiation_strategy'])
+            if isinstance(audit.get('summary'), list):
+                audit['summary'] = "\n".join(str(s) for s in audit['summary'])
+            if isinstance(audit.get('score_explanation'), list):
+                audit['score_explanation'] = "\n".join(str(s) for s in audit['score_explanation'])
 
             # Add contract metadata to audit
             audit['contract_type'] = contract_info.get('contract_type', 'не определен')
