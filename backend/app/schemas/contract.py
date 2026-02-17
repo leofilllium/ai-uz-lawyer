@@ -80,6 +80,22 @@ class ContractTemplate(BaseModel):
     path: str
 
 
+class ValidationData(BaseModel):
+    """Validation data from ultra mode."""
+    validity_score: int = 0
+    score_explanation: str = ""
+    strictness_level: str = "standard"
+    critical_errors: list[dict] = []
+    hidden_risks: list[dict] = []
+    ambiguities: list[dict] = []
+    warnings: list[dict] = []
+    missing_clauses: list[dict] = []
+    summary: str = ""
+    negotiation_strategy: str = ""
+    red_team_analysis: dict = {}
+    risk_simulation: dict = {}
+
+
 class GeneratedContractResponse(BaseModel):
     """Response model for generated contract."""
     id: int
@@ -89,7 +105,8 @@ class GeneratedContractResponse(BaseModel):
     generated_text: str
     template_names: list[str] = []
     sources: list[dict] = []
+    validation: ValidationData | None = None  # Ultra mode validation details
     created_at: datetime | None = None
-    
+
     class Config:
         from_attributes = True

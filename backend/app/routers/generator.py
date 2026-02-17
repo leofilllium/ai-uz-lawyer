@@ -116,7 +116,8 @@ async def generate_contract(
                         requirements=requirements,
                         generated_text=full_response,
                         template_names=template_names,
-                        sources=sources
+                        sources=sources,
+                        validation_data=ultra_context.get('ultra_data', {})  # Save validation details
                     )
                     save_db.add(generated)
                     

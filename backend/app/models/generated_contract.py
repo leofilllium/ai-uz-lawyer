@@ -21,10 +21,11 @@ class GeneratedContract(Base):
     category = Column(String(100), nullable=False)
     requirements = Column(Text, nullable=False)
     generated_text = Column(Text, nullable=False)
-    
+
     # Metadata
     template_names = Column(JSON, default=list)
     sources = Column(JSON, default=list)
+    validation_data = Column(JSON, default=dict)  # Stores ultra mode validation details
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -37,7 +38,7 @@ class GeneratedContract(Base):
     
     def to_dict(self):
         """Convert to dictionary for JSON serialization."""
-        return {
+        base_dict = {
             'id': self.id,
             'user_id': self.user_id,
             'category': self.category,
@@ -47,3 +48,28 @@ class GeneratedContract(Base):
             'sources': self.sources or [],
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }
+
+        # Include validation data if available (from ultra mode)
+        validation_data = self.validation_data or {}
+        if validation_data:
+            structural_audit = validation_data.get('structural_audit', {})
+
+            # Extract all validation fields
+            base_dict['validation'] = {
+                'validity_score': structural_audit.get('validity_score', 0),
+                'score_explanation': structural_audit.get('score_explanation', ''),
+                'strictness_level': structural_audit.get('strictness_level', 'standard'),
+                'critical_errors': structural_audit.get('critical_errors', []),
+                'hidden_risks': structural_audit.get('hidden_risks', []),
+                'ambiguities': structural_audit.get('ambiguities', []),
+                'warnings': structural_audit.get('warnings', []),
+                'missing_clauses': structural_audit.get('missing_clauses', []),
+                'summary': structural_audit.get('summary', ''),
+                'negotiation_strategy': structural_audit.get('negotiation_strategy', ''),
+                'red_team_analysis': validation_data.get('red_team_analysis', {}),
+                'risk_simulation': validation_data.get('risk_simulation', {})
+            }
+        else:
+            base_dict['validation'] = None
+
+        return base_dict
