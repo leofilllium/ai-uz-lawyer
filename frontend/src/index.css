@@ -2524,8 +2524,24 @@ body {
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.risk-card { border-left: 4px solid #000; background: #fff5f5; color: #1a1a1a !important; }
-.ambiguity-card { border-left: 4px solid var(--color-text-secondary); color: #1a1a1a !important; }
+.risk-card { 
+  border-left: 4px solid #e53e3e; 
+  background: #fff5f5; 
+  color: var(--color-text-primary); 
+}
+
+.ambiguity-card { 
+  border-left: 4px solid var(--color-text-secondary); 
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+}
+
+/* Dark mode specific overrides for risk card to prevent blinding white */
+body.dark .risk-card {
+  background: rgba(229, 62, 62, 0.1);
+  border: 1px solid rgba(229, 62, 62, 0.2);
+  border-left: 4px solid #fc8181;
+}
 
 .card-title {
   font-weight: 700;

@@ -22,10 +22,12 @@ export default function Validator() {
     if (idParam) {
       const id = parseInt(idParam, 10);
       if (!isNaN(id)) {
+        // Prevent reloading if we already have this result
+        if (result?.id === id) return;
         loadValidation(id);
       }
     }
-  }, [searchParams]);
+  }, [searchParams, result?.id]);
 
   const loadValidation = async (id: number) => {
     setLoading(true);
@@ -54,6 +56,10 @@ export default function Validator() {
     try {
       const data = await analyzeContract(contractText);
       setResult(data);
+      // Persist by updating URL with the new analysis ID
+      if (data.id) {
+        navigate(`?id=${data.id}`, { replace: true });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка анализа');
     } finally {
