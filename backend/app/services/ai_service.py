@@ -4416,6 +4416,67 @@ GENERATOR_PROMPT = """Вы профессиональный юрист-сост�
 НЕ пишите никаких вводных слов перед заголовком.
 Используйте markdown (## Заголовки, **жирный**)."""
 
+RED_TEAM_PROMPT = """Вы — агрессивный юрист противоположной стороны (Red Team). Ваша задача — найти ВСЕ возможные лазейки, риски и невыгодные условия в проекте договора.
+
+🕵️ ЦЕЛЬ:
+Разгромить этот договор. Найти, где клиента могут обмануть, где он потеряет деньги, где с него снимут ответственность.
+
+🔍 ЧТО ИСКАТЬ:
+1. Нечеткие формулировки ("в разумный срок", "надлежащим образом").
+2. Отсутствие зеркальной ответственности (одна сторона платит штраф, другая — нет).
+3. Одностороннее право на расторжение.
+4. Скрытые комиссии или нефиксированная цена.
+5. Отсутствие гарантий и заверений.
+6. Отсутствие форс-мажорной оговорки.
+7. Отсутствие ответственности за нарушение сроков.
+8. Отсутствие ответственности за некачественное исполнение.
+9. Отсутствие ответственности за нарушение конфиденциальности.
+10. Отсутствие ответственности за нарушение антикоррупционной оговорки.
+11. Отсутствие ответственности за нарушение заключительных положений.
+12. Отсутствие ответственности за нарушение реквизитов и подписей сторон.
+
+ВЫВОД (JSON):
+{
+  "loop_holes": ["..."],
+  "unfair_terms": ["..."],
+  "ambiguities": ["..."],
+  "risk_score": 0-100 (100 = экстремально опасно)
+}"""
+
+RISK_SIMULATION_PROMPT = """Вы — аналитик бизнес-рисков. Проведите стресс-тест договора, симулируя реальные проблемные ситуации.
+
+🌪 СЦЕНАРИИ ДЛЯ ПРОВЕРКИ:
+1. **Просрочка оплаты**: Заказчик задерживает оплату на 2 месяца. Что по договору? Какие санкции? Можно ли расторгнуть?
+2. **Некачественное исполнение**: Исполнитель сдал брак. Как фиксируется? Как возвращаются деньги?
+3. **Форс-мажор**: Случилось наводнение. Кто платит за ущерб?
+4. **Банкротство**: Одна из сторон банкротится. Что со сделкой?
+5. **Односторонний отказ**: Сторона просто передумала. Какие последствия?
+6. **Изменение условий**: Сторона хочет изменить условия в процессе. Как это оформляется?
+7. **Срыв сроков**: Исполнитель не успевает в срок. Какие последствия?
+8. **Неполная оплата**: Заказчик не оплатил полностью. Какие последствия?
+9. **Неполное исполнение**: Исполнитель не выполнил все условия. Какие последствия?
+10. **Некачественное исполнение**: Исполнитель сдал брак. Как фиксируется? Как возвращаются деньги?
+11. **Форс-мажор**: Случилось наводнение. Кто платит за ущерб?
+12. **Банкротство**: Одна из сторон банкротится. Что со сделкой?
+13. **Односторонний отказ**: Сторона просто передумала. Какие последствия?
+14. **Изменение условий**: Сторона хочет изменить условия в процессе. Как это оформляется?
+15. **Срыв сроков**: Исполнитель не успевает в срок. Какие последствия?
+16. **Неполная оплата**: Заказчик не оплатил полностью. Какие последствия?
+17. **Неполное исполнение**: Исполнитель не выполнил все условия. Какие последствия?
+
+ВЫВОД (JSON):
+{
+  "scenarios": [
+    {
+      "name": "Просрочка оплаты",
+      "outcome": "Описание исхода по тексту договора",
+      "verdict": "Safe/Risky/Critical"
+    },
+    ...
+  ],
+  "summary": "Общее заключение по устойчивости договора"
+}"""
+
 
 # ═══════════════════════════════════════════════════════════════
 # 🤖 AGENTIC RAG: Tool definitions for Claude tool-use loop
@@ -5514,12 +5575,15 @@ class AIService:
         self,
         category: str,
         requirements: str,
-        template_context: str
+        template_context: str,
+        context: Dict[str, Any] = None
     ) -> Dict[str, Any]:
         """
         Generate a contract using Ultra Mode (Draft -> Validate -> Fix).
         """
         logger.info(f"=== GENERATE CONTRACT (ULTRA) ===")
+        if context is None:
+            context = {}
         
         # 1. Build search queries & Retrieve context (Same as standard)
         search_queries = self._build_contract_search_queries(category, requirements)
@@ -5542,7 +5606,7 @@ class AIService:
         
         async def stream_ultra_response():
             # Phase 1: Drafting
-            yield "data: " + json.dumps({"chunk": "🔄 **Анализ требований и законодательства...**\n\n"}) + "\n\n"
+            yield "🔄 **Анализ требований и законодательства...**\n\n"
             
             draft_prompt = f"""КАТЕГОРИЯ ДОГОВОРА: {category}
 ШАБЛОНЫ: {template_context}
@@ -5551,7 +5615,7 @@ class AIService:
 
 Напишите ПОЛНЫЙ проект договора. Это черновик. Пишите максимально подробно."""
 
-            yield "data: " + json.dumps({"chunk": "📝 **Генерация черновика договора...**\n\n"}) + "\n\n"
+            yield "📝 **Генерация черновика договора...**\n\n"
             
             try:
                 # Generate Draft
@@ -5566,27 +5630,57 @@ class AIService:
                 )
                 draft_text = draft_response.text
                 
-                yield "data: " + json.dumps({"chunk": "🔍 **Проверка черновика на юридические риски...**\n\n"}) + "\n\n"
+                yield "🔍 **Проверка черновика на юридические риски...**\n\n"
                 
-                # Phase 2: Validation
-                # We can reuse the existing analyze_contract logic or just call the LLM directly
-                # reusing analyze_contract is safer as it has specific prompting
+                # Phase 2: Advanced Validation
+                validation_report = []
+                ultra_data = {}
                 
-                validation_result = await self.analyze_contract(draft_text)
-                audit = validation_result.get("audit", {})
+                # 2.1 Structural Audit (Existing)
+                yield "📜 **Этап 1/3: Структурный аудит и проверка на соответствие УК РУз...**\n\n"
+                structural_result = await self.analyze_contract(draft_text)
+                validation_report.append(f"### 📋 Структурный анализ\nОценка: {structural_result['audit'].get('validity_score')}/100")
+                ultra_data['structural_audit'] = structural_result['audit']
                 
-                score = audit.get("validity_score", 0)
-                critical_errors = audit.get("critical_errors", [])
-                missing_clauses = audit.get("missing_clauses", [])
-                warnings = audit.get("warnings", [])
+                if structural_result['audit'].get('critical_errors'):
+                     validation_report.append("Критические ошибки:\n" + "\n".join([f"- {e['error']}" for e in structural_result['audit']['critical_errors']]))
                 
-                validation_summary = f"Оценка черновика: {score}/100.\n"
-                if critical_errors:
-                    validation_summary += f"Критические ошибки: {len(critical_errors)}.\n"
-                if missing_clauses:
-                    validation_summary += f"Отсутствующие пункты: {len(missing_clauses)}.\n"
-                    
-                yield "data: " + json.dumps({"chunk": f"⚖️ **Результаты проверки:**\n{validation_summary}\n🛠 **Исправление и финализация договора...**\n\n"}) + "\n\n"
+                # 2.2 Red Team Review
+                yield "⚔️ **Этап 2/3: Red Team (Поиск лазеек и уязвимостей)...**\n\n"
+                red_team_response = await self.client.aio.models.generate_content(
+                    model="gemini-3-pro-preview",
+                    contents=RED_TEAM_PROMPT + f"\n\nТЕКСТ ДОГОВОРА:\n{draft_text}",
+                    config=types.GenerateContentConfig(temperature=0.4, max_output_tokens=2000)
+                )
+                try:
+                    red_team_json = json.loads(self._clean_json_response(red_team_response.text))
+                    validation_report.append(f"### ⚔️ Red Team Отчет\nУровень риска: {red_team_json.get('risk_score')}/100")
+                    validation_report.append("Лазейки:\n" + "\n".join([f"- {i}" for i in red_team_json.get('loop_holes', [])]))
+                    ultra_data['red_team_analysis'] = red_team_json
+                except:
+                    validation_report.append("### ⚔️ Red Team: Не удалось распарсить JSON, но анализ проведен.")
+
+                # 2.3 Risk Simulation
+                yield "🌪 **Этап 3/3: Симуляция бизнес-рисков (Стресс-тест)...**\n\n"
+                risk_response = await self.client.aio.models.generate_content(
+                    model="gemini-3-pro-preview",
+                    contents=RISK_SIMULATION_PROMPT + f"\n\nТЕКСТ ДОГОВОРА:\n{draft_text}",
+                    config=types.GenerateContentConfig(temperature=0.4, max_output_tokens=2000)
+                )
+                try:
+                    risk_json = json.loads(self._clean_json_response(risk_response.text))
+                    validation_report.append(f"### 🌪 Стресс-тест\nИтог: {risk_json.get('summary')}")
+                    scenarios = [f"- {s['name']}: {s['verdict']} ({s['outcome']})" for s in risk_json.get('scenarios', [])]
+                    validation_report.append("Сценарии:\n" + "\n".join(scenarios))
+                    ultra_data['risk_simulation'] = risk_json
+                except:
+                    validation_report.append("### 🌪 Стресс-тест: Анализ завершен.")
+                
+                # Save collected data to context for saving
+                context['ultra_data'] = ultra_data
+                
+                full_report_text = "\n\n".join(validation_report)
+                yield f"⚖️ **Отчет о проверке сформирован:**\n{full_report_text}\n\n🛠 **Финальная доработка договора с учетом всех рисков...**\n\n"
                 
                 # Phase 3: Finalization (Fixing)
                 fix_prompt = f"""ИСХОДНЫЕ ТРЕБОВАНИЯ: {requirements}
@@ -5596,13 +5690,13 @@ class AIService:
 ЧЕРНОВИК ДОГОВОРА:
 {draft_text}
 
-РЕЗУЛЬТАТЫ ЮРИДИЧЕСКОЙ ПРОВЕРКИ (ОШИБКИ И РИСКИ):
-{json.dumps(audit, ensure_ascii=False, indent=2)}
+ОТЧЕТ О ПРОВЕРКЕ (ВСЕ НАЙДЕННЫЕ ПРОБЛЕМЫ):
+{full_report_text}
 
 ЗАДАЧА:
-Перепишите договор начисто, ИСПРАВИВ все найденные ошибки, добавив пропущенные пункты и улучшив формулировки.
-Договор должен быть идеальным, защищать интересы пользователя и соответствовать законодательству РУз.
-Выведите ТОЛЬКО текст готового договора в Markdown. Не пишите вступлений типа "Вот исправленный договор"."""
+Перепишите договор начисто, УСТРАНИВ все найденные Red Team лазейки, защитив от рисков из стресс-теста и исправив структурные ошибки.
+Договор должен быть "пуленепробиваемым".
+Выведите ТОЛЬКО текст готового договора в Markdown."""
 
                 final_stream = await self.client.aio.models.generate_content_stream(
                     model="gemini-3-pro-preview",
@@ -5620,12 +5714,25 @@ class AIService:
                         
             except Exception as e:
                 logger.error(f"Ultra generation error: {e}")
+                logger.error(traceback.format_exc())
                 yield f"\n\n⚠️ Ошибка в режиме Ultra: {str(e)}"
 
         return {
             "response": stream_ultra_response(),
             "sources": sources,
         }
+
+    def _clean_json_response(self, text: str) -> str:
+        """Helper to extract JSON from markdown."""
+        if "```" in text:
+            parts = text.split("```")
+            for part in parts:
+                stripped = part.strip()
+                if stripped.startswith("json"):
+                    stripped = stripped[4:].strip()
+                if stripped.startswith("{"):
+                    return stripped
+        return text.strip() if text else "{}"
 
     async def analyze_contract(
         self,

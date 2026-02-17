@@ -48,6 +48,10 @@ class ContractAnalysisResponse(BaseModel):
     warnings: list[dict] = []
     missing_clauses: list[dict] = []
     summary: str | None = None
+    strictness_level: str = "standard"
+    hidden_risks: list[dict] = []
+    ambiguities: list[dict] = []
+    negotiation_strategy: str = ""
     sources: list[dict] = []
     created_at: datetime | None = None
     
@@ -85,6 +89,7 @@ class GeneratedContractResponse(BaseModel):
     generated_text: str
     template_names: list[str] = []
     sources: list[dict] = []
+    analysis_results: dict | None = None
     created_at: datetime | None = None
     
     class Config:

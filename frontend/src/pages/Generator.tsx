@@ -17,6 +17,7 @@ export default function Generator() {
   const [ultraMode, setUltraMode] = useState(false);
   const [generatedText, setGeneratedText] = useState('');
   const [sources, setSources] = useState<Source[]>([]);
+  const [analysisResults, setAnalysisResults] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -57,6 +58,7 @@ export default function Generator() {
       setSelectedCategory(data.category);
       setRequirements(data.requirements);
       setSources(data.sources || []);
+      setAnalysisResults(data.analysis_results || null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось загрузить договор');
     } finally {
@@ -386,6 +388,75 @@ export default function Generator() {
                 </button>
               </div>
             </div>
+            
+            {/* Ultra Mode Analysis Visualization */}
+            {analysisResults && (
+              <div className="ultra-analysis-results" style={{ marginBottom: '30px' }}>
+                
+                {/* Structural Audit */}
+                {analysisResults.structural_audit && (
+                   <div className="risk-card" style={{ padding: '15px', marginBottom: '15px', borderRadius: '8px' }}>
+                     <h3>📋 Структурный анализ</h3>
+                     <p><strong>Оценка качества:</strong> {analysisResults.structural_audit.validity_score}/100</p>
+                     {analysisResults.structural_audit.critical_errors?.length > 0 && (
+                       <div style={{ marginTop: '10px' }}>
+                         <strong>Критические ошибки:</strong>
+                         <ul style={{ margin: '5px 0', paddingLeft: '20px' }}>
+                           {analysisResults.structural_audit.critical_errors.map((err: any, i: number) => (
+                             <li key={i} style={{ color: '#e53e3e' }}>{err.error}</li>
+                           ))}
+                         </ul>
+                       </div>
+                     )}
+                   </div>
+                )}
+
+                {/* Red Team */}
+                {analysisResults.red_team_analysis && (
+                  <div className="risk-card" style={{ padding: '15px', marginBottom: '15px', borderRadius: '8px', borderLeftColor: '#d69e2e', backgroundColor: 'var(--color-surface)' }}>
+                    <h3 style={{ color: '#d69e2e' }}>⚔️ Red Team (Поиск уязвимостей)</h3>
+                    <p><strong>Уровень риска:</strong> {analysisResults.red_team_analysis.risk_score}/100</p>
+                    {analysisResults.red_team_analysis.loop_holes?.length > 0 && (
+                      <div style={{ marginTop: '10px' }}>
+                        <strong>Найденные лазейки:</strong>
+                        <ul style={{ margin: '5px 0', paddingLeft: '20px' }}>
+                          {analysisResults.red_team_analysis.loop_holes.map((hole: string, i: number) => (
+                            <li key={i}>{hole}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Risk Simulation */}
+                {analysisResults.risk_simulation && (
+                  <div className="ambiguity-card" style={{ padding: '15px', borderRadius: '8px' }}>
+                    <h3>🌪 Стресс-тест сценариев</h3>
+                    <p><strong>Итог:</strong> {analysisResults.risk_simulation.summary}</p>
+                    {analysisResults.risk_simulation.scenarios?.length > 0 && (
+                      <div style={{ marginTop: '10px', display: 'grid', gap: '10px' }}>
+                        {analysisResults.risk_simulation.scenarios.map((scenario: any, i: number) => (
+                          <div key={i} style={{ padding: '8px', background: 'rgba(0,0,0,0.03)', borderRadius: '4px' }}>
+                            <strong>{scenario.name}</strong>: 
+                            <span style={{ 
+                              color: scenario.verdict === 'Critical' ? 'red' : 
+                                     scenario.verdict === 'Risky' ? 'orange' : 'green',
+                              fontWeight: 'bold',
+                              marginLeft: '5px'
+                            }}>
+                              {scenario.verdict}
+                            </span>
+                            <div style={{ fontSize: '0.9em', marginTop: '4px' }}>{scenario.outcome}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="contract-content">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{generatedText}</ReactMarkdown>
             </div>

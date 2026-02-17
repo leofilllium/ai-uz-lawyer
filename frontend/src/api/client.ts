@@ -188,6 +188,11 @@ export interface GeneratedContract {
   generated_text: string;
   template_names: string[];
   sources: Source[];
+  analysis_results?: {
+    structural_audit?: any;
+    red_team_analysis?: any;
+    risk_simulation?: any;
+  };
   created_at?: string;
   updated_at?: string; // Corrected interface mismatch if any
 }

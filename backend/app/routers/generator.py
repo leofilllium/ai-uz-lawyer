@@ -77,11 +77,15 @@ async def generate_contract(
         # Generate contract using AI service
         ai_service = AIService(mode='generator')
         
+        # Prepare context for Ultra Mode data capture
+        ultra_context = {}
+        
         if request.ultra_mode:
             result = await ai_service.generate_contract_ultra(
                 category=category,
                 requirements=requirements,
-                template_context=template_context
+                template_context=template_context,
+                context=ultra_context
             )
         else:
             result = await ai_service.generate_contract(
@@ -112,7 +116,8 @@ async def generate_contract(
                         requirements=requirements,
                         generated_text=full_response,
                         template_names=template_names,
-                        sources=sources
+                        sources=sources,
+                        analysis_results=ultra_context.get('ultra_data', {})
                     )
                     save_db.add(generated)
                     
