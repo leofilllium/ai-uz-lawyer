@@ -97,7 +97,7 @@ export default function Validator() {
           />
           <div className="form-actions">
             <button type="submit" className="btn-primary" disabled={loading || contractText.length < 50}>
-              {loading ? 'Анализ...' : 'Проверить договор (Strict Mode)'}
+              {loading ? 'Анализ...' : 'Проверить договор'}
             </button>
           </div>
         </form>
@@ -119,9 +119,6 @@ export default function Validator() {
                    result.validity_score >= 75 ? 'ТРЕБУЕТ ДОРАБОТКИ' : 
                    result.validity_score >= 50 ? 'РИСКОВАНО' : 'КРИТИЧЕСКИ ОПАСНО'}
                 </span>
-                {result.strictness_level === 'maximum' && (
-                  <span className="strict-badge">🔒 RUTHLESS AUDITOR</span>
-                )}
               </div>
             </div>
 

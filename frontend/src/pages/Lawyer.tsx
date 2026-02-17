@@ -702,6 +702,9 @@ export default function Lawyer() {
                             {source.chapter && (
                               <div className="source-chapter">{source.chapter}</div>
                             )}
+                            {source.preview && (
+                              <div className="source-preview">{source.preview}</div>
+                            )}
                           </li>
                         ))}
                       </ul>
