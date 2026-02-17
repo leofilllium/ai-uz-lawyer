@@ -5278,22 +5278,7 @@ class AIService:
                 logger.error(f"Error streaming final response: {e}")
                 if first_chunk:
                     yield "Извините, произошла ошибка при генерации ответа. Пожалуйста, попробуйте еще раз."
-                    model=self.settings.gemini_flash_model,
-                    contents=final_history + [final_prompt],
-                    config=model_final_config
-                )
-                
-                async for chunk in stream:
-                    if chunk.text:
-                        text = chunk.text
-                        # Ensure the very first output starts with a header
-                        if first_chunk:
-                            text = text.lstrip()
-                            first_chunk = False
-                        yield text
-            except Exception as e:
-                logger.error(f"Streaming error: {e}")
-                yield f"\n\n⚠️ Error generating response: {str(e)}"
+
         
         return {
             "response": stream_response(),
