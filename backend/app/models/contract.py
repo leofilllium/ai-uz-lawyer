@@ -64,9 +64,15 @@ class ContractAnalysis(Base):
                     base_dict['hidden_risks'] = audit_data.get('hidden_risks', [])
                 if not self.ambiguities:
                     base_dict['ambiguities'] = audit_data.get('ambiguities', [])
-                base_dict['negotiation_strategy'] = audit_data.get('negotiation_strategy', '')
-                base_dict['strictness_level'] = audit_data.get('strictness_level', 'standard')
-                base_dict['negotiation_strategy'] = audit_data.get('negotiation_strategy', '')
+                # Sanitize negotiation_strategy to be a string
+                ns = audit_data.get('negotiation_strategy', '')
+                if isinstance(ns, list):
+                    try:
+                        ns = "\n".join(str(s) for s in ns)
+                    except Exception:
+                        ns = str(ns) # Fallback to string representation of the list if join fails
+                base_dict['negotiation_strategy'] = ns
+                
                 base_dict['strictness_level'] = audit_data.get('strictness_level', 'standard')
             except Exception:
                 # If JSON parse fails, return default empty values

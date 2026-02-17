@@ -54,18 +54,39 @@ class GeneratedContract(Base):
         if validation_data:
             structural_audit = validation_data.get('structural_audit', {})
 
-            # Extract all validation fields
+            # Extract all validation fields with type safety
+            ns = structural_audit.get('negotiation_strategy', '')
+            if isinstance(ns, list):
+                try:
+                    ns = "\n".join(str(x) for x in ns)
+                except Exception:
+                    ns = str(ns)
+            
+            summ = structural_audit.get('summary', '')
+            if isinstance(summ, list):
+                try:
+                    summ = "\n".join(str(x) for x in summ)
+                except Exception:
+                    summ = str(summ)
+
+            exp = structural_audit.get('score_explanation', '')
+            if isinstance(exp, list):
+                try:
+                    exp = "\n".join(str(x) for x in exp)
+                except Exception:
+                    exp = str(exp)
+
             base_dict['validation'] = {
                 'validity_score': structural_audit.get('validity_score', 0),
-                'score_explanation': structural_audit.get('score_explanation', ''),
+                'score_explanation': str(exp),
                 'strictness_level': structural_audit.get('strictness_level', 'standard'),
                 'critical_errors': structural_audit.get('critical_errors', []),
                 'hidden_risks': structural_audit.get('hidden_risks', []),
                 'ambiguities': structural_audit.get('ambiguities', []),
                 'warnings': structural_audit.get('warnings', []),
                 'missing_clauses': structural_audit.get('missing_clauses', []),
-                'summary': structural_audit.get('summary', ''),
-                'negotiation_strategy': structural_audit.get('negotiation_strategy', ''),
+                'summary': str(summ),
+                'negotiation_strategy': str(ns),
                 'red_team_analysis': validation_data.get('red_team_analysis', {}),
                 'risk_simulation': validation_data.get('risk_simulation', {})
             }

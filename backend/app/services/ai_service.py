@@ -4166,7 +4166,7 @@ CONTRACT_AUDIT_PROMPT = """Вы проводите КОМПЛЕКСНЫЙ 8-ЭТ
 ═══════════════════════════════════════════════════════════════
 
 1. Верните ТОЛЬКО валидный JSON без дополнительного текста (никаких ```json обёрток).
-2. Минимальное количество элементов: critical_errors >= 2, warnings >= 3, missing_clauses >= 3, ambiguities >= 2 (если договор реально содержит проблемы; для идеального договора допустимо меньше).
+2. Минимальное количество элементов: critical_errors >= 1, warnings >= 3, missing_clauses >= 3, ambiguities >= 2 (ОБЯЗАТЕЛЬНО найдите хотя бы 2 двусмысленности), hidden_risks >= 1 (ОБЯЗАТЕЛЬНО найдите хотя бы 1 скрытый риск).
 3. КАЖДЫЙ fix и drafted_text ОБЯЗАН быть ГОТОВЫМ юридическим текстом, а не общим описанием.
 4. Будьте МАКСИМАЛЬНО ПОДРОБНЫ — это профессиональная правовая экспертиза, а не поверхностный обзор.
 5. Проанализируйте КАЖДЫЙ пункт договора, а не только первые разделы."""
@@ -6088,121 +6088,55 @@ class AIService:
                 # ═══════════════════════════════════════════
                 # STREAM ANALYSIS REPORT AS VISIBLE CONTENT
                 # ═══════════════════════════════════════════
-                yield {"type": "status", "text": "📊 **Формирование отчёта экспертизы...**"}
+                # REQUEST CHANGE: Do not show analysis report in the response, only the final contract.
+                # yielding status only.
+                yield {"type": "status", "text": "📊 **Анализ завершен. Формирование финального договора...**"}
+
+                # NOTE: The visual streaming of 'header', 'critical_errors', 'risks' etc. 
+                # has been removed to satisfy the user request.
+                # However, we still collect the errors for Phase 3 Fixes.
 
                 score = audit.get('validity_score', 0)
-                if score >= 90:
-                    score_emoji, score_label = "🟢", "ОТЛИЧНЫЙ ДОГОВОР"
-                elif score >= 80:
-                    score_emoji, score_label = "🟢", "ХОРОШИЙ ДОГОВОР"
-                elif score >= 70:
-                    score_emoji, score_label = "🟡", "ТРЕБУЕТ ДОРАБОТКИ"
-                elif score >= 60:
-                    score_emoji, score_label = "🟠", "СЛАБЫЙ ДОГОВОР"
-                else:
-                    score_emoji, score_label = "🔴", "КРИТИЧЕСКИЕ ПРОБЛЕМЫ"
-
-                # Stream the visual analysis header
-                yield {"type": "content", "text": f"""# 🔍 ЭКСПЕРТИЗА ЧЕРНОВИКА ДОГОВОРА
-
----
-
-## {score_emoji} {score}/100 — {score_label}
-
-### 🔒 RUTHLESS AUDITOR
-
-{audit.get('score_explanation', 'Оценка не сформирована.')}
-
----
-
-"""}
-
                 all_errors_found = []
 
-                # --- Critical Errors ---
+                # --- Collect Critical Errors for context ---
                 if audit.get('critical_errors'):
-                    yield {"type": "content", "text": "## ❌ Критические ошибки\n\n"}
                     for e in audit['critical_errors']:
                         all_errors_found.append({
                             'type': 'critical_error', 'category': 'Критическая ошибка',
                             'description': e.get('error'), 'article': e.get('article'),
                             'consequence': e.get('consequence'), 'fix': e.get('fix')
                         })
-                        yield {"type": "content", "text": f"""🛑 {e.get('error', '')}
 
-**СТАТЬЯ:** {e.get('article', 'Требует проверки юристом')}
-
-**ПОСЛЕДСТВИЯ:** {e.get('consequence', '')}
-
-**ИСПРАВЛЕНИЕ:**
-> {e.get('fix', 'Не указано')}
-
----
-
-"""}
-
-                # --- Hidden Risks ---
+                # --- Collect Hidden Risks ---
                 if audit.get('hidden_risks'):
-                    yield {"type": "content", "text": "## 🕵️ Скрытые угрозы и ловушки\n\n"}
                     for r in audit['hidden_risks']:
                         all_errors_found.append({
                             'type': 'hidden_risk', 'category': 'Скрытый риск',
                             'description': r.get('risk'), 'location': r.get('location'),
                             'severity': r.get('severity'), 'mitigation': r.get('mitigation')
                         })
-                        sev_icon = "💣" if r.get('severity') == 'high' else "⚠️"
-                        yield {"type": "content", "text": f"""{sev_icon} {r.get('risk', '')}
 
-**ГДЕ:** {r.get('location', 'Не указано')} • **ТЯЖЕСТЬ:** {r.get('severity', 'N/A').upper()}
-
-**Как обезвредить:** {r.get('mitigation', 'Не указано')}
-
----
-
-"""}
-
-                # --- Ambiguities ---
+                # --- Collect Ambiguities ---
                 if audit.get('ambiguities'):
-                    yield {"type": "content", "text": "## 🌫️ Размытые формулировки\n\n"}
                     for a in audit['ambiguities']:
                         all_errors_found.append({
                             'type': 'ambiguity', 'category': 'Двусмысленность',
                             'description': a.get('phrase'), 'risk': a.get('risk'),
                             'suggestion': a.get('suggestion')
                         })
-                        yield {"type": "content", "text": f"""**\"{a.get('phrase', '')}\"**
 
-{a.get('risk', '')}
-
-**ЛУЧШЕ НАПИСАТЬ:**
-> {a.get('suggestion', 'Не указано')}
-
----
-
-"""}
-
-                # --- Warnings ---
+                # --- Collect Warnings ---
                 if audit.get('warnings'):
-                    yield {"type": "content", "text": "## ⚠️ Предупреждения\n\n"}
                     for w in audit['warnings']:
                         all_errors_found.append({
                             'type': 'warning', 'category': 'Предупреждение',
                             'description': w.get('risk'), 'explanation': w.get('explanation'),
                             'suggestion': w.get('suggestion')
                         })
-                        yield {"type": "content", "text": f"""**{w.get('risk', '')}**
 
-{w.get('explanation', '')}
-
-👉 **Рекомендация:** {w.get('suggestion', 'Не указано')}
-
----
-
-"""}
-
-                # --- Missing Clauses ---
+                # --- Collect Missing Clauses ---
                 if audit.get('missing_clauses'):
-                    yield {"type": "content", "text": "## 📝 Недостающие пункты\n\n"}
                     for m in audit['missing_clauses']:
                         all_errors_found.append({
                             'type': 'missing_clause', 'category': 'Отсутствующая оговорка',
@@ -6210,64 +6144,30 @@ class AIService:
                             'article_reference': m.get('article_reference'),
                             'drafted_text': m.get('drafted_text')
                         })
-                        imp_icon = "🔴" if m.get('importance') == 'critical' else "🔹"
-                        yield {"type": "content", "text": f"""{imp_icon} **{m.get('clause_name', '')}** [{m.get('importance', 'N/A').upper()}]
 
-**ОСНОВАНИЕ:** {m.get('article_reference', 'Рекомендуемая практика')}
+                # --- Collect Red Team Findings ---
+                if red_team_json.get('loop_holes'):
+                    for lh in red_team_json['loop_holes']:
+                        all_errors_found.append({'type': 'loophole', 'category': 'Лазейка', 'description': lh})
+                if red_team_json.get('unfair_terms'):
+                    for ut in red_team_json['unfair_terms']:
+                        all_errors_found.append({'type': 'unfair_term', 'category': 'Несправедливое условие', 'description': ut})
+                if red_team_json.get('ambiguities'):
+                    for amb in red_team_json['ambiguities']:
+                        all_errors_found.append({'type': 'red_team_ambiguity', 'category': 'Нечеткая формулировка (Red Team)', 'description': amb})
 
-> {m.get('drafted_text', 'Текст не предложен')}
-
----
-
-"""}
-
-                # --- Red Team ---
-                if red_team_json.get('loop_holes') or red_team_json.get('unfair_terms'):
-                    yield {"type": "content", "text": f"## ⚔️ Red Team анализ (Уровень риска: {red_team_json.get('risk_score', 'N/A')}/100)\n\n"}
-                    if red_team_json.get('loop_holes'):
-                        yield {"type": "content", "text": "### Лазейки:\n"}
-                        for lh in red_team_json['loop_holes']:
-                            all_errors_found.append({'type': 'loophole', 'category': 'Лазейка', 'description': lh})
-                            yield {"type": "content", "text": f"- 🕳️ {lh}\n"}
-                        yield {"type": "content", "text": "\n"}
-                    if red_team_json.get('unfair_terms'):
-                        yield {"type": "content", "text": "### Несправедливые условия:\n"}
-                        for ut in red_team_json['unfair_terms']:
-                            all_errors_found.append({'type': 'unfair_term', 'category': 'Несправедливое условие', 'description': ut})
-                            yield {"type": "content", "text": f"- ⚖️ {ut}\n"}
-                        yield {"type": "content", "text": "\n"}
-                    if red_team_json.get('ambiguities'):
-                        for amb in red_team_json['ambiguities']:
-                            all_errors_found.append({'type': 'red_team_ambiguity', 'category': 'Нечеткая формулировка (Red Team)', 'description': amb})
-                    yield {"type": "content", "text": "---\n\n"}
-
-                # --- Stress Test ---
+                # --- Collect Stress Test Findings ---
                 if risk_json.get('scenarios'):
                     risky = [s for s in risk_json['scenarios'] if s.get('verdict') in ['Risky', 'Critical']]
                     if risky:
-                        yield {"type": "content", "text": "## 🌪 Стресс-тест сценариев\n\n"}
-                        for s in risky:
+                         for s in risky:
                             all_errors_found.append({
                                 'type': 'risk_scenario', 'category': 'Риск-сценарий',
                                 'description': f"{s['name']}: {s.get('outcome')}", 'verdict': s.get('verdict')
                             })
-                            v_icon = "🔴" if s.get('verdict') == 'Critical' else "🟡"
-                            yield {"type": "content", "text": f"- {v_icon} **{s['name']}** [{s['verdict']}]: {s.get('outcome', '')}\n"}
-                        yield {"type": "content", "text": f"\n**Общий вывод:** {risk_json.get('summary', '')}\n\n---\n\n"}
 
-                # --- Positive Aspects ---
-                if audit.get('positive_aspects'):
-                    yield {"type": "content", "text": "## ✅ Позитивные моменты\n\n"}
-                    for p in audit['positive_aspects']:
-                        yield {"type": "content", "text": f"- ✅ {p}\n"}
-                    yield {"type": "content", "text": "\n---\n\n"}
-
-                # --- Summary ---
-                yield {"type": "content", "text": f"## 📊 Итоговое резюме\n\n{audit.get('summary', '')}\n\n"}
-                if audit.get('negotiation_strategy'):
-                    yield {"type": "content", "text": f"## 💡 Стратегия переговоров\n\n{audit.get('negotiation_strategy', '')}\n\n"}
-
-                yield {"type": "content", "text": f"\n\n---\n\n# ✨ ИСПРАВЛЕННЫЙ ДОГОВОР\n\n*На основе {len(all_errors_found)} обнаруженных проблем создан валидированный договор:*\n\n---\n\n"}
+                # --- No visual output for analysis, proceed to Phase 3 ---
+                # We do NOT yield content here.
 
                 # Save validation data
                 ultra_data = {
@@ -6627,13 +6527,13 @@ class AIService:
             audit = json.loads(json_text)
 
             # Validate audit structure
-            required_fields = ['validity_score', 'critical_errors', 'warnings', 'missing_clauses', 'summary']
+            required_fields = ['validity_score', 'critical_errors', 'warnings', 'missing_clauses', 'summary', 'hidden_risks', 'ambiguities']
             for field in required_fields:
                 if field not in audit:
                     logger.warning(f"Missing required field in audit: {field}")
                     if field == 'validity_score':
                         audit[field] = 0
-                    elif field in ['critical_errors', 'warnings', 'missing_clauses']:
+                    elif field in ['critical_errors', 'warnings', 'missing_clauses', 'hidden_risks', 'ambiguities']:
                         audit[field] = []
                     else:
                         audit[field] = "Не указано"
