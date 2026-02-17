@@ -27,9 +27,6 @@ class GeneratedContract(Base):
     sources = Column(JSON, default=list)
     
     # Timestamps
-    analysis_results = Column(JSON, default=dict)  # Stores Ultra Mode data (Red Team, Risk Sim)
-    
-    # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
@@ -48,6 +45,5 @@ class GeneratedContract(Base):
             'generated_text': self.generated_text,
             'template_names': self.template_names or [],
             'sources': self.sources or [],
-            'analysis_results': self.analysis_results or {},
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }

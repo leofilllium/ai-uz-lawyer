@@ -89,7 +89,6 @@ class GeneratedContractResponse(BaseModel):
     generated_text: str
     template_names: list[str] = []
     sources: list[dict] = []
-    analysis_results: dict | None = None
     created_at: datetime | None = None
     
     class Config:
