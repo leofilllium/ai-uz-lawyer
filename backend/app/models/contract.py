@@ -21,6 +21,8 @@ class ContractAnalysis(Base):
     score_explanation = Column(Text)
     critical_errors = Column(JSON, default=list)
     warnings = Column(JSON, default=list)
+    hidden_risks = Column(JSON, default=list)
+    ambiguities = Column(JSON, default=list)
     missing_clauses = Column(JSON, default=list)
     summary = Column(Text)
     sources = Column(JSON, default=list)
@@ -43,6 +45,8 @@ class ContractAnalysis(Base):
             'critical_errors': self.critical_errors or [],
             'warnings': self.warnings or [],
             'missing_clauses': self.missing_clauses or [],
+            'hidden_risks': self.hidden_risks or [],
+            'ambiguities': self.ambiguities or [],
             'summary': self.summary,
             'sources': self.sources or [],
             'created_at': self.created_at.isoformat() if self.created_at else None
@@ -56,8 +60,12 @@ class ContractAnalysis(Base):
                 # If raw_data is wrapped in 'audit', unwrap it
                 audit_data = raw_data.get('audit', raw_data)
                 
-                base_dict['hidden_risks'] = audit_data.get('hidden_risks', [])
-                base_dict['ambiguities'] = audit_data.get('ambiguities', [])
+                if not self.hidden_risks:
+                    base_dict['hidden_risks'] = audit_data.get('hidden_risks', [])
+                if not self.ambiguities:
+                    base_dict['ambiguities'] = audit_data.get('ambiguities', [])
+                base_dict['negotiation_strategy'] = audit_data.get('negotiation_strategy', '')
+                base_dict['strictness_level'] = audit_data.get('strictness_level', 'standard')
                 base_dict['negotiation_strategy'] = audit_data.get('negotiation_strategy', '')
                 base_dict['strictness_level'] = audit_data.get('strictness_level', 'standard')
             except Exception:

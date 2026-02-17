@@ -174,6 +174,8 @@ async def analyze_contract(
             critical_errors=audit.get('critical_errors', []),
             warnings=audit.get('warnings', []),
             missing_clauses=audit.get('missing_clauses', []),
+            hidden_risks=audit.get('hidden_risks', []),
+            ambiguities=audit.get('ambiguities', []),
             summary=audit.get('summary', ''),
             sources=result.get('sources', []),
             raw_response=result.get('raw_response', '')

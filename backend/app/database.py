@@ -57,5 +57,25 @@ def check_and_migrate_db():
                     conn.execute(text("ALTER TABLE task_attachments ADD COLUMN comment_id INTEGER REFERENCES task_comments(id) ON DELETE CASCADE"))
                     conn.commit()
                 print("Migration complete.")
+        
+        # Check contract_analyses table for new fields
+        if inspector.has_table("contract_analyses"):
+            columns = [c["name"] for c in inspector.get_columns("contract_analyses")]
+            with engine.connect() as conn:
+                migrated = False
+                if "hidden_risks" not in columns:
+                    print("Running migration: Adding hidden_risks to contract_analyses...")
+                    conn.execute(text("ALTER TABLE contract_analyses ADD COLUMN hidden_risks JSON DEFAULT '[]'"))
+                    migrated = True
+                
+                if "ambiguities" not in columns:
+                    print("Running migration: Adding ambiguities to contract_analyses...")
+                    conn.execute(text("ALTER TABLE contract_analyses ADD COLUMN ambiguities JSON DEFAULT '[]'"))
+                    migrated = True
+                
+                if migrated:
+                    conn.commit()
+                    print("Contract analysis migration complete.")
+
     except Exception as e:
         print(f"Migration failed (safe to ignore if running fresh): {e}")
