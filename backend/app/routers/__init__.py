@@ -3,6 +3,6 @@ API Routers
 All FastAPI routers for the application.
 """
 
-from app.routers import auth, lawyer, validator, generator, history, admin, doc_validator
+from app.routers import auth, lawyer, validator, generator, history, admin, doc_validator, stats
 
-__all__ = ['auth', 'lawyer', 'validator', 'generator', 'history', 'admin', 'doc_validator']
+__all__ = ['auth', 'lawyer', 'validator', 'generator', 'history', 'admin', 'doc_validator', 'stats']

@@ -914,16 +914,3 @@ export async function deleteCalendarEvent(eventId: number): Promise<void> {
   const response = await fetchWithAuth(`/api/calendar/${eventId}`, { method: 'DELETE' });
   if (!response.ok) throw new Error('Failed to delete event');
 }
-
-// Usage Stats
-export async function getUsageStats(days: number = 30): Promise<any> {
-  const response = await fetchWithAuth(`/api/usage/stats?days=${days}`);
-  if (!response.ok) throw new Error('Failed to load usage stats');
-  return response.json();
-}
-
-export async function getUsageHistory(limit: number = 50): Promise<any[]> {
-  const response = await fetchWithAuth(`/api/usage/history?limit=${limit}`);
-  if (!response.ok) throw new Error('Failed to load usage history');
-  return response.json();
-}

@@ -24,7 +24,6 @@ import TaskForm from './pages/TaskForm';
 import TaskDetail from './pages/TaskDetail';
 import TeamManagement from './pages/TeamManagement';
 import Calendar from './pages/Calendar';
-import AdminUsagePage from './pages/AdminUsage';
 
 // Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -146,15 +145,6 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Calendar />
-          </ProtectedRoute>
-        }
-      />
-      
-      <Route
-        path="/admin/usage"
-        element={
-          <ProtectedRoute>
-            <AdminUsagePage />
           </ProtectedRoute>
         }
       />

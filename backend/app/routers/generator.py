@@ -85,13 +85,15 @@ async def generate_contract(
                 category=category,
                 requirements=requirements,
                 template_context=template_context,
-                context=ultra_context
+                context=ultra_context,
+                user_id=user_id
             )
         else:
             result = await ai_service.generate_contract(
                 category=category,
                 requirements=requirements,
-                template_context=template_context
+                template_context=template_context,
+                user_id=user_id
             )
         
         async def generate_stream():

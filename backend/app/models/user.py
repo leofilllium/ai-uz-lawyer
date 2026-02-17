@@ -40,6 +40,7 @@ class User(Base):
     contract_analyses = relationship('ContractAnalysis', back_populates='user', lazy='dynamic')
     generated_contracts = relationship('GeneratedContract', back_populates='user', lazy='dynamic')
     document_analyses = relationship('DocumentAnalysis', back_populates='user', lazy='dynamic')
+    usages = relationship('ModelUsage', back_populates='user', lazy='dynamic')
     
     def __repr__(self):
         return f'<User {self.email}>'

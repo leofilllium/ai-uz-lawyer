@@ -14,11 +14,8 @@ from datetime import datetime
 from google import genai
 from google.genai import types
 
-from google.genai import types
-
 from app.config import get_settings
-from app.database import SessionLocal
-from app.models.usage import ModelUsage
+from app.services.usage_service import UsageService
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -4808,44 +4805,6 @@ class AIService:
             raise ValueError("GOOGLE_API_KEY is required")
         
         self.client = genai.Client(api_key=self.settings.google_api_key)
-        
-    def _calculate_cost(self, model: str, prompt_tokens: int, completion_tokens: int) -> float:
-        """
-        Calculate cost based on Gemini 1.5 Flash pricing (approximate).
-        Input: $0.075 / 1M tokens
-        Output: $0.30 / 1M tokens
-        """
-        # Pricing for Gemini 1.5 Flash
-        INPUT_PRICE_PER_1M = 0.075
-        OUTPUT_PRICE_PER_1M = 0.30
-
-        input_cost = (prompt_tokens / 1_000_000) * INPUT_PRICE_PER_1M
-        output_cost = (completion_tokens / 1_000_000) * OUTPUT_PRICE_PER_1M
-        
-        return input_cost + output_cost
-
-    async def _save_usage_log(self, endpoint: str, model: str, prompt_tokens: int, completion_tokens: int, user_id: Optional[int] = None):
-        """Save usage statistics to the database."""
-        try:
-            cost = self._calculate_cost(model, prompt_tokens, completion_tokens)
-            total_tokens = prompt_tokens + completion_tokens
-            
-            db = SessionLocal()
-            usage = ModelUsage(
-                user_id=user_id,
-                endpoint=endpoint,
-                model_name=model,
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                total_tokens=total_tokens,
-                cost=cost
-            )
-            db.add(usage)
-            db.commit()
-            db.close()
-        except Exception as e:
-            logger.error(f"Failed to save model usage log: {e}")
-            
         self._init_rag_engine()
     
     def _init_rag_engine(self):
@@ -4885,14 +4844,6 @@ class AIService:
                 )
             )
             
-            if response.usage_metadata:
-                await self._save_usage_log(
-                    endpoint="auto_detect",
-                    model=self.settings.gemini_flash_model,
-                    prompt_tokens=response.usage_metadata.prompt_token_count,
-                    completion_tokens=response.usage_metadata.candidates_token_count
-                )
-
             raw_text = response.text.strip() if response.text else ""
             # Extract JSON from response (handle markdown code blocks)
             if "```" in raw_text:
@@ -4939,7 +4890,8 @@ class AIService:
         top_k: int = DEFAULT_TOP_K,
         chat_mode: str = 'consultant',
         extra_context: Optional[str] = None,
-        progress_callback: Optional[Callable[[str], Awaitable[None]]] = None
+        progress_callback: Optional[Callable[[str], Awaitable[None]]] = None,
+        user_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Enhanced agentic RAG with hallucination prevention and quality validation.
@@ -4967,7 +4919,7 @@ class AIService:
         
         # For simple modes, use simplified query
         if chat_mode in SIMPLE_MODES:
-            return await self._simple_query(question, history, chat_mode, system_prompt)
+            return await self._simple_query(question, history, chat_mode, system_prompt, user_id=user_id)
         
         # ═══════════════════════════════════════════════════════════════
         # PHASE 1: PRE-SEARCH FOR BASELINE CONTEXT
@@ -5072,19 +5024,21 @@ class AIService:
                     contents=gemini_history,
                     config=config
                 )
-
-                if response.usage_metadata:
-                    await self._save_usage_log(
-                        endpoint=f"agentic_round_{round_num}",
-                        model=self.settings.gemini_flash_model,
-                        prompt_tokens=response.usage_metadata.prompt_token_count,
-                        completion_tokens=response.usage_metadata.candidates_token_count
-                    )
                 
-                # Check for candidates
                 if not response.candidates:
                     logger.warning("No candidates returned from Gemini.")
                     break
+                
+                # Track usage for agentic step
+                if response.usage_metadata:
+                    usage = response.usage_metadata
+                    await UsageService.track_usage_async(
+                        user_id=user_id,
+                        model_name=self.settings.gemini_flash_model,
+                        input_tokens=usage.prompt_token_count or 0,
+                        output_tokens=usage.candidates_token_count or 0,
+                        request_type=f"agentic_step_{chat_mode}"
+                    )
 
                 # Add model's response to history
                 gemini_history.append(response.candidates[0].content)
@@ -5252,33 +5206,34 @@ class AIService:
         
         async def stream_response():
             first_chunk = True
-            usage_metadata = None
             try:
                 stream = await self.client.aio.models.generate_content_stream(
                     model=self.settings.gemini_flash_model,
-                    contents=[final_prompt],
+                    contents=final_history + [final_prompt],
                     config=model_final_config
                 )
                 
                 async for chunk in stream:
-                    if chunk.usage_metadata:
-                         usage_metadata = chunk.usage_metadata
                     if chunk.text:
-                        yield chunk.text
+                        text = chunk.text
+                        if first_chunk:
+                            text = text.lstrip()
+                            first_chunk = False
+                        yield text
                 
-                # Log usage after stream completes
-                if usage_metadata:
-                    await self._save_usage_log(
-                        endpoint="chat_synthesis",
-                        model=self.settings.gemini_flash_model,
-                        prompt_tokens=usage_metadata.prompt_token_count,
-                        completion_tokens=usage_metadata.candidates_token_count
+                # Track usage after stream completes
+                if hasattr(stream, 'usage_metadata') and stream.usage_metadata:
+                    usage = stream.usage_metadata
+                    await UsageService.track_usage_async(
+                        user_id=user_id,
+                        model_name=self.settings.gemini_flash_model,
+                        input_tokens=usage.prompt_token_count or 0,
+                        output_tokens=usage.candidates_token_count or 0,
+                        request_type=f"agentic_final_{chat_mode}"
                     )
             except Exception as e:
-                logger.error(f"Error streaming final response: {e}")
-                if first_chunk:
-                    yield "Извините, произошла ошибка при генерации ответа. Пожалуйста, попробуйте еще раз."
-
+                logger.error(f"Streaming error: {e}")
+                yield f"\n\n⚠️ Error generating response: {str(e)}"
         
         return {
             "response": stream_response(),
@@ -5809,15 +5764,6 @@ class AIService:
                 contents=f"Translate the following Russian legal query into Uzbek (Latin script). Output ONLY the Uzbek translation, nothing else. Query: {text}",
                 config=types.GenerateContentConfig(temperature=0.1)
             )
-            
-            if response.usage_metadata:
-                await self._save_usage_log(
-                    endpoint="translate_query",
-                    model=self.settings.gemini_flash_model,
-                    prompt_tokens=response.usage_metadata.prompt_token_count,
-                    completion_tokens=response.usage_metadata.candidates_token_count
-                )
-
             return response.text.strip() if response.text else text
         except Exception as e:
             logger.warning(f"Translation error: {e}")
@@ -5828,7 +5774,8 @@ class AIService:
         question: str,
         history: Optional[List[Dict[str, str]]],
         chat_mode: str,
-        system_prompt: str
+        system_prompt: str,
+        user_id: Optional[int] = None
     ) -> Dict[str, Any]:
         gemini_history = self._convert_history_to_gemini(history)
         
@@ -5842,7 +5789,6 @@ class AIService:
         )
 
         async def stream_response():
-            usage_metadata = None
             try:
                 stream = await self.client.aio.models.generate_content_stream(
                     model=self.settings.gemini_flash_model,
@@ -5850,20 +5796,19 @@ class AIService:
                     config=config
                 )
                 async for chunk in stream:
-                    if chunk.usage_metadata:
-                         usage_metadata = chunk.usage_metadata
                     if chunk.text:
                         yield chunk.text
-
-                # Log usage
-                if usage_metadata:
-                    await self._save_usage_log(
-                        endpoint=f"simple_chat_{chat_mode}",
-                        model=self.settings.gemini_flash_model,
-                        prompt_tokens=usage_metadata.prompt_token_count,
-                        completion_tokens=usage_metadata.candidates_token_count
+                
+                # Track usage after stream completes
+                if hasattr(stream, 'usage_metadata') and stream.usage_metadata:
+                    usage = stream.usage_metadata
+                    await UsageService.track_usage_async(
+                        user_id=user_id,
+                        model_name=self.settings.gemini_flash_model,
+                        input_tokens=usage.prompt_token_count or 0,
+                        output_tokens=usage.candidates_token_count or 0,
+                        request_type=f"chat_simple_{chat_mode}"
                     )
-            except Exception as e:
             except Exception as e:
                 logger.error(f"Simple query error: {e}")
                 yield f"Error: {str(e)}"
@@ -5878,7 +5823,8 @@ class AIService:
         self,
         category: str,
         requirements: str,
-        template_context: str
+        template_context: str,
+        user_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Generate a contract using Legacy Logic (Multi-step Search + Gemini Flash).
@@ -5936,7 +5882,6 @@ class AIService:
         )
         
         async def stream_response():
-            usage_metadata = None
             try:
                 stream = await self.client.aio.models.generate_content_stream(
                     model=self.settings.gemini_flash_model,
@@ -5944,18 +5889,18 @@ class AIService:
                     config=config
                 )
                 async for chunk in stream:
-                    if chunk.usage_metadata:
-                         usage_metadata = chunk.usage_metadata
                     if chunk.text:
                         yield {"type": "content", "text": chunk.text}
-
-                # Log usage
-                if usage_metadata:
-                    await self._save_usage_log(
-                        endpoint="generate_contract",
-                        model=self.settings.gemini_flash_model,
-                        prompt_tokens=usage_metadata.prompt_token_count,
-                        completion_tokens=usage_metadata.candidates_token_count
+                
+                # Track usage after stream completes
+                if hasattr(stream, 'usage_metadata') and stream.usage_metadata:
+                    usage = stream.usage_metadata
+                    await UsageService.track_usage_async(
+                        user_id=user_id,
+                        model_name=self.settings.gemini_flash_model,
+                        input_tokens=usage.prompt_token_count or 0,
+                        output_tokens=usage.candidates_token_count or 0,
+                        request_type="contract_generation_legacy"
                     )
             except Exception as e:
                 logger.error(f"Generate Contract Error: {e}")
@@ -5971,7 +5916,8 @@ class AIService:
         category: str,
         requirements: str,
         template_context: str,
-        context: Dict[str, Any] = None
+        context: Dict[str, Any] = None,
+        user_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Generate a contract using Ultra Mode — 3-phase pipeline:
@@ -6041,17 +5987,19 @@ class AIService:
                         thinking_config=types.ThinkingConfig(thinking_level="high"),
                     )
                 )
-
-                if draft_response.usage_metadata:
-                    await self._save_usage_log(
-                        endpoint="generate_contract_ultra_draft",
-                        model=self.settings.gemini_flash_model,
-                        prompt_tokens=draft_response.usage_metadata.prompt_token_count,
-                        completion_tokens=draft_response.usage_metadata.candidates_token_count
-                    )
-
                 draft_text = draft_response.text
                 logger.info(f"Draft generated: {len(draft_text)} chars")
+                
+                # Track usage for Phase 1
+                if draft_response.usage_metadata:
+                    usage = draft_response.usage_metadata
+                    await UsageService.track_usage_async(
+                        user_id=user_id,
+                        model_name=self.settings.gemini_flash_model,
+                        input_tokens=usage.prompt_token_count or 0,
+                        output_tokens=usage.candidates_token_count or 0,
+                        request_type="contract_ultra_phase1_draft"
+                    )
 
                 # ═══════════════════════════════════════════
                 # PHASE 2: FULL LEGAL VALIDATION
@@ -6136,14 +6084,6 @@ class AIService:
                     )
                 )
 
-                if audit_response.usage_metadata:
-                    await self._save_usage_log(
-                        endpoint="generate_contract_ultra_audit",
-                        model=self.settings.gemini_flash_model,
-                        prompt_tokens=audit_response.usage_metadata.prompt_token_count,
-                        completion_tokens=audit_response.usage_metadata.candidates_token_count
-                    )
-
                 # Parse audit JSON
                 audit = {}
                 raw_audit_text = audit_response.text.strip() if audit_response.text else ""
@@ -6183,15 +6123,6 @@ class AIService:
                             thinking_config=types.ThinkingConfig(thinking_level="high")
                         )
                     )
-
-                    if red_team_response.usage_metadata:
-                        await self._save_usage_log(
-                            endpoint="generate_contract_ultra_red_team",
-                            model=self.settings.gemini_flash_model,
-                            prompt_tokens=red_team_response.usage_metadata.prompt_token_count,
-                            completion_tokens=red_team_response.usage_metadata.candidates_token_count
-                        )
-
                     red_team_json = json.loads(self._clean_json_response(red_team_response.text))
                 except Exception as e:
                     logger.warning(f"Red Team analysis error: {e}")
@@ -6208,15 +6139,6 @@ class AIService:
                             thinking_config=types.ThinkingConfig(thinking_level="high")
                         )
                     )
-                    
-                    if risk_response.usage_metadata:
-                        await self._save_usage_log(
-                            endpoint="generate_contract_ultra_risk",
-                            model=self.settings.gemini_flash_model,
-                            prompt_tokens=risk_response.usage_metadata.prompt_token_count,
-                            completion_tokens=risk_response.usage_metadata.candidates_token_count
-                        )
-
                     risk_json = json.loads(self._clean_json_response(risk_response.text))
                 except Exception as e:
                     logger.warning(f"Risk simulation error: {e}")
@@ -6412,20 +6334,19 @@ class AIService:
                     )
                 )
 
-                usage_metadata = None
                 async for chunk in final_stream:
-                    if chunk.usage_metadata:
-                         usage_metadata = chunk.usage_metadata
                     if chunk.text:
                         yield {"type": "content", "text": chunk.text}
-
-                # Log usage
-                if usage_metadata:
-                    await self._save_usage_log(
-                        endpoint="generate_contract_ultra_final",
-                        model=self.settings.gemini_flash_model,
-                        prompt_tokens=usage_metadata.prompt_token_count,
-                        completion_tokens=usage_metadata.candidates_token_count
+                
+                # Track usage for Phase 3
+                if hasattr(final_stream, 'usage_metadata') and final_stream.usage_metadata:
+                    usage = final_stream.usage_metadata
+                    await UsageService.track_usage_async(
+                        user_id=user_id,
+                        model_name=self.settings.gemini_flash_model,
+                        input_tokens=usage.prompt_token_count or 0,
+                        output_tokens=usage.candidates_token_count or 0,
+                        request_type="contract_ultra_phase3_final"
                     )
 
             except Exception as e:
@@ -6485,14 +6406,6 @@ class AIService:
                     max_output_tokens=1000,
                 )
             )
-
-            if response.usage_metadata:
-                await self._save_usage_log(
-                    endpoint="detect_contract_type",
-                    model=self.settings.gemini_flash_model,
-                    prompt_tokens=response.usage_metadata.prompt_token_count,
-                    completion_tokens=response.usage_metadata.candidates_token_count
-                )
 
             raw_text = response.text.strip()
             json_text = raw_text
@@ -6664,16 +6577,7 @@ class AIService:
                         thinking_level="high"
                     ),
                 )
-                )
             )
-
-            if response.usage_metadata:
-                await self._save_usage_log(
-                    endpoint="analyze_contract",
-                    model=self.settings.gemini_flash_model,
-                    prompt_tokens=response.usage_metadata.prompt_token_count,
-                    completion_tokens=response.usage_metadata.candidates_token_count
-                )
 
             raw_text = response.text.strip() if response.text else ""
 
@@ -6751,7 +6655,8 @@ class AIService:
         self,
         document_text: str,
         document_type: str,
-        top_k: int = 50
+        top_k: int = 50,
+        user_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Analyze document using Legacy Logic (Deep Multi-Check).
@@ -6827,16 +6732,19 @@ class AIService:
                 )
             )
             
-            if response.usage_metadata:
-                await self._save_usage_log(
-                    endpoint="analyze_document",
-                    model=self.settings.gemini_flash_model,
-                    prompt_tokens=response.usage_metadata.prompt_token_count,
-                    completion_tokens=response.usage_metadata.candidates_token_count
-                )
-
             raw_text = response.text
             audit = self._parse_document_audit_response(raw_text)
+            
+            # Track usage
+            if response.usage_metadata:
+                usage = response.usage_metadata
+                await UsageService.track_usage_async(
+                    user_id=user_id,
+                    model_name=self.settings.gemini_flash_model,
+                    input_tokens=usage.prompt_token_count or 0,
+                    output_tokens=usage.candidates_token_count or 0,
+                    request_type="document_analysis"
+                )
             
             return {
                 "audit": audit,

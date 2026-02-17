@@ -133,7 +133,8 @@ async def chat(
                     history, 
                     chat_mode=chat_mode, 
                     extra_context=extra_context,
-                    progress_callback=on_progress
+                    progress_callback=on_progress,
+                    user_id=user_id
                 )
             )
             
@@ -302,7 +303,8 @@ async def draft_result(
         result = await ai_service.query_with_rag(
             question="Draft a professional legal conclusion for this task based on the provided context.",
             chat_mode='draft-result',
-            extra_context=context
+            extra_context=context,
+            user_id=current_user.id
         )
         
         # Return streaming response

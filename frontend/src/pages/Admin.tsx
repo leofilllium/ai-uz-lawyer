@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import UsageStats from '../components/UsageStats';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.lawyerai.uz';
 
@@ -116,7 +117,7 @@ export default function Admin() {
   // actually, the debounce effect will run on mount too.
 
   // Tabs state
-  const [activeTab, setActiveTab] = useState<'documents' | 'organizations'>('documents');
+  const [activeTab, setActiveTab] = useState<'documents' | 'organizations' | 'usage'>('documents');
 
   // Login handler
   const handleLogin = async (e: React.FormEvent) => {
@@ -347,6 +348,22 @@ export default function Admin() {
             >
               Organizations
             </button>
+            <button 
+              onClick={() => setActiveTab('usage')}
+              className={`nav-tab ${activeTab === 'usage' ? 'active' : ''}`}
+              style={{
+                background: 'none',
+                border: 'none',
+                borderBottom: activeTab === 'usage' ? '2px solid var(--color-primary)' : '2px solid transparent',
+                padding: '8px 4px',
+                color: activeTab === 'usage' ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontSize: '15px'
+              }}
+            >
+              AI Usage
+            </button>
           </nav>
         </div>
         
@@ -564,6 +581,11 @@ export default function Admin() {
           </section>
         )}
 
+        {activeTab === 'usage' && (
+            <section className="usage-section" style={{ paddingTop: '20px' }}>
+                <UsageStats authHeader={getAuthHeader()} />
+            </section>
+        )}
       </main>
     </div>
   );
