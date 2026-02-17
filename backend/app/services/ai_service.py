@@ -5848,8 +5848,8 @@ class AIService:
                         errors_by_type[err_type].append(err)
 
                     # Format error details
-                    for category, errors in errors_by_type.items():
-                        fix_instructions.append(f"\n## {category} ({len(errors)} проблем):")
+                    for err_category, errors in errors_by_type.items():
+                        fix_instructions.append(f"\n## {err_category} ({len(errors)} проблем):")
                         for i, err in enumerate(errors, 1):
                             fix_instructions.append(f"\n{i}. **{err['description']}**")
                             if err.get('fix'):
