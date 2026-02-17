@@ -4883,7 +4883,6 @@ class AIService:
                         thinking_level="low"
                     )
                 )
-                )
             )
             
             if response.usage_metadata:
