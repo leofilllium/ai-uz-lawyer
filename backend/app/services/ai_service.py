@@ -3910,112 +3910,148 @@ AUTO_DETECT_FALLBACK_PROMPT = """Вы — универсальный AI юрис
 
 VALIDATOR_PROMPT = """Вы — «Профессиональный юридический аудитор» (Professional Contract Auditor). Ваша задача — провести ОБЪЕКТИВНУЮ и ВСЕСТОРОННЮЮ правовую экспертизу договора на соответствие законодательству Республики Узбекистан.
 
-⚖️ ПРИНЦИПЫ ВАШЕЙ РАБОТЫ (STANDARD MODE):
+⚖️ ПРИНЦИПЫ ВАШЕЙ РАБОТЫ (ENHANCED MODE):
 1. ОБЪЕКТИВНОСТЬ: Оценивайте риски беспристрастно. Отмечайте как нарушения, так и позитивные моменты.
 2. ЯСНОСТЬ И ТОЧНОСТЬ: Выявляйте размытые формулировки («в разумный срок», «надлежащим образом»), предлагая конкретные уточнения.
-3. ПРАВОВОЕ ОБОСНОВАНИЕ: При выявлении нарушений ОБЯЗАТЕЛЬНО ссылайтесь на конкретные статьи законодательства РУз (ГК, ТК, НК и др.).
+3. ПРАВОВОЕ ОБОСНОВАНИЕ (КРИТИЧЕСКИ ВАЖНО):
+   - ОБЯЗАТЕЛЬНО ссылайтесь на конкретные статьи из предоставленного ПРАВОВОГО КОНТЕКСТА
+   - НЕ изобретайте ссылки на законы - используйте ТОЛЬКО то, что есть в контексте
+   - Если контекст не содержит нужной информации, укажите "требует дополнительной проверки"
 4. ПОЛНОТА АНАЛИЗА: Проверяйте не только наличие пунктов, но и их соответствие интересам сторон и требованиям закона.
 5. КОНСТРУКТИВНОСТЬ: Ваша критика должна быть полезной. Предлагайте способы устранения рисков и улучшения текста.
+6. СПЕЦИФИЧНОСТЬ: Учитывайте тип договора и его особенности при анализе.
+
+🔍 ОБЯЗАТЕЛЬНЫЕ ТРЕБОВАНИЯ:
+- Все критические ошибки ДОЛЖНЫ иметь ссылку на статью закона из предоставленного контекста
+- Оценка validity_score должна быть строгой, но справедливой (60-70 для среднего договора, 80-90 для хорошего, 90+ для отличного)
+- НЕ занижайте оценку искусственно - если договор действительно хороший, поставьте высокий балл
+- Проверяйте специфические требования для данного ТИПА договора
 
 Ваш вердикт должен быть профессиональным, взвешенным и юридически грамотным. Помогайте пользователю сделать договор безопасным и работающим."""
 
-CONTRACT_AUDIT_PROMPT = """Проведите КОМПЛЕКСНЫЙ 5-ЭТАПНЫЙ ГЛУБОКИЙ АУДИТ (DEEP LEGAL DUE DILIGENCE) этого договора.
+CONTRACT_AUDIT_PROMPT = """Проведите КОМПЛЕКСНЫЙ 6-ЭТАПНЫЙ ГЛУБОКИЙ АУДИТ (DEEP LEGAL DUE DILIGENCE) этого договора на основе предоставленного правового контекста.
 
-## ЭТАП 1: CHECKLIST СУЩЕСТВЕННЫХ УСЛОВИЙ (Essential Terms)
-По ГК РУз (Ст. 364 и спец. нормы для видов договоров). Есть ли ВСЕ обязательные элементы?
-- Предмет (детально)
-- Цена/Стоимость (включая НДС, валюту)
-- Сроки (начало, окончание, этапы)
-- Порядок расчетов и приемки
-- Ответственность сторон (конкретные штрафы/пени)
+🎯 КРИТИЧЕСКИ ВАЖНО:
+- ВСЕ ссылки на статьи законов ДОЛЖНЫ быть из предоставленного ПРАВОВОГО КОНТЕКСТА
+- НЕ придумывайте статьи - используйте ТОЛЬКО реальные ссылки из контекста
+- Если контекст не содержит нужной информации, укажите "требует проверки юристом"
+- Учитывайте СПЕЦИФИКУ данного типа договора
+
+## ЭТАП 1: ОПРЕДЕЛЕНИЕ ТИПА И СПЕЦИФИКИ
+Определите тип договора и его специфические требования:
+- Тип договора и его квалификация по ГК РУз
+- Какие СПЕЦИАЛЬНЫЕ нормы применяются к этому типу договора?
+- Есть ли особые требования к форме/регистрации?
+
+## ЭТАП 2: CHECKLIST СУЩЕСТВЕННЫХ УСЛОВИЙ (Essential Terms)
+По ГК РУз (Ст. 364 и спец. нормы для ДАННОГО вида договора). Проверьте наличие ОБЯЗАТЕЛЬНЫХ элементов:
+- Предмет (описан ли детально и однозначно?)
+- Цена/Стоимость (включая НДС, валюту, порядок расчета)
+- Сроки (начало, окончание, промежуточные этапы)
+- Порядок исполнения (расчеты, приемка, передача)
+- Ответственность сторон (конкретные штрафы/пени с расчетом)
 - Форс-мажор и разрешение споров
+- СПЕЦИФИЧЕСКИЕ условия для данного типа (см. правовой контекст)
 
-## ЭТАП 2: ЗАКОННОСТЬ И «КРАСНЫЕ ФЛАГИ» (Legality Check)
-Найдите нарушения ИМПЕРАТИВНЫХ норм законодательства РУз:
-- Валютные оговорки (запрет расчетов в валюте между резидентами)
-- Ничтожные условия (отказ от права на суд, односторонний отказ без оснований)
-- Нарушение прав потребителей/работников (если применимо)
+## ЭТАП 3: ЗАКОННОСТЬ И «КРАСНЫЕ ФЛАГИ» (Legality Check)
+Найдите нарушения ИМПЕРАТИВНЫХ норм из предоставленного правового контекста:
+- Валютные оговорки (запрет расчетов в валюте между резидентами - проверьте контекст)
+- Ничтожные условия (отказ от права на суд, безосновательный односторонний отказ)
+- Нарушение прав слабой стороны (потребители/работники)
 - Противоречия публичному порядку
+- СПЕЦИФИЧЕСКИЕ запреты для данного типа договора (см. контекст)
 
-## ЭТАП 3: СКРЫТЫЕ РИСКИ И «МИНЫ» (Hidden Risks)
-Выявите реальные опасности, которые могут навредить клиенту:
+## ЭТАП 4: СКРЫТЫЕ РИСКИ И «МИНЫ» (Hidden Risks)
+Выявите реальные опасности:
 - АВТОМАТИЧЕСКАЯ ПРОЛОНГАЦИЯ на невыгодных условиях?
-- ОДНОСТОРОННЕЕ изменение цены/тарифов?
-- НЕПОМЕРНЫЕ штрафы для одной стороны (100% от суммы и т.д.)?
-- СЛОЖНАЯ процедура расторжения (заградительные барьеры)?
-- Подсудность конкретному арбитражу (дорогому/далекому)?
+- ОДНОСТОРОННЕЕ изменение цены/тарифов без ограничений?
+- НЕСОРАЗМЕРНЫЕ штрафы (100%+ от суммы)?
+- СЛОЖНАЯ/дорогая процедура расторжения?
+- Невыгодная подсудность или арбитраж?
+- ДИСБАЛАНС прав и обязанностей сторон?
 
-## ЭТАП 4: ЧИТАЕМОСТЬ И ДВУСМЫСЛЕННОСТЬ (Ambiguity Check)
-Найдите фразы, которые можно трактовать двояко в суде:
-- "В разумный срок" -> Укажите: "Риск! Установить точные дни"
-- "Надлежащим образом" -> Укажите: "Риск! Описать критерии качества"
-- "По согласованию сторон" -> Укажите: "Риск блокировки процесса"
+## ЭТАП 5: ЧИТАЕМОСТЬ И ДВУСМЫСЛЕННОСТЬ (Ambiguity Check)
+Найдите фразы, вызывающие двойное толкование:
+- "В разумный срок" → "Риск! Установить точные дни (например, 10 рабочих дней)"
+- "Надлежащим образом" → "Риск! Описать критерии качества"
+- "По согласованию сторон" → "Риск! Предусмотреть процедуру на случай разногласий"
+- "По мере необходимости" → "Риск! Установить конкретные триггеры"
 
-## ЭТАП 5: РЕКОМЕНДАЦИИ ПО УСИЛЕНИЮ ПОЗИЦИИ (Drafting Improvements)
-Как сделать договор лучше и защищеннее для Вашего клиента?
+## ЭТАП 6: РЕКОМЕНДАЦИИ ПО УСИЛЕНИЮ ПОЗИЦИИ (Drafting Improvements)
+Как улучшить договор:
+- Какие пункты добавить для защиты прав клиента?
+- Как уточнить размытые формулировки?
+- Какие гарантии и обеспечения предусмотреть?
+
+📊 ШКАЛА ОЦЕНКИ (validity_score):
+- 90-100: Отличный договор, минимальные доработки
+- 80-89: Хороший договор, есть что улучшить
+- 70-79: Приемлемый, но требует существенных доработок
+- 60-69: Слабый договор, много рисков
+- 0-59: Критические проблемы, требует переработки
 
 ФОРМАТ ВЫВОДА (JSON):
 ```json
 {{
-  "validity_score": <0-100, ОЦЕНИВАЙТЕ ОБЪЕКТИВНО. Если договор хороший - ставьте 85-95. Если идеальный - 100.>,
-  "score_explanation": "<честное объяснение оценки, почему снизили баллы>",
-  "strictness_level": "standard",
-  
+  "validity_score": <0-100, СТРОГАЯ но ЧЕСТНАЯ оценка>,
+  "score_explanation": "<Объяснение: почему именно эта оценка? Что снизило/повысило балл?>",
+  "strictness_level": "enhanced",
+
   "critical_errors": [
     {{
-      "error": "<СМЕРТЕЛЬНЫЙ риск/Нарушение закона>",
-      "article": "<Статья Закона>",
-      "consequence": "<Что будет? Штраф/Ничтожность/Потеря денег>",
-      "fix": "<готовый текст исправления>"
+      "error": "<Критическое нарушение>",
+      "article": "<ТОЧНАЯ ссылка из ПРАВОВОГО КОНТЕКСТА, например 'Статья 364 ГК РУз'>",
+      "consequence": "<Конкретные последствия: штраф/ничтожность/потери>",
+      "fix": "<Готовая формулировка исправления>"
     }}
   ],
-  
+
   "hidden_risks": [
     {{
       "risk": "<Скрытая угроза>",
-      "location": "<Где найдено>",
+      "location": "<Точное место в договоре (номер пункта)>",
       "severity": "high/medium",
-      "mitigation": "<Как обезвредить>"
+      "mitigation": "<Конкретные действия для обезвреживания>"
     }}
   ],
-  
+
   "ambiguities": [
     {{
-      "phrase": "<Размытая фраза>",
-      "risk": "<Риск толкования>",
-      "suggestion": "<Точная формулировка>"
+      "phrase": "<ТОЧНАЯ цитата размытой фразы>",
+      "risk": "<Почему это опасно? Как могут истолковать?>",
+      "suggestion": "<Конкретная замена формулировки>"
     }}
   ],
-  
+
   "warnings": [
     {{
       "risk": "<Умеренный риск>",
-      "explanation": "<Пояснение>",
-      "suggestion": "<Рекомендация>"
+      "explanation": "<Подробное пояснение>",
+      "suggestion": "<Конкретная рекомендация>"
     }}
   ],
-  
+
   "missing_clauses": [
     {{
-      "clause_name": "<Чего не хватает>",
+      "clause_name": "<Название отсутствующего пункта>",
       "importance": "critical/high/medium",
-      "article_reference": "<Если требуется по закону>",
-      "drafted_text": "<готовый пункт для вставки>"
+      "article_reference": "<Ссылка из контекста, если требуется по закону>",
+      "drafted_text": "<Готовый текст пункта для вставки в договор>"
     }}
   ],
-  
-  "summary": "<Объективное резюме аудитора.>",
-  "negotiation_strategy": "<Советы: на чем настаивать, где уступить>"
+
+  "summary": "<Объективное резюме: общая оценка договора, главные проблемы и достоинства>",
+  "negotiation_strategy": "<Практические советы: на чем настаивать, где можно уступить, какие пункты критичны>"
 }}
 ```
 
-ПРАВОВОЙ КОНТЕКСТ:
+ПРАВОВОЙ КОНТЕКСТ (используйте ТОЛЬКО эти ссылки):
 {context}
 
-ДОГОВОР:
+ДОГОВОР ДЛЯ АНАЛИЗА:
 {contract_text}
 
-Верните ТОЛЬКО JSON. Будьте СПРАВЕДЛИВЫ и ОБЪЕКТИВНЫ в критике."""
+⚠️ ВАЖНО: Верните ТОЛЬКО валидный JSON без дополнительного текста. Будьте ТОЧНЫ в ссылках и СПРАВЕДЛИВЫ в оценке."""
 
 # ═══════════════════════════════════════════════════════════════
 # 📄 DOCUMENT VALIDATOR PROMPTS (11-BLOCK COMPREHENSIVE ANALYSIS)
@@ -5909,53 +5945,185 @@ class AIService:
                     return stripped
         return text.strip() if text else "{}"
 
+    async def _detect_contract_type(self, contract_text: str) -> Dict[str, Any]:
+        """
+        Detect the contract type and extract key topics for targeted validation.
+        Returns contract type, main topics, and specific legal areas to check.
+        """
+        detection_prompt = f"""Проанализируйте этот договор и определите:
+1. Тип договора (купли-продажи, аренды, подряда, оказания услуг, трудовой, и т.д.)
+2. Ключевые темы (недвижимость, интеллектуальная собственность, финансы, и т.д.)
+3. Специфические правовые области для проверки
+
+Верните ТОЛЬКО JSON в таком формате:
+{{
+  "contract_type": "тип договора",
+  "key_topics": ["тема1", "тема2", "тема3"],
+  "legal_areas": ["область права 1", "область права 2"],
+  "specific_checks": ["специфическая проверка 1", "специфическая проверка 2"]
+}}
+
+ДОГОВОР:
+{contract_text[:3000]}"""
+
+        try:
+            response = await self.client.aio.models.generate_content(
+                model="gemini-3-pro-preview",
+                contents=detection_prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.1,
+                    max_output_tokens=1000,
+                )
+            )
+
+            raw_text = response.text.strip()
+            json_text = raw_text
+            if "```" in json_text:
+                parts = json_text.split("```")
+                for part in parts:
+                    stripped = part.strip()
+                    if stripped.startswith("json"):
+                        stripped = stripped[4:].strip()
+                    if stripped.startswith("{"):
+                        json_text = stripped
+                        break
+
+            return json.loads(json_text)
+        except Exception as e:
+            logger.warning(f"Contract type detection failed: {e}")
+            return {
+                "contract_type": "общий договор",
+                "key_topics": ["гражданское право"],
+                "legal_areas": ["гражданский кодекс"],
+                "specific_checks": []
+            }
+
+    def _build_contract_validation_queries(self, contract_info: Dict[str, Any]) -> List[str]:
+        """
+        Build targeted RAG queries based on detected contract type and topics.
+        """
+        contract_type = contract_info.get("contract_type", "договор")
+        key_topics = contract_info.get("key_topics", [])
+        legal_areas = contract_info.get("legal_areas", [])
+
+        queries = []
+
+        # Base query for essential contract terms
+        queries.append(f"существенные условия {contract_type} обязательные требования гражданский кодекс Узбекистан")
+
+        # Type-specific queries
+        if contract_type:
+            queries.append(f"{contract_type} ответственность стороны нарушение условий статья")
+            queries.append(f"{contract_type} расторжение недействительность форс-мажор")
+
+        # Topic-specific queries
+        for topic in key_topics[:2]:  # Limit to top 2 topics
+            queries.append(f"{topic} {contract_type} законодательство Узбекистан требования")
+
+        # Legal area queries
+        for area in legal_areas[:2]:  # Limit to top 2 areas
+            queries.append(f"{area} {contract_type} императивные нормы запреты")
+
+        return queries[:5]  # Return top 5 most relevant queries
+
     async def analyze_contract(
         self,
         contract_text: str
     ) -> Dict[str, Any]:
         """
-        Analyze a contract for legal compliance using Gemini Flash.
+        Analyze a contract for legal compliance using Gemini with enhanced accuracy.
         Returns structured audit result with validity score, errors, warnings, and missing clauses.
+
+        Enhanced with:
+        - Contract type detection for targeted validation
+        - Dynamic RAG queries based on contract specifics
+        - Reduced context for higher quality (top_k=40)
+        - Lower temperature (0.1) for consistency
+        - Better error handling and validation
         """
-        logger.info(f"=== ANALYZE CONTRACT ===")
+        logger.info(f"=== ANALYZE CONTRACT (ENHANCED) ===")
         logger.info(f"Contract text length: {len(contract_text)} chars")
-        
-        # Retrieve legal context for contract analysis
+
+        # Step 1: Detect contract type and key topics
+        contract_info = await self._detect_contract_type(contract_text)
+        logger.info(f"Detected contract type: {contract_info.get('contract_type')}")
+        logger.info(f"Key topics: {contract_info.get('key_topics', [])}")
+
+        # Step 2: Build targeted RAG queries
+        validation_queries = self._build_contract_validation_queries(contract_info)
+        logger.info(f"Built {len(validation_queries)} validation queries")
+
+        # Step 3: Retrieve targeted legal context
+        all_context_results = []
         try:
             self._init_rag_engine()
-            context_results = await self._enhanced_retrieve_context(
-                query="существенные условия договора обязательные требования гражданский кодекс",
-                top_k=70
-            )
-            legal_context = self._format_enhanced_context(context_results)
-            sources = self._format_sources_with_quality(context_results)
+
+            # Execute multiple targeted queries
+            for query in validation_queries:
+                try:
+                    context_results = await self._enhanced_retrieve_context(
+                        query=query,
+                        top_k=15  # Reduced from 70 to 15 per query for higher quality
+                    )
+                    all_context_results.extend(context_results)
+                except Exception as e:
+                    logger.warning(f"Query '{query}' failed: {e}")
+                    continue
+
+            # Deduplicate and sort by relevance
+            seen_texts = set()
+            unique_results = []
+            for result in all_context_results:
+                text_snippet = result.get('text', '')[:200]
+                if text_snippet not in seen_texts:
+                    seen_texts.add(text_snippet)
+                    unique_results.append(result)
+
+            # Sort by score and take top 40
+            unique_results.sort(key=lambda x: x.get('score', 0), reverse=True)
+            top_results = unique_results[:40]
+
+            legal_context = self._format_enhanced_context(top_results)
+            sources = self._format_sources_with_quality(top_results)
+
+            logger.info(f"Retrieved {len(top_results)} unique, relevant legal contexts")
+
         except Exception as e:
             logger.warning(f"RAG retrieval failed for contract analysis: {e}")
             legal_context = "Правовой контекст недоступен."
             sources = []
-        
-        # Build the audit prompt with the contract text and legal context
-        audit_prompt = CONTRACT_AUDIT_PROMPT.format(
+
+        # Step 4: Build enhanced audit prompt with contract-specific context
+        enhanced_prompt = f"""ИНФОРМАЦИЯ О ДОГОВОРЕ:
+Тип: {contract_info.get('contract_type', 'не определен')}
+Ключевые темы: {', '.join(contract_info.get('key_topics', []))}
+Проверяемые области права: {', '.join(contract_info.get('legal_areas', []))}
+Специфические проверки: {', '.join(contract_info.get('specific_checks', []))}
+
+{CONTRACT_AUDIT_PROMPT}"""
+
+        audit_prompt = enhanced_prompt.format(
             context=legal_context,
             contract_text=contract_text
         )
-        
+
+        # Step 5: Perform validation with stricter parameters
         try:
             response = await self.client.aio.models.generate_content(
                 model="gemini-3-pro-preview",
                 contents=audit_prompt,
                 config=types.GenerateContentConfig(
                     system_instruction=VALIDATOR_PROMPT,
-                    temperature=0.2,
+                    temperature=0.1,  # Reduced from 0.2 for more consistent results
                     max_output_tokens=MAX_OUTPUT_TOKENS,
                     thinking_config=types.ThinkingConfig(
                         thinking_level="high"
                     ),
                 )
             )
-            
+
             raw_text = response.text.strip() if response.text else ""
-            
+
             # Extract JSON from response (handle markdown code blocks)
             json_text = raw_text
             if "```" in json_text:
@@ -5967,17 +6135,34 @@ class AIService:
                     if stripped.startswith("{"):
                         json_text = stripped
                         break
-            
+
             audit = json.loads(json_text)
-            
-            logger.info(f"Contract analysis complete. Score: {audit.get('validity_score', 'N/A')}")
-            
+
+            # Validate audit structure
+            required_fields = ['validity_score', 'critical_errors', 'warnings', 'missing_clauses', 'summary']
+            for field in required_fields:
+                if field not in audit:
+                    logger.warning(f"Missing required field in audit: {field}")
+                    if field == 'validity_score':
+                        audit[field] = 0
+                    elif field in ['critical_errors', 'warnings', 'missing_clauses']:
+                        audit[field] = []
+                    else:
+                        audit[field] = "Не указано"
+
+            # Add contract metadata to audit
+            audit['contract_type'] = contract_info.get('contract_type', 'не определен')
+            audit['detected_topics'] = contract_info.get('key_topics', [])
+
+            logger.info(f"Contract analysis complete. Type: {audit.get('contract_type')}, Score: {audit.get('validity_score', 'N/A')}")
+
             return {
                 "audit": audit,
                 "sources": sources,
+                "contract_info": contract_info,
                 "raw_response": raw_text,
             }
-            
+
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse contract audit JSON: {e}")
             logger.error(f"Raw response: {raw_text[:500]}")
@@ -5989,9 +6174,12 @@ class AIService:
                     "critical_errors": [],
                     "warnings": [],
                     "missing_clauses": [],
-                    "summary": raw_text[:1000] if raw_text else "Ошибка анализа"
+                    "summary": raw_text[:1000] if raw_text else "Ошибка анализа",
+                    "contract_type": contract_info.get('contract_type', 'не определен'),
+                    "detected_topics": contract_info.get('key_topics', [])
                 },
                 "sources": sources,
+                "contract_info": contract_info,
                 "raw_response": raw_text,
             }
         except Exception as e:
