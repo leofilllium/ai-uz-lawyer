@@ -77,5 +77,11 @@ def check_and_migrate_db():
                     conn.commit()
                     print("Contract analysis migration complete.")
 
+        # Check model_usages table
+        if not inspector.has_table("model_usages"):
+             print("Running migration: Creating model_usages table...")
+             Base.metadata.create_all(bind=engine)
+             print("Model usages table created.")
+
     except Exception as e:
         print(f"Migration failed (safe to ignore if running fresh): {e}")

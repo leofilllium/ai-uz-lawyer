@@ -13,6 +13,7 @@ from app.models.task import Task
 from app.models.comment import TaskComment
 from app.models.attachment import TaskAttachment
 from app.models.calendar_event import CalendarEvent
+from app.models.usage import ModelUsage
 
 __all__ = [
     'User',
@@ -26,4 +27,5 @@ __all__ = [
     'Task',
     'TaskComment',
     'TaskAttachment',
+    'ModelUsage',
 ]
