@@ -5606,8 +5606,8 @@ class AIService:
         
         async def stream_ultra_response():
             # Phase 1: Drafting
-            yield "🔄 **Анализ требований и законодательства...**\n\n"
-            
+            # yield "🔄 **Анализ требований и законодательства...**\n\n"
+
             draft_prompt = f"""КАТЕГОРИЯ ДОГОВОРА: {category}
 ШАБЛОНЫ: {template_context}
 КОНТЕКСТ ЗАКОНОДАТЕЛЬСТВА: {legal_context}
@@ -5615,8 +5615,8 @@ class AIService:
 
 Напишите ПОЛНЫЙ проект договора. Это черновик. Пишите максимально подробно."""
 
-            yield "📝 **Генерация черновика договора...**\n\n"
-            
+            # yield "📝 **Генерация черновика договора...**\n\n"
+
             try:
                 # Generate Draft
                 draft_response = await self.client.aio.models.generate_content(
@@ -5629,89 +5629,264 @@ class AIService:
                     )
                 )
                 draft_text = draft_response.text
-                
-                yield "🔍 **Проверка черновика на юридические риски...**\n\n"
-                
-                # Phase 2: Advanced Validation
-                validation_report = []
-                ultra_data = {}
-                
-                # 2.1 Structural Audit (Existing)
-                yield "📜 **Этап 1/3: Структурный аудит и проверка на соответствие УК РУз...**\n\n"
-                structural_result = await self.analyze_contract(draft_text)
-                validation_report.append(f"### 📋 Структурный анализ\nОценка: {structural_result['audit'].get('validity_score')}/100")
-                ultra_data['structural_audit'] = structural_result['audit']
-                
-                if structural_result['audit'].get('critical_errors'):
-                     validation_report.append("Критические ошибки:\n" + "\n".join([f"- {e['error']}" for e in structural_result['audit']['critical_errors']]))
-                
-                # 2.2 Red Team Review
-                yield "⚔️ **Этап 2/3: Red Team (Поиск лазеек и уязвимостей)...**\n\n"
-                red_team_response = await self.client.aio.models.generate_content(
-                    model="gemini-3-pro-preview",
-                    contents=RED_TEAM_PROMPT + f"\n\nТЕКСТ ДОГОВОРА:\n{draft_text}",
-                    config=types.GenerateContentConfig(temperature=0.4, max_output_tokens=2000)
-                )
-                try:
-                    red_team_json = json.loads(self._clean_json_response(red_team_response.text))
-                    validation_report.append(f"### ⚔️ Red Team Отчет\nУровень риска: {red_team_json.get('risk_score')}/100")
-                    validation_report.append("Лазейки:\n" + "\n".join([f"- {i}" for i in red_team_json.get('loop_holes', [])]))
-                    ultra_data['red_team_analysis'] = red_team_json
-                except:
-                    validation_report.append("### ⚔️ Red Team: Не удалось распарсить JSON, но анализ проведен.")
 
-                # 2.3 Risk Simulation
-                yield "🌪 **Этап 3/3: Симуляция бизнес-рисков (Стресс-тест)...**\n\n"
-                risk_response = await self.client.aio.models.generate_content(
-                    model="gemini-3-pro-preview",
-                    contents=RISK_SIMULATION_PROMPT + f"\n\nТЕКСТ ДОГОВОРА:\n{draft_text}",
-                    config=types.GenerateContentConfig(temperature=0.4, max_output_tokens=2000)
-                )
-                try:
-                    risk_json = json.loads(self._clean_json_response(risk_response.text))
-                    validation_report.append(f"### 🌪 Стресс-тест\nИтог: {risk_json.get('summary')}")
-                    scenarios = [f"- {s['name']}: {s['verdict']} ({s['outcome']})" for s in risk_json.get('scenarios', [])]
-                    validation_report.append("Сценарии:\n" + "\n".join(scenarios))
-                    ultra_data['risk_simulation'] = risk_json
-                except:
-                    validation_report.append("### 🌪 Стресс-тест: Анализ завершен.")
-                
-                # Save collected data to context for saving
-                context['ultra_data'] = ultra_data
-                
-                full_report_text = "\n\n".join(validation_report)
-                yield f"⚖️ **Отчет о проверке сформирован:**\n{full_report_text}\n\n🛠 **Финальная доработка договора с учетом всех рисков...**\n\n"
-                
-                # Phase 3: Finalization (Fixing)
-                fix_prompt = f"""ИСХОДНЫЕ ТРЕБОВАНИЯ: {requirements}
-                
+                # yield "🔍 **Проверка черновика на юридические риски...**\n\n"
+
+                # Phase 2: Advanced Multi-Layer Validation (with thinking_level="high")
+                max_iterations = 2  # Maximum fix iterations
+                current_text = draft_text
+
+                for iteration in range(max_iterations):
+                    validation_report = []
+                    ultra_data = {}
+                    all_errors_found = []
+
+                    # 2.1 Deep Structural Audit with thinking_level="high"
+                    # yield f"📜 **Этап 1/4 (Итерация {iteration+1}): Глубокий структурный аудит...**\n\n"
+                    structural_result = await self.analyze_contract(current_text)
+                    audit = structural_result['audit']
+                    validation_report.append(f"### 📋 Структурный анализ (5-этапный аудит)\nОценка: {audit.get('validity_score')}/100\n{audit.get('score_explanation', '')}")
+                    ultra_data['structural_audit'] = audit
+
+                    # Collect all structural issues
+                    if audit.get('critical_errors'):
+                        for e in audit['critical_errors']:
+                            all_errors_found.append({
+                                'type': 'critical_error',
+                                'category': 'Структурный',
+                                'description': e.get('error'),
+                                'article': e.get('article'),
+                                'consequence': e.get('consequence'),
+                                'fix': e.get('fix')
+                            })
+                        validation_report.append("**Критические ошибки:**\n" + "\n".join([f"- {e['error']} (Статья: {e.get('article', 'N/A')})" for e in audit['critical_errors']]))
+
+                    if audit.get('hidden_risks'):
+                        for r in audit['hidden_risks']:
+                            all_errors_found.append({
+                                'type': 'hidden_risk',
+                                'category': 'Скрытый риск',
+                                'description': r.get('risk'),
+                                'location': r.get('location'),
+                                'severity': r.get('severity'),
+                                'mitigation': r.get('mitigation')
+                            })
+                        validation_report.append("**Скрытые риски:**\n" + "\n".join([f"- {r['risk']} [{r.get('severity', 'N/A')}]" for r in audit['hidden_risks']]))
+
+                    if audit.get('ambiguities'):
+                        for a in audit['ambiguities']:
+                            all_errors_found.append({
+                                'type': 'ambiguity',
+                                'category': 'Двусмысленность',
+                                'description': a.get('phrase'),
+                                'risk': a.get('risk'),
+                                'suggestion': a.get('suggestion')
+                            })
+                        validation_report.append("**Двусмысленные формулировки:**\n" + "\n".join([f"- \"{a['phrase']}\"" for a in audit['ambiguities']]))
+
+                    if audit.get('warnings'):
+                        for w in audit['warnings']:
+                            all_errors_found.append({
+                                'type': 'warning',
+                                'category': 'Предупреждение',
+                                'description': w.get('risk'),
+                                'explanation': w.get('explanation'),
+                                'suggestion': w.get('suggestion')
+                            })
+
+                    if audit.get('missing_clauses'):
+                        for m in audit['missing_clauses']:
+                            all_errors_found.append({
+                                'type': 'missing_clause',
+                                'category': 'Отсутствующая оговорка',
+                                'description': m.get('clause_name'),
+                                'importance': m.get('importance'),
+                                'article_reference': m.get('article_reference'),
+                                'drafted_text': m.get('drafted_text')
+                            })
+                        validation_report.append("**Отсутствующие оговорки:**\n" + "\n".join([f"- {m['clause_name']} [{m.get('importance', 'N/A')}]" for m in audit['missing_clauses']]))
+
+                    # 2.2 Red Team Analysis with thinking_level="high"
+                    # yield f"⚔️ **Этап 2/4 (Итерация {iteration+1}): Red Team (Поиск лазеек)...**\n\n"
+                    red_team_response = await self.client.aio.models.generate_content(
+                        model="gemini-3-pro-preview",
+                        contents=RED_TEAM_PROMPT + f"\n\nТЕКСТ ДОГОВОРА:\n{current_text}",
+                        config=types.GenerateContentConfig(
+                            temperature=0.4,
+                            max_output_tokens=2000,
+                            thinking_config=types.ThinkingConfig(thinking_level="high")
+                        )
+                    )
+                    try:
+                        red_team_json = json.loads(self._clean_json_response(red_team_response.text))
+                        validation_report.append(f"### ⚔️ Red Team Анализ\nУровень риска: {red_team_json.get('risk_score')}/100")
+                        ultra_data['red_team_analysis'] = red_team_json
+
+                        # Collect Red Team findings
+                        for loophole in red_team_json.get('loop_holes', []):
+                            all_errors_found.append({
+                                'type': 'loophole',
+                                'category': 'Лазейка',
+                                'description': loophole
+                            })
+                        for unfair in red_team_json.get('unfair_terms', []):
+                            all_errors_found.append({
+                                'type': 'unfair_term',
+                                'category': 'Несправедливое условие',
+                                'description': unfair
+                            })
+                        for ambiguity in red_team_json.get('ambiguities', []):
+                            all_errors_found.append({
+                                'type': 'red_team_ambiguity',
+                                'category': 'Нечеткая формулировка',
+                                'description': ambiguity
+                            })
+
+                        if red_team_json.get('loop_holes'):
+                            validation_report.append("**Лазейки:**\n" + "\n".join([f"- {i}" for i in red_team_json['loop_holes']]))
+                        if red_team_json.get('unfair_terms'):
+                            validation_report.append("**Несправедливые условия:**\n" + "\n".join([f"- {i}" for i in red_team_json['unfair_terms']]))
+                    except Exception as e:
+                        logger.warning(f"Red Team JSON parse error: {e}")
+                        validation_report.append("### ⚔️ Red Team: Анализ завершен (не удалось распарсить JSON).")
+
+                    # 2.3 Risk Simulation (Stress Testing) with thinking_level="high"
+                    # yield f"🌪 **Этап 3/4 (Итерация {iteration+1}): Симуляция стресс-сценариев...**\n\n"
+                    risk_response = await self.client.aio.models.generate_content(
+                        model="gemini-3-pro-preview",
+                        contents=RISK_SIMULATION_PROMPT + f"\n\nТЕКСТ ДОГОВОРА:\n{current_text}",
+                        config=types.GenerateContentConfig(
+                            temperature=0.4,
+                            max_output_tokens=2000,
+                            thinking_config=types.ThinkingConfig(thinking_level="high")
+                        )
+                    )
+                    try:
+                        risk_json = json.loads(self._clean_json_response(risk_response.text))
+                        validation_report.append(f"### 🌪 Стресс-тест\n{risk_json.get('summary')}")
+                        ultra_data['risk_simulation'] = risk_json
+
+                        # Collect risk scenarios
+                        risky_scenarios = []
+                        for s in risk_json.get('scenarios', []):
+                            if s.get('verdict') in ['Risky', 'Critical']:
+                                all_errors_found.append({
+                                    'type': 'risk_scenario',
+                                    'category': 'Риск-сценарий',
+                                    'description': f"{s['name']}: {s.get('outcome')}",
+                                    'verdict': s.get('verdict')
+                                })
+                                risky_scenarios.append(f"- {s['name']}: {s['verdict']} ({s.get('outcome', 'N/A')})")
+
+                        if risky_scenarios:
+                            validation_report.append("**Опасные сценарии:**\n" + "\n".join(risky_scenarios))
+                    except Exception as e:
+                        logger.warning(f"Risk simulation JSON parse error: {e}")
+                        validation_report.append("### 🌪 Стресс-тест: Анализ завершен (не удалось распарсить JSON).")
+
+                    # Save validation data
+                    context['ultra_data'] = ultra_data
+                    context[f'iteration_{iteration+1}_errors'] = all_errors_found
+
+                    full_report_text = "\n\n".join(validation_report)
+
+                    # Check if we have errors to fix
+                    if not all_errors_found:
+                        logger.info(f"No errors found in iteration {iteration+1}. Contract is validated!")
+                        # yield f"\n✅ **Валидация пройдена! Договор не имеет ошибок.**\n\n"
+                        break
+
+                    # Phase 3: Systematic Error Fixing
+                    # yield f"🛠 **Этап 4/4 (Итерация {iteration+1}): Систематическое устранение {len(all_errors_found)} проблем...**\n\n"
+
+                    # Build comprehensive fix instructions
+                    fix_instructions = []
+                    fix_instructions.append("# СИСТЕМАТИЧЕСКОЕ УСТРАНЕНИЕ ВСЕХ ПРОБЛЕМ\n")
+
+                    # Group errors by type
+                    errors_by_type = {}
+                    for err in all_errors_found:
+                        err_type = err['category']
+                        if err_type not in errors_by_type:
+                            errors_by_type[err_type] = []
+                        errors_by_type[err_type].append(err)
+
+                    # Format error details
+                    for category, errors in errors_by_type.items():
+                        fix_instructions.append(f"\n## {category} ({len(errors)} проблем):")
+                        for i, err in enumerate(errors, 1):
+                            fix_instructions.append(f"\n{i}. **{err['description']}**")
+                            if err.get('fix'):
+                                fix_instructions.append(f"   - Исправление: {err['fix']}")
+                            if err.get('mitigation'):
+                                fix_instructions.append(f"   - Способ устранения: {err['mitigation']}")
+                            if err.get('suggestion'):
+                                fix_instructions.append(f"   - Предложение: {err['suggestion']}")
+                            if err.get('drafted_text'):
+                                fix_instructions.append(f"   - Готовый текст: {err['drafted_text']}")
+                            if err.get('consequence'):
+                                fix_instructions.append(f"   - Последствия: {err['consequence']}")
+
+                    fix_instructions_text = "\n".join(fix_instructions)
+
+                    fix_prompt = f"""ИСХОДНЫЕ ТРЕБОВАНИЯ: {requirements}
 КАТЕГОРИЯ: {category}
+ПРАВОВОЙ КОНТЕКСТ: {legal_context}
 
-ЧЕРНОВИК ДОГОВОРА:
-{draft_text}
+ТЕКУЩАЯ ВЕРСИЯ ДОГОВОРА:
+{current_text}
 
-ОТЧЕТ О ПРОВЕРКЕ (ВСЕ НАЙДЕННЫЕ ПРОБЛЕМЫ):
+ПОЛНЫЙ ОТЧЕТ ВАЛИДАЦИИ:
 {full_report_text}
 
-ЗАДАЧА:
-Перепишите договор начисто, УСТРАНИВ все найденные Red Team лазейки, защитив от рисков из стресс-теста и исправив структурные ошибки.
-Договор должен быть "пуленепробиваемым".
-Выведите ТОЛЬКО текст готового договора в Markdown."""
+ДЕТАЛЬНЫЕ ИНСТРУКЦИИ ПО ИСПРАВЛЕНИЮ:
+{fix_instructions_text}
 
-                final_stream = await self.client.aio.models.generate_content_stream(
-                    model="gemini-3-pro-preview",
-                    contents=fix_prompt,
-                    config=types.GenerateContentConfig(
-                        system_instruction=GENERATOR_PROMPT,
-                        max_output_tokens=MAX_OUTPUT_TOKENS,
-                        temperature=0.1, # Low temp for precision
-                    )
-                )
-                
-                async for chunk in final_stream:
-                    if chunk.text:
-                        yield chunk.text
-                        
+ЗАДАЧА:
+Перепишите договор ПОЛНОСТЬЮ, систематически устранив ВСЕ {len(all_errors_found)} найденных проблем:
+1. Исправьте все критические ошибки согласно законодательству РУз
+2. Устраните все лазейки и несправедливые условия из Red Team анализа
+3. Защитите от всех рисковых сценариев из стресс-теста
+4. Замените двусмысленные формулировки на точные
+5. Добавьте все отсутствующие оговорки
+
+Договор должен быть "пуленепробиваемым" и получить 95+ баллов при повторной валидации.
+
+ВАЖНО: Выведите ТОЛЬКО полный текст исправленного договора в Markdown, БЕЗ комментариев."""
+
+                    # If this is the last iteration, stream the output
+                    if iteration == max_iterations - 1:
+                        # yield f"📝 **Генерация финального договора...**\n\n"
+                        final_stream = await self.client.aio.models.generate_content_stream(
+                            model="gemini-3-pro-preview",
+                            contents=fix_prompt,
+                            config=types.GenerateContentConfig(
+                                system_instruction=GENERATOR_PROMPT,
+                                max_output_tokens=MAX_OUTPUT_TOKENS,
+                                temperature=0.1,
+                                thinking_config=types.ThinkingConfig(thinking_level="high")
+                            )
+                        )
+
+                        async for chunk in final_stream:
+                            if chunk.text:
+                                yield chunk.text
+                        break
+                    else:
+                        # Generate fixed version for next iteration
+                        fixed_response = await self.client.aio.models.generate_content(
+                            model="gemini-3-pro-preview",
+                            contents=fix_prompt,
+                            config=types.GenerateContentConfig(
+                                system_instruction=GENERATOR_PROMPT,
+                                max_output_tokens=MAX_OUTPUT_TOKENS,
+                                temperature=0.1,
+                                thinking_config=types.ThinkingConfig(thinking_level="high")
+                            )
+                        )
+                        current_text = fixed_response.text
+                        # yield f"✅ **Итерация {iteration+1} завершена. Переход к повторной валидации...**\n\n"
+
             except Exception as e:
                 logger.error(f"Ultra generation error: {e}")
                 logger.error(traceback.format_exc())
