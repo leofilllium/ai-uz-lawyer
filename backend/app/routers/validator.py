@@ -128,7 +128,9 @@ def format_audit_as_markdown(audit: dict) -> str:
     if strategy:
         lines.append("")
         lines.append("## 🤝 СТРАТЕГИЯ ПЕРЕГОВОРОВ")
-        lines.append(strategy)
+        if isinstance(strategy, list):
+            strategy = "\n".join(str(s) for s in strategy)
+        lines.append(str(strategy))
         lines.append("")
     
     # Summary
@@ -137,7 +139,9 @@ def format_audit_as_markdown(audit: dict) -> str:
         lines.append("")
         lines.append("---")
         lines.append(f"### 🧑‍⚖️ РЕЗЮМЕ АУДИТОРА")
-        lines.append(summary)
+        if isinstance(summary, list):
+            summary = "\n".join(str(s) for s in summary)
+        lines.append(str(summary))
     
     return "\n".join(lines)
 

@@ -5769,318 +5769,476 @@ class AIService:
         context: Dict[str, Any] = None
     ) -> Dict[str, Any]:
         """
-        Generate a contract using Ultra Mode (Draft -> Validate -> Fix).
+        Generate a contract using Ultra Mode — 3-phase pipeline:
+
+        PHASE 1: DRAFT GENERATION
+            - Agentic RAG retrieval for contract generation (templates + legal norms)
+            - Generate comprehensive draft contract using Gemini Flash with thinking
+
+        PHASE 2: FULL LEGAL VALIDATION (same pipeline as analyze_contract)
+            - Contract type detection via LLM
+            - Build targeted validation RAG queries
+            - Agentic RAG retrieval for validation-specific legal context
+            - 8-step deep legal audit (VALIDATOR_PROMPT + CONTRACT_AUDIT_PROMPT)
+            - Red Team adversarial analysis
+            - Risk scenario stress testing
+
+        PHASE 3: VALIDATED CONTRACT GENERATION
+            - Feed ALL validation findings + legal context into final generation
+            - Produce a clean, validated, legally compliant contract
         """
         logger.info(f"=== GENERATE CONTRACT (ULTRA) ===")
         if context is None:
             context = {}
-        
-        # 1. Build search queries & Retrieve context (Same as standard)
+
+        # ═══════════════════════════════════════════════════════════
+        # STEP 0: RAG RETRIEVAL FOR CONTRACT GENERATION
+        # ═══════════════════════════════════════════════════════════
         search_queries = self._build_contract_search_queries(category, requirements)
         all_results = []
         seen_articles = set()
-        
+
+        self._init_rag_engine()
+
         for search_query in search_queries:
-            results = await self._enhanced_retrieve_context(search_query, top_k=50)
-            for result in results:
-                article_key = f"{result.get('metadata', {}).get('source')}_{result.get('metadata', {}).get('article_display')}"
-                if article_key not in seen_articles:
-                    seen_articles.add(article_key)
-                    all_results.append(result)
-                    
+            try:
+                results = await self._enhanced_retrieve_context(search_query, top_k=50)
+                for result in results:
+                    article_key = f"{result.get('metadata', {}).get('source')}_{result.get('metadata', {}).get('article_display')}"
+                    if article_key not in seen_articles:
+                        seen_articles.add(article_key)
+                        all_results.append(result)
+            except Exception as e:
+                logger.warning(f"Generation RAG query failed: {e}")
+                continue
+
         all_results.sort(key=lambda x: x.get("similarity", 0), reverse=True)
         final_results = all_results[:150]
-        
-        legal_context = self._format_enhanced_context(final_results)
+
+        generation_legal_context = self._format_enhanced_context(final_results)
         sources = self._format_sources_with_quality(final_results)
-        
+
         async def stream_ultra_response():
-            # Phase 1: Drafting
-            # yield "🔄 **Анализ требований и законодательства...**\n\n"
-
-            draft_prompt = f"""КАТЕГОРИЯ ДОГОВОРА: {category}
-ШАБЛОНЫ: {template_context}
-КОНТЕКСТ ЗАКОНОДАТЕЛЬСТВА: {legal_context}
-ТРЕБОВАНИЯ: {requirements}
-
-Напишите ПОЛНЫЙ проект договора. Это черновик. Пишите максимально подробно."""
-
-            yield {"type": "status", "text": "📝 **Генерация черновика договора...**"}
-
             try:
-                # Generate Draft
+                # ═══════════════════════════════════════════════════════════
+                # PHASE 1: DRAFT GENERATION
+                # ═══════════════════════════════════════════════════════════
+                yield {"type": "status", "text": "📝 **Фаза 1/3: Генерация черновика договора...**"}
+
+                draft_prompt = f"""КАТЕГОРИЯ ДОГОВОРА: {category}
+
+ШАБЛОНЫ ДОГОВОРОВ ДАННОЙ КАТЕГОРИИ:
+{template_context}
+
+ПРАВОВОЙ КОНТЕКСТ ИЗ ЗАКОНОДАТЕЛЬСТВА УЗБЕКИСТАНА:
+{generation_legal_context}
+
+ТРЕБОВАНИЯ ПОЛЬЗОВАТЕЛЯ:
+{requirements}
+
+На основе приведённых шаблонов, законодательства и требований пользователя составьте ПОЛНЫЙ, ПРОФЕССИОНАЛЬНЫЙ проект договора.
+Включите ВСЕ обязательные разделы: преамбула, предмет, права и обязанности, цена и расчёты, сроки, ответственность, форс-мажор, разрешение споров, заключительные положения, реквизиты.
+Это черновик — пишите МАКСИМАЛЬНО ПОДРОБНО и ДЕТАЛЬНО."""
+
                 draft_response = await self.client.aio.models.generate_content(
                     model=self.settings.gemini_flash_model,
                     contents=draft_prompt,
                     config=types.GenerateContentConfig(
                         system_instruction=GENERATOR_PROMPT,
                         max_output_tokens=MAX_OUTPUT_TOKENS,
-                        temperature=0.2, # Slightly higher for creativity in draft
+                        temperature=0.2,
+                        thinking_config=types.ThinkingConfig(thinking_level="high"),
                     )
                 )
                 draft_text = draft_response.text
+                logger.info(f"Draft generated: {len(draft_text)} chars")
 
-                yield {"type": "status", "text": "🔍 **Проверка черновика на юридические риски...**"}
+                # ═══════════════════════════════════════════════════════════
+                # PHASE 2: FULL LEGAL VALIDATION (mirrors analyze_contract)
+                # ═══════════════════════════════════════════════════════════
+                yield {"type": "status", "text": "🔍 **Фаза 2/3: Полная юридическая экспертиза черновика...**"}
 
-                # Phase 2: Advanced Multi-Layer Validation (with thinking_level="high")
-                max_iterations = 2  # Maximum fix iterations
-                current_text = draft_text
+                # --- 2.1: Detect contract type (same as analyze_contract) ---
+                yield {"type": "status", "text": "🏷️ **Определение типа договора...**"}
+                contract_info = await self._detect_contract_type(draft_text)
+                logger.info(f"Detected contract type: {contract_info.get('contract_type')}")
+                logger.info(f"Key topics: {contract_info.get('key_topics', [])}")
 
-                for iteration in range(max_iterations):
-                    validation_report = []
-                    ultra_data = {}
-                    all_errors_found = []
+                # --- 2.2: Build targeted validation RAG queries ---
+                validation_queries = self._build_contract_validation_queries(contract_info)
+                logger.info(f"Built {len(validation_queries)} validation queries")
 
-                    # 2.1 Deep Structural Audit with thinking_level="high"
-                    yield {"type": "status", "text": f"📜 **Этап 1/4 (Итерация {iteration+1}): Глубокий структурный аудит...**"}
-                    structural_result = await self.analyze_contract(current_text)
-                    audit = structural_result['audit']
-                    validation_report.append(f"### 📋 Структурный анализ (5-этапный аудит)\nОценка: {audit.get('validity_score')}/100\n{audit.get('score_explanation', '')}")
-                    ultra_data['structural_audit'] = audit
+                # --- 2.3: Agentic RAG retrieval for validation-specific legal context ---
+                yield {"type": "status", "text": "📚 **Поиск релевантных статей законов для валидации...**"}
+                validation_context_results = []
+                try:
+                    for query in validation_queries:
+                        try:
+                            context_results = await self._enhanced_retrieve_context(
+                                query=query,
+                                top_k=10
+                            )
+                            validation_context_results.extend(context_results)
+                        except Exception as e:
+                            logger.warning(f"Validation query '{query}' failed: {e}")
+                            continue
 
-                    # Collect all structural issues
-                    if audit.get('critical_errors'):
-                        for e in audit['critical_errors']:
-                            all_errors_found.append({
-                                'type': 'critical_error',
-                                'category': 'Структурный',
-                                'description': e.get('error'),
-                                'article': e.get('article'),
-                                'consequence': e.get('consequence'),
-                                'fix': e.get('fix')
-                            })
-                        validation_report.append("**Критические ошибки:**\n" + "\n".join([f"- {e['error']} (Статья: {e.get('article', 'N/A')})" for e in audit['critical_errors']]))
+                    # Deduplicate by article key
+                    seen_validation_keys = set()
+                    unique_validation_results = []
+                    for result in validation_context_results:
+                        meta = result.get('metadata', {})
+                        dedup_key = f"{meta.get('source', '')}_{meta.get('article_display', '')}" if meta else result.get('text', '')[:200]
+                        if dedup_key not in seen_validation_keys:
+                            seen_validation_keys.add(dedup_key)
+                            unique_validation_results.append(result)
 
-                    if audit.get('hidden_risks'):
-                        for r in audit['hidden_risks']:
-                            all_errors_found.append({
-                                'type': 'hidden_risk',
-                                'category': 'Скрытый риск',
-                                'description': r.get('risk'),
-                                'location': r.get('location'),
-                                'severity': r.get('severity'),
-                                'mitigation': r.get('mitigation')
-                            })
-                        validation_report.append("**Скрытые риски:**\n" + "\n".join([f"- {r['risk']} [{r.get('severity', 'N/A')}]" for r in audit['hidden_risks']]))
+                    unique_validation_results.sort(key=lambda x: x.get('score', 0), reverse=True)
+                    top_validation_results = unique_validation_results[:50]
+                    validation_legal_context = self._format_enhanced_context(top_validation_results)
 
-                    if audit.get('ambiguities'):
-                        for a in audit['ambiguities']:
-                            all_errors_found.append({
-                                'type': 'ambiguity',
-                                'category': 'Двусмысленность',
-                                'description': a.get('phrase'),
-                                'risk': a.get('risk'),
-                                'suggestion': a.get('suggestion')
-                            })
-                        validation_report.append("**Двусмысленные формулировки:**\n" + "\n".join([f"- \"{a['phrase']}\"" for a in audit['ambiguities']]))
+                    # Merge validation sources into main sources
+                    validation_sources = self._format_sources_with_quality(top_validation_results)
+                    existing_source_keys = {s.get('article', '') + s.get('source', '') for s in sources}
+                    for vs in validation_sources:
+                        vs_key = vs.get('article', '') + vs.get('source', '')
+                        if vs_key not in existing_source_keys:
+                            sources.append(vs)
 
-                    if audit.get('warnings'):
-                        for w in audit['warnings']:
-                            all_errors_found.append({
-                                'type': 'warning',
-                                'category': 'Предупреждение',
-                                'description': w.get('risk'),
-                                'explanation': w.get('explanation'),
-                                'suggestion': w.get('suggestion')
-                            })
+                    logger.info(f"Retrieved {len(top_validation_results)} unique validation contexts")
+                except Exception as e:
+                    logger.warning(f"Validation RAG retrieval failed: {e}")
+                    validation_legal_context = generation_legal_context  # Fallback to generation context
 
-                    if audit.get('missing_clauses'):
-                        for m in audit['missing_clauses']:
-                            all_errors_found.append({
-                                'type': 'missing_clause',
-                                'category': 'Отсутствующая оговорка',
-                                'description': m.get('clause_name'),
-                                'importance': m.get('importance'),
-                                'article_reference': m.get('article_reference'),
-                                'drafted_text': m.get('drafted_text')
-                            })
-                        validation_report.append("**Отсутствующие оговорки:**\n" + "\n".join([f"- {m['clause_name']} [{m.get('importance', 'N/A')}]" for m in audit['missing_clauses']]))
+                # --- 2.4: Deep Structural Audit (8-step, same as analyze_contract) ---
+                yield {"type": "status", "text": "📜 **Этап 1/3: Глубокий 8-этапный аудит по законодательству...**"}
 
-                    # 2.2 Red Team Analysis with thinking_level="high"
-                    yield {"type": "status", "text": f"⚔️ **Этап 2/4 (Итерация {iteration+1}): Red Team (Поиск лазеек)...**"}
+                specific_checks = contract_info.get('specific_checks', [])
+                checks_text = '\n'.join(f'- {check}' for check in specific_checks) if specific_checks else '- Стандартные проверки по ГК РУз'
+
+                enhanced_audit_prompt = f"""═══════════════════════════════════════════════════════════════
+🔎 ПРЕДВАРИТЕЛЬНЫЙ АНАЛИЗ ДОГОВОРА (используй при аудите):
+═══════════════════════════════════════════════════════════════
+
+Тип договора: {contract_info.get('contract_type', 'не определен')}
+Ключевые темы: {', '.join(contract_info.get('key_topics', []))}
+Проверяемые области права: {', '.join(contract_info.get('legal_areas', []))}
+Специфические проверки, на которые обратить ОСОБОЕ внимание:
+{checks_text}
+
+═══════════════════════════════════════════════════════════════
+
+{CONTRACT_AUDIT_PROMPT}"""
+
+                audit_prompt = enhanced_audit_prompt.format(
+                    context=validation_legal_context,
+                    contract_text=draft_text
+                )
+
+                audit_response = await self.client.aio.models.generate_content(
+                    model=self.settings.gemini_flash_model,
+                    contents=audit_prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=VALIDATOR_PROMPT,
+                        temperature=0.1,
+                        max_output_tokens=MAX_OUTPUT_TOKENS,
+                        thinking_config=types.ThinkingConfig(thinking_level="high"),
+                    )
+                )
+
+                # Parse audit JSON
+                audit = {}
+                raw_audit_text = audit_response.text.strip() if audit_response.text else ""
+                try:
+                    json_text = raw_audit_text
+                    if "```" in json_text:
+                        parts = json_text.split("```")
+                        for part in parts:
+                            stripped = part.strip()
+                            if stripped.startswith("json"):
+                                stripped = stripped[4:].strip()
+                            if stripped.startswith("{"):
+                                json_text = stripped
+                                break
+                    audit = json.loads(json_text)
+                except json.JSONDecodeError as e:
+                    logger.warning(f"Audit JSON parse error: {e}")
+                    audit = {
+                        "validity_score": 0,
+                        "score_explanation": "Ошибка парсинга аудита",
+                        "critical_errors": [],
+                        "warnings": [],
+                        "missing_clauses": [],
+                        "hidden_risks": [],
+                        "ambiguities": [],
+                        "summary": raw_audit_text[:2000]
+                    }
+
+                audit['contract_type'] = contract_info.get('contract_type', 'не определен')
+                audit['detected_topics'] = contract_info.get('key_topics', [])
+
+                logger.info(f"Structural audit complete. Score: {audit.get('validity_score', 'N/A')}")
+
+                # Collect all errors from structural audit
+                all_errors_found = []
+                validation_report = []
+                validation_report.append(f"### 📋 Структурный анализ (8-этапный аудит)\nОценка: {audit.get('validity_score')}/100\n{audit.get('score_explanation', '')}")
+
+                if audit.get('critical_errors'):
+                    for e in audit['critical_errors']:
+                        all_errors_found.append({
+                            'type': 'critical_error',
+                            'category': 'Критическая ошибка',
+                            'description': e.get('error'),
+                            'article': e.get('article'),
+                            'consequence': e.get('consequence'),
+                            'fix': e.get('fix')
+                        })
+                    validation_report.append("**Критические ошибки:**\n" + "\n".join([f"- {e['error']} (Статья: {e.get('article', 'N/A')})" for e in audit['critical_errors']]))
+
+                if audit.get('hidden_risks'):
+                    for r in audit['hidden_risks']:
+                        all_errors_found.append({
+                            'type': 'hidden_risk',
+                            'category': 'Скрытый риск',
+                            'description': r.get('risk'),
+                            'location': r.get('location'),
+                            'severity': r.get('severity'),
+                            'mitigation': r.get('mitigation')
+                        })
+                    validation_report.append("**Скрытые риски:**\n" + "\n".join([f"- {r['risk']} [{r.get('severity', 'N/A')}]" for r in audit['hidden_risks']]))
+
+                if audit.get('ambiguities'):
+                    for a in audit['ambiguities']:
+                        all_errors_found.append({
+                            'type': 'ambiguity',
+                            'category': 'Двусмысленность',
+                            'description': a.get('phrase'),
+                            'risk': a.get('risk'),
+                            'suggestion': a.get('suggestion')
+                        })
+                    validation_report.append("**Двусмысленные формулировки:**\n" + "\n".join([f"- \"{a.get('phrase', '')}\"" for a in audit['ambiguities']]))
+
+                if audit.get('warnings'):
+                    for w in audit['warnings']:
+                        all_errors_found.append({
+                            'type': 'warning',
+                            'category': 'Предупреждение',
+                            'description': w.get('risk'),
+                            'explanation': w.get('explanation'),
+                            'suggestion': w.get('suggestion')
+                        })
+                    validation_report.append("**Предупреждения:**\n" + "\n".join([f"- {w.get('risk', '')}" for w in audit['warnings']]))
+
+                if audit.get('missing_clauses'):
+                    for m in audit['missing_clauses']:
+                        all_errors_found.append({
+                            'type': 'missing_clause',
+                            'category': 'Отсутствующая оговорка',
+                            'description': m.get('clause_name'),
+                            'importance': m.get('importance'),
+                            'article_reference': m.get('article_reference'),
+                            'drafted_text': m.get('drafted_text')
+                        })
+                    validation_report.append("**Отсутствующие оговорки:**\n" + "\n".join([f"- {m['clause_name']} [{m.get('importance', 'N/A')}]" for m in audit['missing_clauses']]))
+
+                if audit.get('positive_aspects'):
+                    validation_report.append("**Позитивные моменты:**\n" + "\n".join([f"- {p}" for p in audit['positive_aspects']]))
+
+                # --- 2.5: Red Team Analysis ---
+                yield {"type": "status", "text": "⚔️ **Этап 2/3: Red Team — поиск лазеек и уязвимостей...**"}
+                try:
                     red_team_response = await self.client.aio.models.generate_content(
                         model=self.settings.gemini_flash_model,
-                        contents=RED_TEAM_PROMPT + f"\n\nТЕКСТ ДОГОВОРА:\n{current_text}",
+                        contents=RED_TEAM_PROMPT + f"\n\nТЕКСТ ДОГОВОРА:\n{draft_text}",
                         config=types.GenerateContentConfig(
                             temperature=0.4,
-                            max_output_tokens=2000,
+                            max_output_tokens=4000,
                             thinking_config=types.ThinkingConfig(thinking_level="high")
                         )
                     )
-                    try:
-                        red_team_json = json.loads(self._clean_json_response(red_team_response.text))
-                        validation_report.append(f"### ⚔️ Red Team Анализ\nУровень риска: {red_team_json.get('risk_score')}/100")
-                        ultra_data['red_team_analysis'] = red_team_json
+                    red_team_json = json.loads(self._clean_json_response(red_team_response.text))
+                    validation_report.append(f"### ⚔️ Red Team Анализ\nУровень риска: {red_team_json.get('risk_score')}/100")
 
-                        # Collect Red Team findings
-                        for loophole in red_team_json.get('loop_holes', []):
-                            all_errors_found.append({
-                                'type': 'loophole',
-                                'category': 'Лазейка',
-                                'description': loophole
-                            })
-                        for unfair in red_team_json.get('unfair_terms', []):
-                            all_errors_found.append({
-                                'type': 'unfair_term',
-                                'category': 'Несправедливое условие',
-                                'description': unfair
-                            })
-                        for ambiguity in red_team_json.get('ambiguities', []):
-                            all_errors_found.append({
-                                'type': 'red_team_ambiguity',
-                                'category': 'Нечеткая формулировка',
-                                'description': ambiguity
-                            })
+                    for loophole in red_team_json.get('loop_holes', []):
+                        all_errors_found.append({
+                            'type': 'loophole',
+                            'category': 'Лазейка',
+                            'description': loophole
+                        })
+                    for unfair in red_team_json.get('unfair_terms', []):
+                        all_errors_found.append({
+                            'type': 'unfair_term',
+                            'category': 'Несправедливое условие',
+                            'description': unfair
+                        })
+                    for ambiguity in red_team_json.get('ambiguities', []):
+                        all_errors_found.append({
+                            'type': 'red_team_ambiguity',
+                            'category': 'Нечеткая формулировка (Red Team)',
+                            'description': ambiguity
+                        })
 
-                        if red_team_json.get('loop_holes'):
-                            validation_report.append("**Лазейки:**\n" + "\n".join([f"- {i}" for i in red_team_json['loop_holes']]))
-                        if red_team_json.get('unfair_terms'):
-                            validation_report.append("**Несправедливые условия:**\n" + "\n".join([f"- {i}" for i in red_team_json['unfair_terms']]))
-                    except Exception as e:
-                        logger.warning(f"Red Team JSON parse error: {e}")
-                        validation_report.append("### ⚔️ Red Team: Анализ завершен (не удалось распарсить JSON).")
+                    if red_team_json.get('loop_holes'):
+                        validation_report.append("**Лазейки:**\n" + "\n".join([f"- {i}" for i in red_team_json['loop_holes']]))
+                    if red_team_json.get('unfair_terms'):
+                        validation_report.append("**Несправедливые условия:**\n" + "\n".join([f"- {i}" for i in red_team_json['unfair_terms']]))
+                except Exception as e:
+                    logger.warning(f"Red Team analysis error: {e}")
+                    validation_report.append("### ⚔️ Red Team: ошибка анализа")
 
-                    # 2.3 Risk Simulation (Stress Testing) with thinking_level="high"
-                    yield {"type": "status", "text": f"🌪 **Этап 3/4 (Итерация {iteration+1}): Симуляция стресс-сценариев...**"}
+                # --- 2.6: Risk Simulation (Stress Testing) ---
+                yield {"type": "status", "text": "🌪 **Этап 3/3: Стресс-тест — симуляция проблемных сценариев...**"}
+                try:
                     risk_response = await self.client.aio.models.generate_content(
                         model=self.settings.gemini_flash_model,
-                        contents=RISK_SIMULATION_PROMPT + f"\n\nТЕКСТ ДОГОВОРА:\n{current_text}",
+                        contents=RISK_SIMULATION_PROMPT + f"\n\nТЕКСТ ДОГОВОРА:\n{draft_text}",
                         config=types.GenerateContentConfig(
                             temperature=0.4,
-                            max_output_tokens=2000,
+                            max_output_tokens=4000,
                             thinking_config=types.ThinkingConfig(thinking_level="high")
                         )
                     )
-                    try:
-                        risk_json = json.loads(self._clean_json_response(risk_response.text))
-                        validation_report.append(f"### 🌪 Стресс-тест\n{risk_json.get('summary')}")
-                        ultra_data['risk_simulation'] = risk_json
+                    risk_json = json.loads(self._clean_json_response(risk_response.text))
+                    validation_report.append(f"### 🌪 Стресс-тест\n{risk_json.get('summary')}")
 
-                        # Collect risk scenarios
-                        risky_scenarios = []
-                        for s in risk_json.get('scenarios', []):
-                            if s.get('verdict') in ['Risky', 'Critical']:
-                                all_errors_found.append({
-                                    'type': 'risk_scenario',
-                                    'category': 'Риск-сценарий',
-                                    'description': f"{s['name']}: {s.get('outcome')}",
-                                    'verdict': s.get('verdict')
-                                })
-                                risky_scenarios.append(f"- {s['name']}: {s['verdict']} ({s.get('outcome', 'N/A')})")
+                    for s in risk_json.get('scenarios', []):
+                        if s.get('verdict') in ['Risky', 'Critical']:
+                            all_errors_found.append({
+                                'type': 'risk_scenario',
+                                'category': 'Риск-сценарий',
+                                'description': f"{s['name']}: {s.get('outcome')}",
+                                'verdict': s.get('verdict')
+                            })
+                    risky_scenarios = [f"- {s['name']}: {s['verdict']} ({s.get('outcome', 'N/A')})"
+                                      for s in risk_json.get('scenarios', [])
+                                      if s.get('verdict') in ['Risky', 'Critical']]
+                    if risky_scenarios:
+                        validation_report.append("**Опасные сценарии:**\n" + "\n".join(risky_scenarios))
+                except Exception as e:
+                    logger.warning(f"Risk simulation error: {e}")
+                    validation_report.append("### 🌪 Стресс-тест: ошибка анализа")
 
-                        if risky_scenarios:
-                            validation_report.append("**Опасные сценарии:**\n" + "\n".join(risky_scenarios))
-                    except Exception as e:
-                        logger.warning(f"Risk simulation JSON parse error: {e}")
-                        validation_report.append("### 🌪 Стресс-тест: Анализ завершен (не удалось распарсить JSON).")
+                # Save all validation data
+                ultra_data = {
+                    'structural_audit': audit,
+                    'contract_info': contract_info,
+                    'total_issues_found': len(all_errors_found),
+                }
+                context['ultra_data'] = ultra_data
 
-                    # Save validation data
-                    context['ultra_data'] = ultra_data
-                    context[f'iteration_{iteration+1}_errors'] = all_errors_found
+                full_report_text = "\n\n".join(validation_report)
+                logger.info(f"Validation complete. Total issues found: {len(all_errors_found)}")
 
-                    full_report_text = "\n\n".join(validation_report)
+                # ═══════════════════════════════════════════════════════════
+                # PHASE 3: GENERATE FINAL VALIDATED CONTRACT
+                # ═══════════════════════════════════════════════════════════
+                yield {"type": "status", "text": f"✨ **Фаза 3/3: Генерация финального договора с учётом {len(all_errors_found)} найденных проблем...**"}
 
-                    # Check if we have errors to fix
-                    if not all_errors_found:
-                        logger.info(f"No errors found in iteration {iteration+1}. Contract is validated!")
-                        # yield f"\n✅ **Валидация пройдена! Договор не имеет ошибок.**\n\n"
-                        break
+                # Build comprehensive fix instructions grouped by category
+                fix_instructions = []
+                fix_instructions.append("# ПОЛНЫЙ ПЕРЕЧЕНЬ ПРОБЛЕМ, ОБНАРУЖЕННЫХ ПРИ ВАЛИДАЦИИ\n")
 
-                    # Phase 3: Systematic Error Fixing
-                    yield {"type": "status", "text": f"🛠 **Этап 4/4 (Итерация {iteration+1}): Систематическое устранение {len(all_errors_found)} проблем...**"}
+                errors_by_type = {}
+                for err in all_errors_found:
+                    err_type = err['category']
+                    if err_type not in errors_by_type:
+                        errors_by_type[err_type] = []
+                    errors_by_type[err_type].append(err)
 
-                    # Build comprehensive fix instructions
-                    fix_instructions = []
-                    fix_instructions.append("# СИСТЕМАТИЧЕСКОЕ УСТРАНЕНИЕ ВСЕХ ПРОБЛЕМ\n")
+                for err_category, errors in errors_by_type.items():
+                    fix_instructions.append(f"\n## {err_category} ({len(errors)} проблем):")
+                    for i, err in enumerate(errors, 1):
+                        fix_instructions.append(f"\n{i}. **{err.get('description', 'Без описания')}**")
+                        if err.get('article'):
+                            fix_instructions.append(f"   - Статья закона: {err['article']}")
+                        if err.get('fix'):
+                            fix_instructions.append(f"   - Готовое исправление: {err['fix']}")
+                        if err.get('mitigation'):
+                            fix_instructions.append(f"   - Способ устранения: {err['mitigation']}")
+                        if err.get('suggestion'):
+                            fix_instructions.append(f"   - Рекомендация: {err['suggestion']}")
+                        if err.get('drafted_text'):
+                            fix_instructions.append(f"   - Готовый текст пункта:\n```\n{err['drafted_text']}\n```")
+                        if err.get('consequence'):
+                            fix_instructions.append(f"   - Последствия при неустранении: {err['consequence']}")
 
-                    # Group errors by type
-                    errors_by_type = {}
-                    for err in all_errors_found:
-                        err_type = err['category']
-                        if err_type not in errors_by_type:
-                            errors_by_type[err_type] = []
-                        errors_by_type[err_type].append(err)
+                fix_instructions_text = "\n".join(fix_instructions)
 
-                    # Format error details
-                    for err_category, errors in errors_by_type.items():
-                        fix_instructions.append(f"\n## {err_category} ({len(errors)} проблем):")
-                        for i, err in enumerate(errors, 1):
-                            fix_instructions.append(f"\n{i}. **{err['description']}**")
-                            if err.get('fix'):
-                                fix_instructions.append(f"   - Исправление: {err['fix']}")
-                            if err.get('mitigation'):
-                                fix_instructions.append(f"   - Способ устранения: {err['mitigation']}")
-                            if err.get('suggestion'):
-                                fix_instructions.append(f"   - Предложение: {err['suggestion']}")
-                            if err.get('drafted_text'):
-                                fix_instructions.append(f"   - Готовый текст: {err['drafted_text']}")
-                            if err.get('consequence'):
-                                fix_instructions.append(f"   - Последствия: {err['consequence']}")
+                # Build the final generation prompt with ALL context
+                final_prompt = f"""═══════════════════════════════════════════════════════════════
+🎯 ЗАДАЧА: ГЕНЕРАЦИЯ ФИНАЛЬНОГО ВАЛИДИРОВАННОГО ДОГОВОРА
+═══════════════════════════════════════════════════════════════
 
-                    fix_instructions_text = "\n".join(fix_instructions)
+Вы получили ЧЕРНОВИК договора, который прошёл ПОЛНУЮ юридическую экспертизу.
+Ваша задача — написать НОВЫЙ, ЧИСТЫЙ, полностью валидированный договор, устранив ВСЕ найденные проблемы.
 
-                    fix_prompt = f"""ИСХОДНЫЕ ТРЕБОВАНИЯ: {requirements}
-КАТЕГОРИЯ: {category}
-ПРАВОВОЙ КОНТЕКСТ: {legal_context}
+═══════════════════════════════════════════════════════════════
+📋 ИСХОДНЫЕ ТРЕБОВАНИЯ ПОЛЬЗОВАТЕЛЯ:
+═══════════════════════════════════════════════════════════════
+Категория: {category}
+Требования: {requirements}
 
-ТЕКУЩАЯ ВЕРСИЯ ДОГОВОРА:
-{current_text}
+═══════════════════════════════════════════════════════════════
+📜 ПРАВОВОЙ КОНТЕКСТ (законодательство РУз):
+═══════════════════════════════════════════════════════════════
+{validation_legal_context}
 
-ПОЛНЫЙ ОТЧЕТ ВАЛИДАЦИИ:
+═══════════════════════════════════════════════════════════════
+📄 ЧЕРНОВИК ДОГОВОРА (для справки — НЕ копируйте ошибки):
+═══════════════════════════════════════════════════════════════
+{draft_text}
+
+═══════════════════════════════════════════════════════════════
+🔍 РЕЗУЛЬТАТЫ ЮРИДИЧЕСКОЙ ЭКСПЕРТИЗЫ:
+═══════════════════════════════════════════════════════════════
+Оценка черновика: {audit.get('validity_score', 'N/A')}/100
+Тип договора: {contract_info.get('contract_type', 'не определен')}
+
 {full_report_text}
 
-ДЕТАЛЬНЫЕ ИНСТРУКЦИИ ПО ИСПРАВЛЕНИЮ:
+═══════════════════════════════════════════════════════════════
+🛠 ДЕТАЛЬНЫЕ ИНСТРУКЦИИ ПО ИСПРАВЛЕНИЮ:
+═══════════════════════════════════════════════════════════════
 {fix_instructions_text}
 
-ЗАДАЧА:
-Перепишите договор ПОЛНОСТЬЮ, систематически устранив ВСЕ {len(all_errors_found)} найденных проблем:
-1. Исправьте все критические ошибки согласно законодательству РУз
-2. Устраните все лазейки и несправедливые условия из Red Team анализа
-3. Защитите от всех рисковых сценариев из стресс-теста
-4. Замените двусмысленные формулировки на точные
-5. Добавьте все отсутствующие оговорки
+═══════════════════════════════════════════════════════════════
+⚖️ ОБЯЗАТЕЛЬНЫЕ ТРЕБОВАНИЯ К ФИНАЛЬНОМУ ДОГОВОРУ:
+═══════════════════════════════════════════════════════════════
 
-Договор должен быть "пуленепробиваемым" и получить 95+ баллов при повторной валидации.
+1. Устраните ВСЕ {len(all_errors_found)} найденных проблем
+2. Используйте ГОТОВЫЕ формулировки из поля "fix" и "drafted_text" где они предоставлены
+3. Замените ВСЕ двусмысленные формулировки на ТОЧНЫЕ (конкретные сроки, суммы, проценты)
+4. Добавьте ВСЕ отсутствующие обязательные пункты
+5. Обеспечьте БАЛАНС интересов обеих сторон
+6. Все суммы — ТОЛЬКО в узбекских сумах (UZS)
+7. Ссылайтесь на конкретные статьи ГК РУз где уместно
+8. Договор должен быть "пуленепробиваемым" — целевая оценка: 90+ баллов
+9. Устраните ВСЕ лазейки из Red Team анализа
+10. Защитите от ВСЕХ рисковых сценариев из стресс-теста
 
-ВАЖНО: Выведите ТОЛЬКО полный текст исправленного договора в Markdown, БЕЗ комментариев."""
+ВАЖНО: Выведите ТОЛЬКО полный текст НОВОГО договора в Markdown.
+НЕ добавляйте комментарии, пояснения или заметки — ТОЛЬКО чистый текст договора."""
 
-                    # If this is the last iteration, stream the output
-                    if iteration == max_iterations - 1:
-                        # yield f"📝 **Генерация финального договора...**\n\n"
-                        final_stream = await self.client.aio.models.generate_content_stream(
-                            model=self.settings.gemini_flash_model,
-                            contents=fix_prompt,
-                            config=types.GenerateContentConfig(
-                                system_instruction=GENERATOR_PROMPT,
-                                max_output_tokens=MAX_OUTPUT_TOKENS,
-                                temperature=0.1,
-                                thinking_config=types.ThinkingConfig(thinking_level="high")
-                            )
-                        )
+                final_stream = await self.client.aio.models.generate_content_stream(
+                    model=self.settings.gemini_flash_model,
+                    contents=final_prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=GENERATOR_PROMPT,
+                        max_output_tokens=MAX_OUTPUT_TOKENS,
+                        temperature=0.1,
+                        thinking_config=types.ThinkingConfig(thinking_level="high"),
+                    )
+                )
 
-                        async for chunk in final_stream:
-                            if chunk.text:
-                                yield {"type": "content", "text": chunk.text}
-                        break
-                    else:
-                        # Generate fixed version for next iteration
-                        fixed_response = await self.client.aio.models.generate_content(
-                            model=self.settings.gemini_flash_model,
-                            contents=fix_prompt,
-                            config=types.GenerateContentConfig(
-                                system_instruction=GENERATOR_PROMPT,
-                                max_output_tokens=MAX_OUTPUT_TOKENS,
-                                temperature=0.1,
-                                thinking_config=types.ThinkingConfig(thinking_level="high")
-                            )
-                        )
-                        current_text = fixed_response.text
-                        # yield f"✅ **Итерация {iteration+1} завершена. Переход к повторной валидации...**\n\n"
+                async for chunk in final_stream:
+                    if chunk.text:
+                        yield {"type": "content", "text": chunk.text}
 
             except Exception as e:
                 logger.error(f"Ultra generation error: {e}")
                 logger.error(traceback.format_exc())
-                yield f"\n\n⚠️ Ошибка в режиме Ultra: {str(e)}"
+                yield {"type": "content", "text": f"\n\n⚠️ Ошибка в режиме Ultra: {str(e)}"}
 
         return {
             "response": stream_ultra_response(),
