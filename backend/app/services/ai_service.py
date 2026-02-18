@@ -5206,6 +5206,7 @@ class AIService:
         
         async def stream_response():
             first_chunk = True
+            last_usage = None
             try:
                 stream = await self.client.aio.models.generate_content_stream(
                     model=self.settings.gemini_pro_model,
@@ -5220,15 +5221,16 @@ class AIService:
                             text = text.lstrip()
                             first_chunk = False
                         yield text
+                    if hasattr(chunk, 'usage_metadata') and chunk.usage_metadata:
+                        last_usage = chunk.usage_metadata
 
-                # Track usage after stream completes
-                if hasattr(stream, 'usage_metadata') and stream.usage_metadata:
-                    usage = stream.usage_metadata
+                # Track usage from last chunk
+                if last_usage:
                     await UsageService.track_usage_async(
                         user_id=user_id,
                         model_name=self.settings.gemini_pro_model,
-                        input_tokens=usage.prompt_token_count or 0,
-                        output_tokens=usage.candidates_token_count or 0,
+                        input_tokens=last_usage.prompt_token_count or 0,
+                        output_tokens=last_usage.candidates_token_count or 0,
                         request_type=f"agentic_final_{chat_mode}"
                     )
             except Exception as e:
@@ -5789,6 +5791,7 @@ class AIService:
         )
 
         async def stream_response():
+            last_usage = None
             try:
                 stream = await self.client.aio.models.generate_content_stream(
                     model=self.settings.gemini_flash_model,
@@ -5798,15 +5801,15 @@ class AIService:
                 async for chunk in stream:
                     if chunk.text:
                         yield chunk.text
-                
-                # Track usage after stream completes
-                if hasattr(stream, 'usage_metadata') and stream.usage_metadata:
-                    usage = stream.usage_metadata
+                    if hasattr(chunk, 'usage_metadata') and chunk.usage_metadata:
+                        last_usage = chunk.usage_metadata
+
+                if last_usage:
                     await UsageService.track_usage_async(
                         user_id=user_id,
                         model_name=self.settings.gemini_flash_model,
-                        input_tokens=usage.prompt_token_count or 0,
-                        output_tokens=usage.candidates_token_count or 0,
+                        input_tokens=last_usage.prompt_token_count or 0,
+                        output_tokens=last_usage.candidates_token_count or 0,
                         request_type=f"chat_simple_{chat_mode}"
                     )
             except Exception as e:
@@ -5882,6 +5885,7 @@ class AIService:
         )
         
         async def stream_response():
+            last_usage = None
             try:
                 stream = await self.client.aio.models.generate_content_stream(
                     model=self.settings.gemini_pro_model,
@@ -5891,15 +5895,15 @@ class AIService:
                 async for chunk in stream:
                     if chunk.text:
                         yield {"type": "content", "text": chunk.text}
+                    if hasattr(chunk, 'usage_metadata') and chunk.usage_metadata:
+                        last_usage = chunk.usage_metadata
 
-                # Track usage after stream completes
-                if hasattr(stream, 'usage_metadata') and stream.usage_metadata:
-                    usage = stream.usage_metadata
+                if last_usage:
                     await UsageService.track_usage_async(
                         user_id=user_id,
                         model_name=self.settings.gemini_pro_model,
-                        input_tokens=usage.prompt_token_count or 0,
-                        output_tokens=usage.candidates_token_count or 0,
+                        input_tokens=last_usage.prompt_token_count or 0,
+                        output_tokens=last_usage.candidates_token_count or 0,
                         request_type="contract_generation_legacy"
                     )
             except Exception as e:
@@ -6380,18 +6384,19 @@ class AIService:
                     )
                 )
 
+                last_usage_p3 = None
                 async for chunk in final_stream:
                     if chunk.text:
                         yield {"type": "content", "text": chunk.text}
+                    if hasattr(chunk, 'usage_metadata') and chunk.usage_metadata:
+                        last_usage_p3 = chunk.usage_metadata
 
-                # Track usage for Phase 3
-                if hasattr(final_stream, 'usage_metadata') and final_stream.usage_metadata:
-                    usage = final_stream.usage_metadata
+                if last_usage_p3:
                     await UsageService.track_usage_async(
                         user_id=user_id,
                         model_name=self.settings.gemini_pro_model,
-                        input_tokens=usage.prompt_token_count or 0,
-                        output_tokens=usage.candidates_token_count or 0,
+                        input_tokens=last_usage_p3.prompt_token_count or 0,
+                        output_tokens=last_usage_p3.candidates_token_count or 0,
                         request_type="contract_ultra_phase3_final"
                     )
 
