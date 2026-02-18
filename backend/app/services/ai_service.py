@@ -6772,6 +6772,16 @@ class AIService:
             if isinstance(audit.get('score_explanation'), list):
                 audit['score_explanation'] = "\n".join(str(s) for s in audit['score_explanation'])
 
+            # Sanitize null values — Pydantic rejects None for str/list[dict] fields
+            for str_field in ['score_explanation', 'summary', 'strictness_level', 'negotiation_strategy']:
+                if audit.get(str_field) is None:
+                    audit[str_field] = ''
+            for list_field in ['critical_errors', 'warnings', 'missing_clauses', 'hidden_risks', 'ambiguities']:
+                if not isinstance(audit.get(list_field), list):
+                    audit[list_field] = []
+            if not isinstance(audit.get('validity_score'), (int, float)):
+                audit['validity_score'] = 0
+
             # Add contract metadata to audit
             audit['contract_type'] = contract_info.get('contract_type', 'не определен')
             audit['detected_topics'] = contract_info.get('key_topics', [])

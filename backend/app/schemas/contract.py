@@ -3,8 +3,9 @@ Contract Pydantic Schemas
 Request/response models for validator and generator endpoints.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from datetime import datetime
+from typing import Any
 
 
 # Validator schemas
@@ -15,6 +16,8 @@ class ValidateContractRequest(BaseModel):
 
 class ContractAudit(BaseModel):
     """Contract audit result."""
+    model_config = {"extra": "ignore"}
+
     validity_score: int = 0
     score_explanation: str = ""
     critical_errors: list[dict] = []
@@ -26,6 +29,22 @@ class ContractAudit(BaseModel):
     hidden_risks: list[dict] = []
     ambiguities: list[dict] = []
     negotiation_strategy: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def coerce_nulls(cls, data: Any) -> Any:
+        """Coerce null values from AI responses to proper defaults."""
+        if not isinstance(data, dict):
+            return data
+        for key in ["score_explanation", "summary", "strictness_level", "negotiation_strategy"]:
+            if data.get(key) is None:
+                data[key] = ""
+        for key in ["critical_errors", "warnings", "missing_clauses", "hidden_risks", "ambiguities"]:
+            if not isinstance(data.get(key), list):
+                data[key] = []
+        if not isinstance(data.get("validity_score"), (int, float)):
+            data["validity_score"] = 0
+        return data
 
 
 class ValidateContractResponse(BaseModel):
