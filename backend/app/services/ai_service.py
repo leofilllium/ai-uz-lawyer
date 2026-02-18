@@ -4139,6 +4139,34 @@ AUTO_DETECT_FALLBACK_PROMPT = """Вы — универсальный AI юрис
 5. Если информация недоступна — используйте стандартную фразу об отсутствии данных"""
 
 
+CONTRACT_FIX_PROMPT = """Вы — высококвалифицированный юрист-редактор. Ваша задача — исправить текст договора, основываясь на результатах проведенного правового аудита и применимом законодательстве Узбекистана.
+
+ИНСТРУКЦИИ:
+1. Тщательно изучите "ОРИГИНАЛЬНЫЙ ТЕКСТ" договора.
+2. Изучите "РЕЗУЛЬТАТЫ АУДИТА" (критические ошибки, риски, недостающие пункты, двусмысленности).
+3. Используйте предоставленный "ПРАВОВОЙ КОНТЕКСТ" (законы РУз) для внесения точных правовых правок.
+4. Сформируйте ИСПРАВЛЕННЫЙ ТЕКСТ договора, который:
+   - Сохраняет общую структуру и форматирование оригинала.
+   - Устраняет все критические ошибки и риски.
+   - Включает все недостающие существенные условия.
+   - Заменяет двусмысленные фразы на четкие юридические формулировки.
+   - Соответствует актуальному законодательству Узбекистана.
+
+ФОРМАТ ОТВЕТА:
+Верните ТОЛЬКО исправленный текст договора целиком. Не добавляйте никаких комментариев, объяснений или вводных слов. 
+Текст должен быть готов к копированию и использованию.
+
+ОРИГИНАЛЬНЫЙ ТЕКСТ:
+{original_text}
+
+РЕЗУЛЬТАТЫ АУДИТА:
+{audit_results}
+
+ПРАВОВОЙ КОНТЕКСТ:
+{context}
+"""
+
+
 VALIDATOR_PROMPT = """Вы — система проверки соответствия договоров законодательству Узбекистана (Uzbekistan Contract Compliance Engine).
 
 Ваша задача — АУДИТ договоров на соответствие обязательным требованиям Гражданского кодекса РУз и иных применимых законов.
@@ -6476,6 +6504,63 @@ class AIService:
             }
         except Exception as e:
             logger.error(f"Contract analysis error: {e}")
+            raise
+
+    async def fix_contract_with_ai(
+        self,
+        original_text: str,
+        audit_results: str,
+        legal_context: str,
+        user_id: Optional[int] = None
+    ) -> str:
+        """
+        Generate a fixed version of the contract based on audit results and legal context.
+        """
+        logger.info("=== FIX CONTRACT WITH AI ===")
+        
+        fix_prompt = CONTRACT_FIX_PROMPT.format(
+            original_text=original_text,
+            audit_results=audit_results,
+            context=legal_context
+        )
+
+        try:
+            response = await self.client.messages.create(
+                model=self.settings.claude_latest_model,
+                max_tokens=MAX_OUTPUT_TOKENS,
+                system=VALIDATOR_PROMPT,
+                thinking={
+                    "type": "enabled",
+                    "budget_tokens": self.settings.thinking_budget_tokens
+                },
+                messages=[{
+                    "role": "user",
+                    "content": fix_prompt
+                }]
+            )
+
+            fixed_text = ""
+            for block in response.content:
+                if block.type == "text":
+                    fixed_text += block.text
+            
+            fixed_text = fixed_text.strip()
+
+            # Track usage
+            if hasattr(response, 'usage'):
+                usage = response.usage
+                await UsageService.track_usage_async(
+                    user_id=user_id,
+                    model_name=self.settings.claude_latest_model,
+                    input_tokens=usage.input_tokens,
+                    output_tokens=usage.output_tokens,
+                    request_type="contract_fix"
+                )
+
+            return fixed_text
+
+        except Exception as e:
+            logger.error(f"Contract fix error: {e}")
             raise
 
     async def analyze_document(

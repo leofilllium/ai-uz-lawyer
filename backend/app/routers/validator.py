@@ -15,7 +15,8 @@ from app.schemas.contract import (
     ValidateContractRequest,
     ValidateContractResponse,
     ContractAudit,
-    ContractAnalysisResponse
+    ContractAnalysisResponse,
+    FixContractRequest
 )
 from app.services.ai_service import AIService
 
@@ -268,3 +269,51 @@ async def get_analysis(
         raise HTTPException(status_code=404, detail="Analysis not found")
     
     return ContractAnalysisResponse.model_validate(analysis.to_dict())
+
+
+@router.post("/fix")
+async def fix_contract(
+    request: FixContractRequest,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user)
+):
+    """Automatically fix contract issues using AI."""
+    analysis = db.query(ContractAnalysis).filter(ContractAnalysis.id == request.analysis_id).first()
+    
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    
+    # Verify ownership
+    if current_user and analysis.user_id and analysis.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    
+    try:
+        ai_service = AIService(mode='validator')
+        
+        # Prepare context for fixing
+        # analysis.raw_response contains the full JSON audit
+        # we also need the original contract text and legal context (sources)
+        
+        audit_results = analysis.raw_response
+        original_text = analysis.contract_text
+        
+        # Reconstruct legal context from sources
+        legal_context = ""
+        for source in analysis.sources:
+            legal_context += f"--- SOURCE: {source.get('title', 'Unknown')} ---\n"
+            legal_context += f"{source.get('text', '')}\n\n"
+            
+        fixed_text = await ai_service.fix_contract_with_ai(
+            original_text=original_text,
+            audit_results=audit_results,
+            legal_context=legal_context,
+            user_id=current_user.id if current_user else None
+        )
+        
+        return {"success": True, "fixed_contract": fixed_text}
+        
+    except Exception as e:
+        import traceback
+        import logging
+        logging.getLogger(__name__).error(f"Fixer error: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))

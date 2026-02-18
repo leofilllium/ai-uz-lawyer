@@ -638,6 +638,20 @@ export async function getValidationById(id: number): Promise<ContractAnalysis> {
   return response.json();
 }
 
+export async function fixContractWithAi(analysisId: number): Promise<{fixed_contract: string}> {
+  const response = await fetchWithAuth('/api/validator/fix', {
+    method: 'POST',
+    body: JSON.stringify({ analysis_id: analysisId }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to fix contract');
+  }
+
+  return response.json();
+}
+
 // Generator API
 export interface ContractCategory {
   name: string;

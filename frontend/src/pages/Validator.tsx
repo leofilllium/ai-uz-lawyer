@@ -6,12 +6,14 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { analyzeContract, getValidationById, type ContractAnalysis as Analysis } from '../api/client';
+import { analyzeContract, getValidationById, fixContractWithAi, type ContractAnalysis as Analysis } from '../api/client';
 
 export default function Validator() {
   const [contractText, setContractText] = useState('');
   const [result, setResult] = useState<Analysis | null>(null);
   const [loading, setLoading] = useState(false);
+  const [fixing, setFixing] = useState(false);
+  const [fixedContract, setFixedContract] = useState<string | null>(null);
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -67,6 +69,31 @@ export default function Validator() {
     }
   };
 
+  const handleFix = async () => {
+    if (!result?.id || fixing) return;
+
+    setFixing(true);
+    setError('');
+    try {
+      const data = await fixContractWithAi(result.id);
+      setFixedContract(data.fixed_contract);
+      // Scroll to result
+      setTimeout(() => {
+        document.getElementById('fixed-contract-section')?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось исправить договор');
+    } finally {
+      setFixing(false);
+    }
+  };
+
+  const handleCopyFixed = () => {
+    if (!fixedContract) return;
+    navigator.clipboard.writeText(fixedContract);
+    alert('Текст скопирован в буфер обмена');
+  };
+
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'green';
     if (score >= 50) return 'yellow';
@@ -119,8 +146,31 @@ export default function Validator() {
                    result.validity_score >= 75 ? 'ТРЕБУЕТ ДОРАБОТКИ' : 
                    result.validity_score >= 50 ? 'РИСКОВАНО' : 'КРИТИЧЕСКИ ОПАСНО'}
                 </span>
+                
+                {result.validity_score < 95 && (
+                  <button 
+                    onClick={handleFix} 
+                    className="btn-fix-ai"
+                    disabled={fixing}
+                  >
+                    {fixing ? '✨ Исправление...' : '✨ Исправить с ИИ'}
+                  </button>
+                )}
               </div>
             </div>
+
+            {/* Fixed Contract Result */}
+            {fixedContract && (
+              <section id="fixed-contract-section" className="analysis-section fixed-contract-container">
+                <div className="section-header-row">
+                  <h2>✨ Исправленный договор</h2>
+                  <button onClick={handleCopyFixed} className="btn-secondary btn-sm">Копировать</button>
+                </div>
+                <div className="fixed-text-area">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{fixedContract}</ReactMarkdown>
+                </div>
+              </section>
+            )}
 
             {/* Score Explanation */}
             {result.score_explanation && (

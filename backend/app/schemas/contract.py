@@ -14,6 +14,11 @@ class ValidateContractRequest(BaseModel):
     contract: str = Field(..., min_length=50)
 
 
+class FixContractRequest(BaseModel):
+    """Request model for automatic contract fixing."""
+    analysis_id: int
+
+
 class ContractAudit(BaseModel):
     """Contract audit result."""
     model_config = {"extra": "ignore"}
