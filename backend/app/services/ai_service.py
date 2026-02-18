@@ -3676,7 +3676,7 @@ DEFAULT_TOP_K = 50
 PRE_SEARCH_TOP_K = 100
 MIN_RELEVANCE_SCORE = 0.35  # Minimum similarity score for RAG results
 MAX_AGENTIC_ROUNDS = 2 # Max rounds for agentic search
-MAX_OUTPUT_TOKENS = 18000  # Claude Haiku 4.5 max output tokens
+MAX_OUTPUT_TOKENS = 16000  # Claude Haiku 4.5 max output tokens
 
 # ═══════════════════════════════════════════════════════════════
 # 🛡️ SAFETY & QUALITY INSTRUCTIONS
@@ -5308,7 +5308,7 @@ class AIService:
 
         # Sort by similarity and take top 50
         unique_results.sort(key=lambda x: x.get("similarity", 0), reverse=True)
-        final_results = unique_results[:50]
+        final_results = unique_results[:100]
 
         context = self._format_enhanced_context(final_results)
         sources = self._format_sources_with_quality(final_results)
