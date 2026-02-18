@@ -207,23 +207,39 @@ export interface HistoryItem {
 
 // Base fetch with auth
 async function fetchWithAuth(
-  endpoint: string, 
-  options: RequestInit = {}
+  endpoint: string,
+  options: RequestInit = {},
+  timeoutMs?: number
 ): Promise<Response> {
   const token = getToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-  
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+
+  const fetchOptions: RequestInit = {
     ...options,
     headers,
-  });
-  
+  };
+
+  if (timeoutMs) {
+    const controller = new AbortController();
+    fetchOptions.signal = controller.signal;
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, fetchOptions);
+      clearTimeout(timeoutId);
+      return response;
+    } catch (e) {
+      clearTimeout(timeoutId);
+      throw e;
+    }
+  }
+
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, fetchOptions);
   return response;
 }
 
@@ -593,7 +609,7 @@ export async function analyzeContract(contract: string): Promise<ContractAnalysi
   const response = await fetchWithAuth('/api/validator/analyze', {
     method: 'POST',
     body: JSON.stringify({ contract }),
-  });
+  }, 600000);
 
   if (!response.ok) {
     try {
@@ -642,7 +658,7 @@ export async function fixContractWithAi(analysisId: number): Promise<{fixed_cont
   const response = await fetchWithAuth('/api/validator/fix', {
     method: 'POST',
     body: JSON.stringify({ analysis_id: analysisId }),
-  });
+  }, 600000);
 
   if (!response.ok) {
     const error = await response.json();
@@ -874,7 +890,7 @@ export async function analyzeDocument(document: string, documentType?: string): 
   const response = await fetchWithAuth('/api/document-validator/analyze', {
     method: 'POST',
     body: JSON.stringify({ document, document_type: documentType }),
-  });
+  }, 600000);
 
   if (!response.ok) {
     const error = await response.json();

@@ -20,8 +20,9 @@ class Settings(BaseSettings):
     
     # Anthropic Claude AI
     anthropic_api_key: str = ""
-    claude_haiku_model: str = "claude-haiku-4-5-20251001"  # Using 3.5 Haiku as requested "Claude Haiku 4.5" 
-    thinking_budget_tokens: int = 4000
+    claude_haiku_model: str = "claude-haiku-4-5-20251001"  # Using 3.5 Haiku as requested "Claude Haiku 4.5"
+    claude_sonnet_model: str = "claude-sonnet-4-6"
+    thinking_budget_tokens: int = 8000
 
     
     # OpenAI Models

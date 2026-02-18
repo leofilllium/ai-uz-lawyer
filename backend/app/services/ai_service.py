@@ -4778,6 +4778,42 @@ GEMINI_SEARCH_TOOL = {
     }
 }
 
+# Tool definition for Anthropic Claude (JSON Schema format)
+ANTHROPIC_SEARCH_TOOL = {
+    "name": "search_legal_database",
+    "description": """Поиск в базе данных законодательства Узбекистана. Возвращает релевантные статьи законов и кодексов с оценкой релевантности.
+
+КРИТИЧЕСКИ ВАЖНО: Используйте этот инструмент для ЛЮБОГО юридического вопроса. НЕ отвечайте без поиска.
+
+Каждый результат содержит: content (текст статьи), article (номер статьи), source (кодекс/закон), relevance_score (0-1).
+
+🔍 СТРАТЕГИЯ ПОИСКА:
+1. ПЕРВЫЙ поиск: основные ключевые слова (например: "существенные условия договора аренды")
+2. ВТОРОЙ поиск: синонимы и юридические термины (например: "обязательные реквизиты арендный контракт")
+3. ТРЕТИЙ поиск: связанные нормы (например: "ответственность арендодателя арендатора расторжение")
+4. При необходимости: поиск с filter_source по конкретному кодексу
+
+⚠️ НЕ останавливайтесь на одном поиске! Сделайте 3-6 поисков разными формулировками.""",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "Поисковый запрос (3-10 ключевых слов). Используйте юридические термины на русском и/или узбекском языке."
+            },
+            "top_k": {
+                "type": "integer",
+                "description": "Количество результатов для возврата (10-30). По умолчанию 15."
+            },
+            "filter_source": {
+                "type": "string",
+                "description": "Фильтр по имени файла источника (опционально)"
+            }
+        },
+        "required": ["query"]
+    }
+}
+
 # ═══════════════════════════════════════════════════════════════
 # 🧠 ENHANCED AI SERVICE (GEMINI)
 # ═══════════════════════════════════════════════════════════════
@@ -5143,7 +5179,194 @@ class AIService:
                 logger.warning(f"Reranking failed, using hybrid results: {e}")
         
         return merged[:top_k]
-    
+
+    def _format_tool_result(self, results: List[Dict[str, Any]], max_results: int = 8) -> str:
+        """Format search results compactly for sending back to Claude as tool_result."""
+        if not results:
+            return json.dumps({"results": [], "count": 0}, ensure_ascii=False)
+
+        compact = []
+        for r in results[:max_results]:
+            meta = r.get("metadata", {})
+            content = r.get("content", "")
+            compact.append({
+                "article": meta.get("article_display", "N/A"),
+                "source": meta.get("source", "unknown"),
+                "score": round(r.get("similarity", 0), 3),
+                "preview": content[:200].replace("\n", " ")
+            })
+
+        return json.dumps({
+            "results": compact,
+            "count": len(results),
+            "shown": len(compact)
+        }, ensure_ascii=False)
+
+    async def _agentic_rag_search(
+        self,
+        task_description: str,
+        document_text: str,
+        user_id: Optional[int] = None
+    ):
+        """
+        Agentic RAG search using Claude Haiku 4.5 tool-use loop.
+        Yields status events and a final result event.
+
+        The model iteratively decides what to search in the legal database,
+        accumulating results until it decides it has enough context.
+
+        Yields:
+            {"type": "status", "text": "..."} — SSE progress updates
+            {"type": "result", "context": "...", "sources": [...], "rounds_used": N} — final
+        """
+        self._init_rag_engine()
+
+        # Truncate document to avoid token limits
+        doc_preview = document_text[:6000] if len(document_text) > 6000 else document_text
+
+        system_msg = """Ты — юридический поисковый агент. Твоя задача — найти ВСЕ релевантные нормы законодательства Узбекистана для анализа документа.
+
+ПРАВИЛА:
+1. Используй инструмент search_legal_database для поиска
+2. Делай 3-6 поисков разными формулировками для полного покрытия
+3. Ищи: основные нормы, связанные статьи, процедурные требования, ответственность
+4. Формулируй запросы на РУССКОМ языке (база содержит тексты на узбекском, но поиск работает с русским)
+5. Когда считаешь, что контекст достаточен — просто ответь "ПОИСК ЗАВЕРШЁН"
+6. НЕ анализируй документ — только ищи релевантные нормы"""
+
+        messages = [{
+            "role": "user",
+            "content": f"""ЗАДАЧА ПОИСКА:
+{task_description}
+
+ДОКУМЕНТ ДЛЯ АНАЛИЗА (фрагмент):
+{doc_preview}
+
+Найди все релевантные нормы законодательства Узбекистана. Начни поиск."""
+        }]
+
+        all_results = []
+        rounds_used = 0
+
+        for round_num in range(MAX_AGENTIC_ROUNDS):
+            try:
+                response = await self.client.messages.create(
+                    model=self.settings.claude_haiku_model,
+                    max_tokens=1024,
+                    system=system_msg,
+                    tools=[ANTHROPIC_SEARCH_TOOL],
+                    messages=messages
+                )
+
+                # Track usage
+                if hasattr(response, 'usage') and user_id:
+                    try:
+                        await UsageService.track_usage_async(
+                            user_id=user_id,
+                            model_name=self.settings.claude_haiku_model,
+                            input_tokens=response.usage.input_tokens,
+                            output_tokens=response.usage.output_tokens,
+                            request_type=f"agentic_rag_search_round_{round_num}"
+                        )
+                    except Exception:
+                        pass
+
+                # Check if model wants to use tools
+                if response.stop_reason == "tool_use":
+                    # Process all tool_use blocks in the response
+                    tool_results_for_message = []
+                    assistant_content = response.content
+
+                    for block in response.content:
+                        if block.type == "tool_use" and block.name == "search_legal_database":
+                            rounds_used += 1
+                            tool_input = block.input
+                            query = tool_input.get("query", "")
+                            top_k = tool_input.get("top_k", 15)
+                            filter_source = tool_input.get("filter_source")
+
+                            yield {"type": "status", "text": f"🔎 Поиск: {query[:80]}..."}
+                            logger.info(f"Agentic RAG round {rounds_used}: query='{query}', top_k={top_k}")
+
+                            try:
+                                results = await self._enhanced_retrieve_context(
+                                    query=query,
+                                    top_k=top_k,
+                                    filter_source=filter_source
+                                )
+                                all_results.extend(results)
+                                tool_result_text = self._format_tool_result(results)
+                            except Exception as e:
+                                logger.warning(f"Agentic search failed for '{query}': {e}")
+                                tool_result_text = json.dumps({"error": str(e), "results": []}, ensure_ascii=False)
+
+                            tool_results_for_message.append({
+                                "type": "tool_result",
+                                "tool_use_id": block.id,
+                                "content": tool_result_text
+                            })
+
+                    # Append assistant message and tool results to conversation
+                    messages.append({"role": "assistant", "content": assistant_content})
+                    messages.append({"role": "user", "content": tool_results_for_message})
+
+                else:
+                    # Model responded with end_turn — search complete
+                    break
+
+            except Exception as e:
+                logger.error(f"Agentic RAG round {round_num} error: {e}")
+                break
+
+        # Fallback: if no tool calls were made, extract keywords and do default searches
+        if rounds_used == 0:
+            logger.warning("Agentic RAG: model made no tool calls, running fallback searches")
+            yield {"type": "status", "text": "🔎 Выполняется резервный поиск..."}
+
+            # Extract simple keyword queries from task_description
+            fallback_queries = [
+                task_description[:100],
+                " ".join(task_description.split()[:8]),
+            ]
+            # Add translated variant
+            translated = fast_translate_to_uzbek(task_description[:100])
+            if translated != task_description[:100]:
+                fallback_queries.append(translated)
+
+            for fq in fallback_queries:
+                try:
+                    results = await self._enhanced_retrieve_context(query=fq, top_k=15)
+                    all_results.extend(results)
+                    rounds_used += 1
+                except Exception as e:
+                    logger.warning(f"Fallback search failed: {e}")
+
+        # Deduplicate all accumulated results
+        seen_keys = set()
+        unique_results = []
+        for result in all_results:
+            meta = result.get("metadata", {})
+            dedup_key = f"{meta.get('source', '')}_{meta.get('article_display', '')}"
+            if dedup_key and dedup_key != "_" and dedup_key not in seen_keys:
+                seen_keys.add(dedup_key)
+                unique_results.append(result)
+
+        # Sort by similarity and take top 50
+        unique_results.sort(key=lambda x: x.get("similarity", 0), reverse=True)
+        final_results = unique_results[:50]
+
+        context = self._format_enhanced_context(final_results)
+        sources = self._format_sources_with_quality(final_results)
+
+        logger.info(f"Agentic RAG complete: {rounds_used} rounds, {len(final_results)} unique results")
+
+        yield {
+            "type": "result",
+            "context": context,
+            "sources": sources,
+            "rounds_used": rounds_used
+        }
+
     def _format_enhanced_context(self, results: List[Dict[str, Any]]) -> str:
         if not results:
             return "⚠️ No relevant legal documents found meeting quality threshold."
@@ -5417,7 +5640,9 @@ class AIService:
         return keywords
 
     def _extract_document_topics(self, document_text: str, document_type: Optional[str] = None) -> List[str]:
-        """Extract key topics from document for targeted legal search."""
+        """Extract key topics from document for targeted legal search.
+        # DEPRECATED: replaced by _agentic_rag_search
+        """
         keywords = []
         text_lower = document_text.lower()
         
@@ -5459,7 +5684,9 @@ class AIService:
         return keywords
 
     def _build_contract_search_queries(self, category: str, requirements: str) -> List[str]:
-        """Build search queries for contract generation."""
+        """Build search queries for contract generation.
+        # DEPRECATED: replaced by _agentic_rag_search
+        """
         queries = []
         category_lower = category.lower()
         
@@ -5691,33 +5918,29 @@ class AIService:
         Generate a contract using Legacy Logic (Multi-step Search + Gemini Flash).
         """
         logger.info(f"=== GENERATE CONTRACT (LEGACY) ===")
-        
-        # 1. Build search queries
-        search_queries = self._build_contract_search_queries(category, requirements)
-        
-        # 2. Retrieve context (Advanced Agentic RAG)
-        all_results = []
-        seen_articles = set()
-        
-        for search_query in search_queries:
-            # Use improved retrieval with reranking and hybrid search
-            results = await self._enhanced_retrieve_context(search_query, top_k=15)
-            for result in results:
-                # Deduplicate by source + article
-                article_key = f"{result.get('metadata', {}).get('source')}_{result.get('metadata', {}).get('article_display')}"
-                if article_key not in seen_articles:
-                    seen_articles.add(article_key)
-                    all_results.append(result)
-                    
-        # Sort by similarity (now includes rerank score) and limit
-        all_results.sort(key=lambda x: x.get("similarity", 0), reverse=True)
-        # Increase context window for detailed contracts
-        final_results = all_results[:50]
-        
-        legal_context = self._format_enhanced_context(final_results)
-        sources = self._format_sources_with_quality(final_results)
-        
-        # 3. Build Prompt
+
+        # 1. Agentic RAG search for legal context
+        task_description = f"""Найди нормы законодательства Узбекистана для составления договора категории "{category}".
+Требования пользователя: {requirements[:500]}
+Ищи: существенные условия, права и обязанности сторон, ответственность, форма договора, порядок расчётов."""
+
+        legal_context = ""
+        sources = []
+        try:
+            async for event in self._agentic_rag_search(
+                task_description=task_description,
+                document_text=requirements,
+                user_id=user_id
+            ):
+                if event["type"] == "result":
+                    legal_context = event["context"]
+                    sources = event["sources"]
+                    logger.info(f"Agentic RAG complete: {event['rounds_used']} rounds")
+        except Exception as e:
+            logger.warning(f"Agentic RAG failed for contract generation: {e}")
+            legal_context = "Правовой контекст недоступен."
+
+        # 2. Build Prompt
         generation_prompt = f"""КАТЕГОРИЯ ДОГОВОРА: {category}
 
 ШАБЛОНЫ ДОГОВОРОВ ДАННОЙ КАТЕГОРИИ:
@@ -5739,6 +5962,7 @@ class AIService:
             try:
                 async with self.client.messages.stream(
                     model=self.settings.claude_haiku_model,
+                    thinking_budget=self.settings.thinking_budget_tokens,
                     max_tokens=MAX_OUTPUT_TOKENS,
                     system=GENERATOR_PROMPT,
                     messages=[{
@@ -5748,7 +5972,7 @@ class AIService:
                 ) as stream:
                     async for text in stream.text_stream:
                         yield {"type": "content", "text": text}
-                    
+
                     # Track usage for contract generation
                     try:
                         final_message = await stream.get_final_message()
@@ -5797,41 +6021,26 @@ class AIService:
         async def stream_ultra_response():
             try:
                 # ═══════════════════════════════════════════
-                # STEP 0: RAG RETRIEVAL (Moved inside stream to prevent timeout)
+                # STEP 0: AGENTIC RAG RETRIEVAL
                 # ═══════════════════════════════════════════
                 yield {"type": "status", "text": "📚 **Инициализация правовой базы данных...**"}
-                
-                search_queries = self._build_contract_search_queries(category, requirements)
-                all_results = []
-                seen_articles = set()
 
-                self._init_rag_engine()
+                gen_task_description = f"""Найди нормы законодательства Узбекистана для составления договора категории "{category}".
+Требования пользователя: {requirements[:500]}
+Ищи: существенные условия, права и обязанности сторон, ответственность, форма договора, порядок расчётов."""
 
-                yield {"type": "status", "text": f"🔎 **Поиск профильных норм законодательства (0/{len(search_queries)})...**"}
-                
-                for i, search_query in enumerate(search_queries):
-                    try:
-                        yield {"type": "status", "text": f"🔎 **Поиск по запросу: {search_query}...**"}
-                        results = await self._enhanced_retrieve_context(search_query, top_k=15)
-                        for result in results:
-                            meta = result.get('metadata', {})
-                            article_key = f"{meta.get('source')}_{meta.get('article_display')}"
-                            if article_key not in seen_articles:
-                                seen_articles.add(article_key)
-                                all_results.append(result)
-                    except Exception as e:
-                        logger.warning(f"Generation RAG query failed: {e}")
-                        continue
-
-                yield {"type": "status", "text": "📊 **Ранжирование и фильтрация правового контекста...**"}
-                all_results.sort(key=lambda x: x.get("similarity", 0), reverse=True)
-                final_results = all_results[:50]
-
-                generation_legal_context = self._format_enhanced_context(final_results)
-                
-                # Update shared sources list
-                new_sources = self._format_sources_with_quality(final_results)
-                sources.extend(new_sources)
+                generation_legal_context = ""
+                async for event in self._agentic_rag_search(
+                    task_description=gen_task_description,
+                    document_text=requirements,
+                    user_id=user_id
+                ):
+                    if event["type"] == "status":
+                        yield event
+                    elif event["type"] == "result":
+                        generation_legal_context = event["context"]
+                        sources.extend(event["sources"])
+                        logger.info(f"Ultra STEP 0 agentic RAG: {event['rounds_used']} rounds")
 
                 # ═══════════════════════════════════════════
                 # PHASE 1: DRAFT GENERATION
@@ -5857,6 +6066,7 @@ class AIService:
                 chunk_count = 0
                 async with self.client.messages.stream(
                     model=self.settings.claude_haiku_model,
+                    thinking_budget=self.settings.thinking_budget_tokens,
                     max_tokens=MAX_OUTPUT_TOKENS,
                     system=GENERATOR_PROMPT,
                     messages=[{
@@ -5895,43 +6105,35 @@ class AIService:
                 contract_info = await self._detect_contract_type(draft_text, user_id=user_id)
                 logger.info(f"Detected contract type: {contract_info.get('contract_type')}")
 
-                # 2.2: Build targeted validation RAG queries
-                validation_queries = self._build_contract_validation_queries(contract_info)
+                # 2.2: Agentic RAG for validation context
+                specific_checks = contract_info.get('specific_checks', [])
+                checks_text = ', '.join(specific_checks) if specific_checks else 'стандартные проверки'
+                val_task_description = f"""Найди нормы для проверки договора типа "{contract_info.get('contract_type', 'договор')}".
+Темы: {', '.join(contract_info.get('key_topics', []))}.
+Области права: {', '.join(contract_info.get('legal_areas', []))}.
+Проверки: {checks_text}.
+Ищи: существенные условия, ответственность, расторжение, императивные нормы, валюта, форс-мажор, споры."""
 
-                # 2.3: RAG retrieval for validation
-                yield {"type": "status", "text": "📚 **Поиск релевантных статей законов для валидации...**"}
-                validation_context_results = []
+                validation_legal_context = generation_legal_context
                 try:
-                    for qi, query in enumerate(validation_queries):
-                        try:
-                            context_results = await self._enhanced_retrieve_context(query=query, top_k=10)
-                            validation_context_results.extend(context_results)
-                        except Exception as e:
-                            logger.warning(f"Validation query '{query}' failed: {e}")
-                            continue
-
-                    seen_validation_keys = set()
-                    unique_validation_results = []
-                    for result in validation_context_results:
-                        meta = result.get('metadata', {})
-                        dedup_key = f"{meta.get('source', '')}_{meta.get('article_display', '')}" if meta else result.get('text', '')[:200]
-                        if dedup_key not in seen_validation_keys:
-                            seen_validation_keys.add(dedup_key)
-                            unique_validation_results.append(result)
-
-                    unique_validation_results.sort(key=lambda x: x.get('score', 0), reverse=True)
-                    top_validation_results = unique_validation_results[:50]
-                    validation_legal_context = self._format_enhanced_context(top_validation_results)
-
-                    validation_sources = self._format_sources_with_quality(top_validation_results)
-                    existing_source_keys = {s.get('article', '') + s.get('source', '') for s in sources}
-                    for vs in validation_sources:
-                        vs_key = vs.get('article', '') + vs.get('source', '')
-                        if vs_key not in existing_source_keys:
-                            sources.append(vs)
+                    async for event in self._agentic_rag_search(
+                        task_description=val_task_description,
+                        document_text=draft_text,
+                        user_id=user_id
+                    ):
+                        if event["type"] == "status":
+                            yield event
+                        elif event["type"] == "result":
+                            validation_legal_context = event["context"]
+                            # Merge new sources avoiding duplicates
+                            existing_source_keys = {s.get('article', '') + s.get('source', '') for s in sources}
+                            for vs in event["sources"]:
+                                vs_key = vs.get('article', '') + vs.get('source', '')
+                                if vs_key not in existing_source_keys:
+                                    sources.append(vs)
+                            logger.info(f"Ultra Phase 2 agentic RAG: {event['rounds_used']} rounds")
                 except Exception as e:
-                    logger.warning(f"Validation RAG retrieval failed: {e}")
-                    validation_legal_context = generation_legal_context
+                    logger.warning(f"Validation agentic RAG failed: {e}")
 
                 # 2.4: Contract audit (same as analyze_contract)
                 yield {"type": "status", "text": "📜 **Аудит черновика по законодательству...**"}
@@ -6133,6 +6335,7 @@ class AIService:
                 try:
                     async with self.client.messages.stream(
                         model=self.settings.claude_haiku_model,
+                        thinking_budget=self.settings.thinking_budget_tokens,
                         max_tokens=MAX_OUTPUT_TOKENS,
                         system=GENERATOR_PROMPT,
                         messages=[{
@@ -6262,6 +6465,7 @@ class AIService:
         """
         Build targeted RAG queries based on detected contract type and topics.
         Combines type-specific queries with broad essential queries for comprehensive coverage.
+        # DEPRECATED: replaced by _agentic_rag_search
         """
         contract_type = contract_info.get("contract_type", "договор")
         key_topics = contract_info.get("key_topics", [])
@@ -6325,51 +6529,29 @@ class AIService:
         logger.info(f"Detected contract type: {contract_info.get('contract_type')}")
         logger.info(f"Key topics: {contract_info.get('key_topics', [])}")
 
-        # Step 2: Build targeted RAG queries
-        validation_queries = self._build_contract_validation_queries(contract_info)
-        logger.info(f"Built {len(validation_queries)} validation queries")
+        # Step 2: Agentic RAG search for legal context
+        specific_checks = contract_info.get('specific_checks', [])
+        checks_text = ', '.join(specific_checks) if specific_checks else 'стандартные проверки'
+        task_description = f"""Найди все нормы законодательства Узбекистана для проверки договора типа "{contract_info.get('contract_type', 'договор')}".
+Темы: {', '.join(contract_info.get('key_topics', []))}.
+Области права: {', '.join(contract_info.get('legal_areas', []))}.
+Специфические проверки: {checks_text}.
+Ищи: существенные условия, ответственность сторон, основания расторжения, императивные нормы, валютные ограничения, форс-мажор, порядок разрешения споров."""
 
-        # Step 3: Retrieve targeted legal context
-        all_context_results = []
+        legal_context = "Правовой контекст недоступен."
+        sources = []
         try:
-            self._init_rag_engine()
-
-            # Execute multiple targeted queries
-            for query in validation_queries:
-                try:
-                    context_results = await self._enhanced_retrieve_context(
-                        query=query,
-                        top_k=10
-                    )
-                    all_context_results.extend(context_results)
-                except Exception as e:
-                    logger.warning(f"Query '{query}' failed: {e}")
-                    continue
-
-            # Deduplicate by article key (more robust than text snippet)
-            seen_keys = set()
-            unique_results = []
-            for result in all_context_results:
-                # Use article metadata for dedup if available, fallback to text
-                meta = result.get('metadata', {})
-                dedup_key = f"{meta.get('source', '')}_{meta.get('article_display', '')}" if meta else result.get('text', '')[:200]
-                if dedup_key not in seen_keys:
-                    seen_keys.add(dedup_key)
-                    unique_results.append(result)
-
-            # Sort by score and take top 50 for comprehensive context
-            unique_results.sort(key=lambda x: x.get('score', 0), reverse=True)
-            top_results = unique_results[:50]
-
-            legal_context = self._format_enhanced_context(top_results)
-            sources = self._format_sources_with_quality(top_results)
-
-            logger.info(f"Retrieved {len(top_results)} unique, relevant legal contexts")
-
+            async for event in self._agentic_rag_search(
+                task_description=task_description,
+                document_text=contract_text,
+                user_id=user_id
+            ):
+                if event["type"] == "result":
+                    legal_context = event["context"]
+                    sources = event["sources"]
+                    logger.info(f"Agentic RAG complete: {event['rounds_used']} rounds, {len(sources)} sources")
         except Exception as e:
-            logger.warning(f"RAG retrieval failed for contract analysis: {e}")
-            legal_context = "Правовой контекст недоступен."
-            sources = []
+            logger.warning(f"Agentic RAG failed for contract analysis: {e}")
 
         # Step 4: Build enhanced audit prompt with contract-specific context
         specific_checks = contract_info.get('specific_checks', [])
@@ -6592,58 +6774,29 @@ class AIService:
         """
         Analyze document using Legacy Logic (Deep Multi-Check).
         """
-        logger.info(f"=== ANALYZE DOCUMENT (LEGACY) ===")
-        
-        # 1. Extract topics
-        search_queries = self._extract_document_topics(document_text, document_type)
-        
-        # 2. Retrieve context
-        all_results = []
-        seen_articles = set()
-        
-        # Targeted searches
-        for search_query in search_queries:
-            results = await self.vector_store.asearch(search_query, top_k=15)
-            for result in results:
-                article_key = f"{result.get('metadata', {}).get('source')}_{result.get('metadata', {}).get('article_display')}"
-                if article_key not in seen_articles:
-                    seen_articles.add(article_key)
-                    all_results.append(result)
-        
-        # Broad document validation searches (from Legacy)
-        broad_searches = [
-            # Core document requirements
-            "доверенность полномочия представитель",
-            "форма документа обязательные реквизиты",
-            "сроки действия документа",
-            "подпись печать удостоверение",
-            "недействительность ничтожность",
-            # Up-to-dateness specific searches
-            "актуальность законодательства изменения",
-            "утратил силу недействующий",
-            "новая редакция изменения дополнения",
-            # Procedural
-            "порядок оформления регистрация",
-            "государственная пошлина сбор",
-            "сроки исковой давности",
-        ]
-        
-        for broad_query in broad_searches:
-            results = await self.vector_store.asearch(broad_query, top_k=5)
-            for result in results:
-                article_key = f"{result.get('metadata', {}).get('source')}_{result.get('metadata', {}).get('article_display')}"
-                if article_key not in seen_articles:
-                    seen_articles.add(article_key)
-                    all_results.append(result)
-                    
-        # Sort and limit
-        all_results.sort(key=lambda x: x.get("similarity", 0), reverse=True)
-        final_results = all_results[:top_k]
-        
-        legal_context = self._format_enhanced_context(final_results)
-        sources = self._format_sources_with_quality(final_results)
-        
-        # 3. Analyze with AI
+        logger.info(f"=== ANALYZE DOCUMENT ===")
+
+        # 1. Agentic RAG search for legal context
+        type_label = document_type if document_type else "юридический документ"
+        task_description = f"""Найди нормы законодательства Узбекистана для проверки документа типа "{type_label}".
+Ищи: требования к форме документа, обязательные реквизиты, сроки действия, порядок удостоверения/регистрации, недействительность, исковая давность, права и обязанности сторон."""
+
+        legal_context = "Правовой контекст недоступен."
+        sources = []
+        try:
+            async for event in self._agentic_rag_search(
+                task_description=task_description,
+                document_text=document_text,
+                user_id=user_id
+            ):
+                if event["type"] == "result":
+                    legal_context = event["context"]
+                    sources = event["sources"]
+                    logger.info(f"Agentic RAG complete: {event['rounds_used']} rounds, {len(sources)} sources")
+        except Exception as e:
+            logger.warning(f"Agentic RAG failed for document analysis: {e}")
+
+        # 2. Analyze with AI
         type_hint = f"Тип документа: {document_type}" if document_type else "Тип документа: не указан"
         audit_prompt = DOCUMENT_AUDIT_PROMPT.format(
             context=legal_context,
