@@ -165,7 +165,7 @@ async def analyze_contract(
     try:
         # Analyze contract
         ai_service = AIService(mode='validator')
-        result = await ai_service.analyze_contract(contract_text)
+        result = await ai_service.analyze_contract(contract_text, user_id=user_id)
         
         audit = result.get('audit', {})
         

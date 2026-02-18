@@ -52,7 +52,7 @@ class UsageService:
                     output_tokens=output_tokens,
                     total_tokens=input_tokens + output_tokens,
                     cost=cost,
-                    timestamp=datetime.utcnow()
+                    created_at=datetime.utcnow()
                 )
                 
                 db.add(usage)

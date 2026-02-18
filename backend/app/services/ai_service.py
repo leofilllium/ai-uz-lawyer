@@ -6007,7 +6007,7 @@ class AIService:
                 yield {"type": "status", "text": "🔍 **Фаза 2/3: Полная юридическая экспертиза черновика...**"}
 
                 # 2.1: Detect contract type
-                contract_info = await self._detect_contract_type(draft_text)
+                contract_info = await self._detect_contract_type(draft_text, user_id=user_id)
                 logger.info(f"Detected contract type: {contract_info.get('contract_type')}")
 
                 # 2.2: Build targeted validation RAG queries
@@ -6084,6 +6084,17 @@ class AIService:
                     )
                 )
 
+                # Track usage for audit
+                if audit_response.usage_metadata:
+                    usage_meta = audit_response.usage_metadata
+                    await UsageService.track_usage_async(
+                        user_id=user_id,
+                        model_name=self.settings.gemini_flash_model,
+                        input_tokens=usage_meta.prompt_token_count or 0,
+                        output_tokens=usage_meta.candidates_token_count or 0,
+                        request_type="contract_ultra_phase2_audit"
+                    )
+
                 # Parse audit JSON
                 audit = {}
                 raw_audit_text = audit_response.text.strip() if audit_response.text else ""
@@ -6124,6 +6135,16 @@ class AIService:
                         )
                     )
                     red_team_json = json.loads(self._clean_json_response(red_team_response.text))
+                    # Track usage
+                    if red_team_response.usage_metadata:
+                        usage_meta = red_team_response.usage_metadata
+                        await UsageService.track_usage_async(
+                            user_id=user_id,
+                            model_name=self.settings.gemini_flash_model,
+                            input_tokens=usage_meta.prompt_token_count or 0,
+                            output_tokens=usage_meta.candidates_token_count or 0,
+                            request_type="contract_ultra_phase2_redteam"
+                        )
                 except Exception as e:
                     logger.warning(f"Red Team analysis error: {e}")
 
@@ -6140,6 +6161,16 @@ class AIService:
                         )
                     )
                     risk_json = json.loads(self._clean_json_response(risk_response.text))
+                    # Track usage
+                    if risk_response.usage_metadata:
+                        usage_meta = risk_response.usage_metadata
+                        await UsageService.track_usage_async(
+                            user_id=user_id,
+                            model_name=self.settings.gemini_flash_model,
+                            input_tokens=usage_meta.prompt_token_count or 0,
+                            output_tokens=usage_meta.candidates_token_count or 0,
+                            request_type="contract_ultra_phase2_risktest"
+                        )
                 except Exception as e:
                     logger.warning(f"Risk simulation error: {e}")
 
@@ -6372,7 +6403,7 @@ class AIService:
                     return stripped
         return text.strip() if text else "{}"
 
-    async def _detect_contract_type(self, contract_text: str) -> Dict[str, Any]:
+    async def _detect_contract_type(self, contract_text: str, user_id: Optional[int] = None) -> Dict[str, Any]:
         """
         Detect the contract type and extract key topics for targeted validation.
         Returns contract type, main topics, and specific legal areas to check.
@@ -6408,6 +6439,18 @@ class AIService:
             )
 
             raw_text = response.text.strip()
+
+            # Track usage
+            if response.usage_metadata:
+                usage_meta = response.usage_metadata
+                await UsageService.track_usage_async(
+                    user_id=user_id,
+                    model_name=self.settings.gemini_flash_model,
+                    input_tokens=usage_meta.prompt_token_count or 0,
+                    output_tokens=usage_meta.candidates_token_count or 0,
+                    request_type="contract_type_detection"
+                )
+
             json_text = raw_text
             if "```" in json_text:
                 parts = json_text.split("```")
@@ -6474,7 +6517,8 @@ class AIService:
 
     async def analyze_contract(
         self,
-        contract_text: str
+        contract_text: str,
+        user_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Analyze a contract for legal compliance using Gemini with enhanced accuracy.
@@ -6491,7 +6535,7 @@ class AIService:
         logger.info(f"Contract text length: {len(contract_text)} chars")
 
         # Step 1: Detect contract type and key topics
-        contract_info = await self._detect_contract_type(contract_text)
+        contract_info = await self._detect_contract_type(contract_text, user_id=user_id)
         logger.info(f"Detected contract type: {contract_info.get('contract_type')}")
         logger.info(f"Key topics: {contract_info.get('key_topics', [])}")
 
@@ -6580,6 +6624,17 @@ class AIService:
             )
 
             raw_text = response.text.strip() if response.text else ""
+
+            # Track usage
+            if response.usage_metadata:
+                usage_meta = response.usage_metadata
+                await UsageService.track_usage_async(
+                    user_id=user_id,
+                    model_name=self.settings.gemini_flash_model,
+                    input_tokens=usage_meta.prompt_token_count or 0,
+                    output_tokens=usage_meta.candidates_token_count or 0,
+                    request_type="contract_validation"
+                )
 
             # Extract JSON from response (handle markdown code blocks)
             json_text = raw_text
