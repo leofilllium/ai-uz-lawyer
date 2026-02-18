@@ -4,6 +4,7 @@ Generate contracts based on templates, legal context, and user requirements.
 """
 
 import json
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -99,9 +100,19 @@ async def generate_contract(
         async def generate_stream():
             full_response = ""
             sources = result.get('sources', [])
-            
+
             try:
-                async for item in result['response']:
+                response_iter = result['response'].__aiter__()
+                while True:
+                    try:
+                        item = await asyncio.wait_for(response_iter.__anext__(), timeout=5.0)
+                    except asyncio.TimeoutError:
+                        # Send keep-alive comment to prevent connection timeout
+                        yield ": keep-alive\n\n"
+                        continue
+                    except StopAsyncIteration:
+                        break
+
                     if isinstance(item, dict):
                         if item.get("type") == "status":
                             yield f"data: {json.dumps({'status': item['text']})}\n\n"
@@ -110,7 +121,6 @@ async def generate_contract(
                             full_response += chunk
                             yield f"data: {json.dumps({'chunk': chunk})}\n\n"
                     else:
-                        # Fallback for string chunks (if any)
                         full_response += item
                         yield f"data: {json.dumps({'chunk': item})}\n\n"
             except Exception as stream_error:
