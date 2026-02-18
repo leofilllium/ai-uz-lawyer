@@ -63,135 +63,140 @@ async def generate_contract(
             detail="Требования слишком короткие. Укажите больше деталей."
         )
     
-    try:
-        # Load templates for the category
-        contract_service = ContractService()
-        template_context = contract_service.load_all_templates_for_category(category)
-        template_names = [t['name'] for t in contract_service.get_templates_in_category(category)]
-        
-        if not template_context:
-            raise HTTPException(
-                status_code=404,
-                detail=f'Шаблоны для категории "{category}" не найдены'
-            )
-        
-        # Generate contract using AI service
-        ai_service = AIService(mode='generator')
-        
-        # Prepare context for Ultra Mode data capture
-        ultra_context = {}
-        
-        if request.ultra_mode:
-            result = await ai_service.generate_contract_ultra(
-                category=category,
-                requirements=requirements,
-                template_context=template_context,
-                context=ultra_context,
-                user_id=user_id
-            )
-        else:
-            result = await ai_service.generate_contract(
-                category=category,
-                requirements=requirements,
-                template_context=template_context,
-                user_id=user_id
-            )
-        
-        async def generate_stream():
-            full_response = ""
-            sources = result.get('sources', [])
+    # Load templates for the category (fast, no AI calls)
+    contract_service = ContractService()
+    template_context = contract_service.load_all_templates_for_category(category)
+    template_names = [t['name'] for t in contract_service.get_templates_in_category(category)]
 
-            try:
-                response_iter = result['response'].__aiter__()
-                while True:
-                    try:
-                        item = await asyncio.wait_for(response_iter.__anext__(), timeout=5.0)
-                    except asyncio.TimeoutError:
-                        # Send keep-alive comment to prevent connection timeout
-                        yield ": keep-alive\n\n"
-                        continue
-                    except StopAsyncIteration:
-                        break
+    if not template_context:
+        raise HTTPException(
+            status_code=404,
+            detail=f'Шаблоны для категории "{category}" не найдены'
+        )
 
-                    if isinstance(item, dict):
-                        if item.get("type") == "status":
-                            yield f"data: {json.dumps({'status': item['text']})}\n\n"
-                        elif item.get("type") == "content":
-                            chunk = item['text']
-                            full_response += chunk
-                            yield f"data: {json.dumps({'chunk': chunk})}\n\n"
-                    else:
-                        full_response += item
-                        yield f"data: {json.dumps({'chunk': item})}\n\n"
-            except Exception as stream_error:
-                print(f"Streaming error: {stream_error}")
-                yield f"data: {json.dumps({'error': str(stream_error)})}\n\n"
-                return
-            
-            # Save to database after streaming completes
-            try:
-                with Session(db.get_bind()) as save_db:
-                    generated = GeneratedContract(
-                        user_id=user_id,
+    # Prepare context for Ultra Mode data capture
+    ultra_context = {}
+
+    async def generate_stream():
+        full_response = ""
+        sources = []
+
+        try:
+            # Run AI generation as a background task so we can send keep-alives
+            ai_service = AIService(mode='generator')
+
+            async def run_generation():
+                if request.ultra_mode:
+                    return await ai_service.generate_contract_ultra(
                         category=category,
                         requirements=requirements,
-                        generated_text=full_response,
-                        template_names=template_names,
-                        sources=sources,
-                        validation_data=ultra_context.get('ultra_data', {})  # Save validation details
+                        template_context=template_context,
+                        context=ultra_context,
+                        user_id=user_id
                     )
-                    save_db.add(generated)
-                    
-                    # Also save to ChatSession for unified history
-                    session_title = f"Договор: {category}"
-                    chat_session = ChatSession(
-                        user_id=user_id,
-                        session_type='generator',
-                        title=session_title
+                else:
+                    return await ai_service.generate_contract(
+                        category=category,
+                        requirements=requirements,
+                        template_context=template_context,
+                        user_id=user_id
                     )
-                    save_db.add(chat_session)
-                    save_db.flush()
-                    
-                    # Save messages
-                    user_msg = ChatMessage(
-                        session_id=chat_session.id,
-                        role='user',
-                        content=f"**Категория:** {category}\n\n**Требования:**\n{requirements}"
-                    )
-                    save_db.add(user_msg)
-                    
-                    assistant_msg = ChatMessage(
-                        session_id=chat_session.id,
-                        role='assistant',
-                        content=full_response,
-                        sources=sources
-                    )
-                    save_db.add(assistant_msg)
-                    
-                    save_db.commit()
-                    
-                    # Send final event with metadata
-                    yield f"data: {json.dumps({'done': True, 'sources': sources, 'contract_id': generated.id})}\n\n"
-                    
-            except Exception as e:
-                print(f"Error saving generated contract: {e}")
-                yield f"data: {json.dumps({'done': True, 'sources': sources})}\n\n"
-        
-        return StreamingResponse(
-            generate_stream(),
-            media_type='text/event-stream',
-            headers={
-                'Cache-Control': 'no-cache',
-                'X-Accel-Buffering': 'no'
-            }
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        import traceback
-        print(f"Generator error: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=str(e))
+
+            # Start generation in background task
+            gen_task = asyncio.create_task(run_generation())
+
+            # Send keep-alives while waiting for generation to prepare
+            while not gen_task.done():
+                await asyncio.sleep(3.0)
+                if not gen_task.done():
+                    yield ": keep-alive\n\n"
+
+            # Get result (will raise if generation failed)
+            result = await gen_task
+            sources = result.get('sources', [])
+
+            # Stream the response with keep-alive support
+            response_iter = result['response'].__aiter__()
+            while True:
+                try:
+                    item = await asyncio.wait_for(response_iter.__anext__(), timeout=5.0)
+                except asyncio.TimeoutError:
+                    yield ": keep-alive\n\n"
+                    continue
+                except StopAsyncIteration:
+                    break
+
+                if isinstance(item, dict):
+                    if item.get("type") == "status":
+                        yield f"data: {json.dumps({'status': item['text']})}\n\n"
+                    elif item.get("type") == "content":
+                        chunk = item['text']
+                        full_response += chunk
+                        yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+                else:
+                    full_response += item
+                    yield f"data: {json.dumps({'chunk': item})}\n\n"
+
+        except Exception as stream_error:
+            import traceback
+            print(f"Streaming error: {traceback.format_exc()}")
+            yield f"data: {json.dumps({'error': str(stream_error)})}\n\n"
+            return
+
+        # Save to database after streaming completes
+        try:
+            with Session(db.get_bind()) as save_db:
+                generated = GeneratedContract(
+                    user_id=user_id,
+                    category=category,
+                    requirements=requirements,
+                    generated_text=full_response,
+                    template_names=template_names,
+                    sources=sources,
+                    validation_data=ultra_context.get('ultra_data', {})
+                )
+                save_db.add(generated)
+
+                session_title = f"Договор: {category}"
+                chat_session = ChatSession(
+                    user_id=user_id,
+                    session_type='generator',
+                    title=session_title
+                )
+                save_db.add(chat_session)
+                save_db.flush()
+
+                user_msg = ChatMessage(
+                    session_id=chat_session.id,
+                    role='user',
+                    content=f"**Категория:** {category}\n\n**Требования:**\n{requirements}"
+                )
+                save_db.add(user_msg)
+
+                assistant_msg = ChatMessage(
+                    session_id=chat_session.id,
+                    role='assistant',
+                    content=full_response,
+                    sources=sources
+                )
+                save_db.add(assistant_msg)
+
+                save_db.commit()
+
+                yield f"data: {json.dumps({'done': True, 'sources': sources, 'contract_id': generated.id})}\n\n"
+
+        except Exception as e:
+            print(f"Error saving generated contract: {e}")
+            yield f"data: {json.dumps({'done': True, 'sources': sources})}\n\n"
+
+    return StreamingResponse(
+        generate_stream(),
+        media_type='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no'
+        }
+    )
 
 
 @router.get("/history", response_model=list[GeneratedContractResponse])
