@@ -1,61 +1,155 @@
 """
-Pricing Configuration
-Defines costs for different AI models.
-Prices are per 1M tokens (Million Tokens).
+Advanced Pricing Configuration
+Supports:
+- Tiered pricing
+- Modality-based pricing
+- Batch pricing
+- Context caching
+- Storage cost
+- Tool pricing (Google Search)
 """
 
-from typing import Dict, Tuple
+from typing import Dict, Optional
+from dataclasses import dataclass
 
-# Pricing in USD per 1M tokens
-# Format: {model_name: (input_cost, output_cost)}
-PRICING_RATES: Dict[str, Tuple[float, float]] = {
-    # Gemini 2.0 Flash
-    "gemini-2.0-flash": (0.10, 0.40),
 
-    # Gemini 2.5 Flash Preview
-    "gemini-2.5-flash": (0.15, 0.60),
-    "gemini-2.5-flash-preview": (0.15, 0.60),
+# ==============================
+# Core Pricing Structures
+# ==============================
 
-    # Gemini 3 Flash Preview (thinking enabled: input $0.15, output $0.60 per 1M)
-    "gemini-3-flash": (0.15, 0.60),
-    "gemini-3-flash-preview": (0.15, 0.60),
+@dataclass
+class TieredRate:
+    input_le_200k: float
+    output_le_200k: float
+    input_gt_200k: float
+    output_gt_200k: float
 
-    # Gemini 1.5 Flash (legacy)
-    "gemini-1.5-flash": (0.075, 0.30),
 
-    # Gemini 1.5 Pro (legacy)
-    "gemini-1.5-pro": (3.50, 10.50),
+@dataclass
+class ModalityRate:
+    input_text: float
+    input_audio: Optional[float]
+    output: float
 
-    # Gemini 2.5 Pro
-    "gemini-2.5-pro": (1.25, 10.00),
-    "gemini-2.5-pro-preview": (1.25, 10.00),
 
-    # Text Embedding
-    "text-embedding-004": (0.00, 0.00),
+@dataclass
+class SimpleRate:
+    input_rate: float
+    output_rate: float
 
-    # Claude models (if used for lawyer mode)
-    "claude-sonnet-4": (3.00, 15.00),
-    "claude-haiku": (0.80, 4.00),
+
+@dataclass
+class ContextCachingRate:
+    le_200k: float
+    gt_200k: float
+    storage_per_million_per_hour: float
+
+
+@dataclass
+class ToolPricing:
+    google_search_per_1000: float
+
+
+@dataclass
+class ModelPricing:
+    standard: Optional[object] = None
+    batch: Optional[object] = None
+    context_caching: Optional[ContextCachingRate] = None
+    tools: Optional[ToolPricing] = None
+
+
+# ==============================
+# PRICING TABLE
+# ==============================
+
+PRICING_RATES: Dict[str, ModelPricing] = {
+
+    # =========================================
+    # Gemini 3 Pro Preview
+    # =========================================
+    "gemini-3-pro-preview": ModelPricing(
+        standard=TieredRate(
+            input_le_200k=2.00,
+            output_le_200k=12.00,
+            input_gt_200k=4.00,
+            output_gt_200k=18.00,
+        ),
+        batch=TieredRate(
+            input_le_200k=1.00,
+            output_le_200k=6.00,
+            input_gt_200k=2.00,
+            output_gt_200k=9.00,
+        ),
+        context_caching=ContextCachingRate(
+            le_200k=0.20,
+            gt_200k=0.40,
+            storage_per_million_per_hour=4.50
+        ),
+        tools=ToolPricing(
+            google_search_per_1000=14.00
+        )
+    ),
+
+    # =========================================
+    # Gemini 3 Flash Preview
+    # =========================================
+    "gemini-3-flash-preview": ModelPricing(
+        standard=ModalityRate(
+            input_text=0.50,   # text / image / video
+            input_audio=1.00,
+            output=3.00
+        ),
+        context_caching=ContextCachingRate(
+            le_200k=0.05,
+            gt_200k=0.10,
+            storage_per_million_per_hour=1.00
+        ),
+        tools=ToolPricing(
+            google_search_per_1000=14.00
+        )
+    ),
 }
 
-# Fallback rates if model not found (conservative estimate based on Gemini Flash)
-DEFAULT_RATE = (0.15, 0.60)
+def calculate_cost(
+    model_name: str,
+    input_tokens: int,
+    output_tokens: int,
+    batch: bool = False,
+    modality: str = "text"
+) -> float:
 
-def calculate_cost(model_name: str, input_tokens: int, output_tokens: int) -> float:
-    """
-    Calculate cost in USD for a given model and token usage.
-    """
-    # Normalize model name to find matching key
-    model_key = next((k for k in PRICING_RATES if k in model_name), None)
-    
-    if model_key:
-        input_rate, output_rate = PRICING_RATES[model_key]
+    pricing = PRICING_RATES.get(model_name)
+    if not pricing:
+        raise ValueError(f"Model pricing not found: {model_name}")
+
+    tier = pricing.batch if batch and pricing.batch else pricing.standard
+
+    # Tiered pricing
+    if isinstance(tier, TieredRate):
+        if input_tokens <= 200_000:
+            input_rate = tier.input_le_200k
+            output_rate = tier.output_le_200k
+        else:
+            input_rate = tier.input_gt_200k
+            output_rate = tier.output_gt_200k
+
+    # Modality pricing
+    elif isinstance(tier, ModalityRate):
+        if modality == "audio":
+            input_rate = tier.input_audio or tier.input_text
+        else:
+            input_rate = tier.input_text
+        output_rate = tier.output
+
+    # Simple pricing
+    elif isinstance(tier, SimpleRate):
+        input_rate = tier.input_rate
+        output_rate = tier.output_rate
+
     else:
-        input_rate, output_rate = DEFAULT_RATE
-        
-    # Calculate cost (rates are per 1M tokens)
+        raise ValueError("Unsupported pricing structure")
+
     input_cost = (input_tokens / 1_000_000) * input_rate
     output_cost = (output_tokens / 1_000_000) * output_rate
-    
-    total_cost = input_cost + output_cost
-    return round(total_cost, 6) # Precision up to 6 decimal places for micro-costs
+
+    return round(input_cost + output_cost, 6)
