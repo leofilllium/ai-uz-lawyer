@@ -2894,7 +2894,7 @@ body.dark .category-dropdown .dropdown-item:hover .item-icon {
   letter-spacing: 0.5px;
 }
 
-.card-title {
+.history-card .card-title {
   font-size: 15px;
   font-weight: 600;
   margin-bottom: 8px;
