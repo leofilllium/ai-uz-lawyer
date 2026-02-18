@@ -609,7 +609,7 @@ export async function analyzeContract(contract: string): Promise<ContractAnalysi
   const response = await fetchWithAuth('/api/validator/analyze', {
     method: 'POST',
     body: JSON.stringify({ contract }),
-  }, 600000);
+  }, 1800000);
 
   if (!response.ok) {
     try {
@@ -658,7 +658,7 @@ export async function fixContractWithAi(analysisId: number): Promise<{fixed_cont
   const response = await fetchWithAuth('/api/validator/fix', {
     method: 'POST',
     body: JSON.stringify({ analysis_id: analysisId }),
-  }, 600000);
+  }, 1800000);
 
   if (!response.ok) {
     const error = await response.json();
@@ -689,19 +689,11 @@ export async function generateContract(
   ultraMode: boolean = false,
   onStatus?: (status: string) => void
 ): Promise<void> {
-  const token = getToken();
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  
-  const response = await fetch(`${API_BASE_URL}/api/generator/generate`, {
+  // Use fetchWithAuth for long timeout and auto-auth
+  const response = await fetchWithAuth('/api/generator/generate', {
     method: 'POST',
-    headers,
     body: JSON.stringify({ category, requirements, ultra_mode: ultraMode }),
-  });
+  }, 1800000); // 30 minutes timeout
   
   if (!response.ok) {
     const error = await response.json();
@@ -890,7 +882,7 @@ export async function analyzeDocument(document: string, documentType?: string): 
   const response = await fetchWithAuth('/api/document-validator/analyze', {
     method: 'POST',
     body: JSON.stringify({ document, document_type: documentType }),
-  }, 600000);
+  }, 1800000);
 
   if (!response.ok) {
     const error = await response.json();

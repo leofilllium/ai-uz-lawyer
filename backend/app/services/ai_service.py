@@ -5962,7 +5962,10 @@ class AIService:
             try:
                 async with self.client.messages.stream(
                     model=self.settings.claude_haiku_model,
-                    thinking_budget=self.settings.thinking_budget_tokens,
+                    thinking={
+                        "type": "enabled",
+                        "budget_tokens": self.settings.thinking_budget_tokens
+                    },
                     max_tokens=MAX_OUTPUT_TOKENS,
                     system=GENERATOR_PROMPT,
                     messages=[{
@@ -6066,7 +6069,10 @@ class AIService:
                 chunk_count = 0
                 async with self.client.messages.stream(
                     model=self.settings.claude_haiku_model,
-                    thinking_budget=self.settings.thinking_budget_tokens,
+                    thinking={
+                        "type": "enabled",
+                        "budget_tokens": self.settings.thinking_budget_tokens
+                    },
                     max_tokens=MAX_OUTPUT_TOKENS,
                     system=GENERATOR_PROMPT,
                     messages=[{
@@ -6335,7 +6341,10 @@ class AIService:
                 try:
                     async with self.client.messages.stream(
                         model=self.settings.claude_haiku_model,
-                        thinking_budget=self.settings.thinking_budget_tokens,
+                        thinking={
+                        "type": "enabled",
+                        "budget_tokens": self.settings.thinking_budget_tokens
+                    },
                         max_tokens=MAX_OUTPUT_TOKENS,
                         system=GENERATOR_PROMPT,
                         messages=[{
