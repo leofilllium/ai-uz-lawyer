@@ -2278,16 +2278,36 @@ body {
   cursor: not-allowed;
 }
 
+/* Form Actions */
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 /* Score Card */
 .score-card {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-base);
   padding: var(--space-lg);
   border-radius: var(--radius-lg);
   margin-bottom: var(--space-lg);
   background: var(--color-background);
   border: 2px solid;
+}
+
+.score-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.score-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-sm);
 }
 
 .score-card.green {
@@ -2317,7 +2337,25 @@ body {
 
 .score-label {
   font-weight: 600;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
   color: var(--color-text-primary);
+}
+
+/* Score Explanation */
+.score-explanation {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-base);
+  margin-bottom: var(--space-lg);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+.score-explanation p {
+  margin: 0;
 }
 
 /* Analysis sections */
@@ -2340,9 +2378,22 @@ body {
 .warning-card,
 .missing-card {
   background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: var(--space-base);
   margin-bottom: var(--space-md);
+}
+
+.error-card {
+  border-left: 4px solid var(--color-error);
+}
+
+.warning-card {
+  border-left: 4px solid var(--color-warning);
+}
+
+.missing-card {
+  border-left: 4px solid var(--color-info);
 }
 
 .error-card h3,
@@ -2351,6 +2402,45 @@ body {
   font-size: 14px;
   margin-bottom: 8px;
   color: var(--color-text-primary);
+}
+
+/* Warning card inner elements */
+.warning-explanation {
+  margin: var(--space-sm) 0;
+  color: var(--color-text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.warning-suggestion {
+  margin-top: var(--space-sm);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* Risk card inner elements */
+.risk-mitigation {
+  margin-top: var(--space-sm);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* Ambiguity card inner elements */
+.ambiguity-risk {
+  margin: var(--space-sm) 0;
+  color: var(--color-error);
+  font-size: 0.95rem;
+}
+
+/* Negotiation content */
+.negotiation-content {
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+/* Summary section */
+.summary-section {
+  border-left: 4px solid var(--color-primary) !important;
 }
 
 .fix-suggestion pre,
@@ -2518,30 +2608,31 @@ body {
 .risk-card, .ambiguity-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  padding: var(--space-md);
+  padding: var(--space-base);
   border-radius: var(--radius-md);
-  margin-bottom: var(--space-sm);
-  transition: transform 0.2s, box-shadow 0.2s;
+  margin-bottom: var(--space-md);
 }
 
-.risk-card { 
-  border-left: 4px solid #e53e3e; 
-  background: #fff5f5; 
-  color: var(--color-text-primary); 
+.risk-card {
+  border-left: 4px solid var(--color-error);
 }
 
-.ambiguity-card { 
-  border-left: 4px solid var(--color-text-secondary); 
-  color: var(--color-text-primary);
-  background: var(--color-surface);
+.risk-card.severity-high { border-left-color: var(--color-error); }
+.risk-card.severity-medium { border-left-color: var(--color-warning); }
+.risk-card.severity-low { border-left-color: var(--color-info); }
+
+.ambiguity-card {
+  border-left: 4px solid var(--color-text-tertiary);
 }
 
-/* Dark mode specific overrides for risk card to prevent blinding white */
 body.dark .risk-card {
-  background: rgba(229, 62, 62, 0.1);
-  border: 1px solid rgba(229, 62, 62, 0.2);
+  border-color: rgba(229, 62, 62, 0.2);
   border-left: 4px solid #fc8181;
 }
+
+body.dark .risk-card.severity-high { border-left-color: #fc8181; }
+body.dark .risk-card.severity-medium { border-left-color: #ffb74d; }
+body.dark .risk-card.severity-low { border-left-color: #64B5F6; }
 
 .card-title {
   font-weight: 700;
@@ -2578,6 +2669,15 @@ body.dark .risk-card {
   color: var(--color-text-tertiary);
   margin-bottom: 4px;
   font-weight: 600;
+}
+
+/* Validator Sources Section */
+.validator-sources {
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin-top: var(--space-base);
 }
 
 .category-dropdown .dropdown-item.active {
