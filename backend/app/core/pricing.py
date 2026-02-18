@@ -118,9 +118,16 @@ def calculate_cost(
     modality: str = "text"
 ) -> float:
 
+    # Try exact match first, then partial match
     pricing = PRICING_RATES.get(model_name)
     if not pricing:
-        raise ValueError(f"Model pricing not found: {model_name}")
+        for key in PRICING_RATES:
+            if key in model_name or model_name in key:
+                pricing = PRICING_RATES[key]
+                break
+    if not pricing:
+        # Fallback: use Flash rates to avoid crashing
+        pricing = PRICING_RATES.get("gemini-3-flash-preview", ModelPricing(standard=ModalityRate(0.50, 1.00, 3.00)))
 
     tier = pricing.batch if batch and pricing.batch else pricing.standard
 

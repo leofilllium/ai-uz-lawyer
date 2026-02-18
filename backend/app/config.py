@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     # Google Gemini AI
     google_api_key: str = ""
     gemini_flash_model: str = "gemini-3-flash-preview"
+    gemini_pro_model: str = "gemini-3-pro-preview"
     
     # OpenAI Models
     voyage_api_key: str = ""

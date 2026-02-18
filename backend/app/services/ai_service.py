@@ -3673,7 +3673,7 @@ OUTPUT FORMAT:
 # ⚙️ SYSTEM CONFIGURATION & CONSTANTS
 # ═══════════════════════════════════════════════════════════════
 
-DEFAULT_TOP_K = 35
+DEFAULT_TOP_K = 20
 PRE_SEARCH_TOP_K = 50
 MIN_RELEVANCE_SCORE = 0.35  # Minimum similarity score for RAG results
 MAX_AGENTIC_ROUNDS = 10 # Max rounds for agentic search
@@ -4749,7 +4749,7 @@ GEMINI_SEARCH_TOOL = {
 
 Параметры:
 - query: Поисковый запрос (3-10 ключевых слов, используйте русский и/или узбекский)
-- top_k: Количество результатов (40-60, рекомендуется 50-55)
+- top_k: Количество результатов (15-30, рекомендуется 20-25)
 - filter_source: Фильтр по имени файла, например "CIVIL-CODE-PART-1.docx" или "-24724_El-yurt_hurmati..." (опционально)
 
 Каждый результат содержит:
@@ -4768,7 +4768,7 @@ GEMINI_SEARCH_TOOL = {
             },
             "top_k": {
                 "type": "INTEGER",
-                "description": "Количество результатов для возврата (40-60). По умолчанию 50."
+                "description": "Количество результатов для возврата (15-30). По умолчанию 20."
             },
             "filter_source": {
                 "type": "STRING",
@@ -5057,7 +5057,7 @@ class AIService:
                     
                     if fc_name == "search_legal_database":
                         query = fc_args.get("query", "")
-                        search_top_k = min(int(fc_args.get("top_k", 30)), 60)
+                        search_top_k = min(int(fc_args.get("top_k", 20)), 30)
                         filter_source = fc_args.get("filter_source", "") or None
                         
                         logger.info(f"  Tool call: search_legal_database(query='{query}', top_k={search_top_k})")
@@ -5208,11 +5208,11 @@ class AIService:
             first_chunk = True
             try:
                 stream = await self.client.aio.models.generate_content_stream(
-                    model=self.settings.gemini_flash_model,
+                    model=self.settings.gemini_pro_model,
                     contents=final_history + [final_prompt],
                     config=model_final_config
                 )
-                
+
                 async for chunk in stream:
                     if chunk.text:
                         text = chunk.text
@@ -5220,13 +5220,13 @@ class AIService:
                             text = text.lstrip()
                             first_chunk = False
                         yield text
-                
+
                 # Track usage after stream completes
                 if hasattr(stream, 'usage_metadata') and stream.usage_metadata:
                     usage = stream.usage_metadata
                     await UsageService.track_usage_async(
                         user_id=user_id,
-                        model_name=self.settings.gemini_flash_model,
+                        model_name=self.settings.gemini_pro_model,
                         input_tokens=usage.prompt_token_count or 0,
                         output_tokens=usage.candidates_token_count or 0,
                         request_type=f"agentic_final_{chat_mode}"
@@ -5840,7 +5840,7 @@ class AIService:
         
         for search_query in search_queries:
             # Use improved retrieval with reranking and hybrid search
-            results = await self._enhanced_retrieve_context(search_query, top_k=50)
+            results = await self._enhanced_retrieve_context(search_query, top_k=15)
             for result in results:
                 # Deduplicate by source + article
                 article_key = f"{result.get('metadata', {}).get('source')}_{result.get('metadata', {}).get('article_display')}"
@@ -5851,7 +5851,7 @@ class AIService:
         # Sort by similarity (now includes rerank score) and limit
         all_results.sort(key=lambda x: x.get("similarity", 0), reverse=True)
         # Increase context window for detailed contracts
-        final_results = all_results[:150]
+        final_results = all_results[:50]
         
         legal_context = self._format_enhanced_context(final_results)
         sources = self._format_sources_with_quality(final_results)
@@ -5884,20 +5884,20 @@ class AIService:
         async def stream_response():
             try:
                 stream = await self.client.aio.models.generate_content_stream(
-                    model=self.settings.gemini_flash_model,
+                    model=self.settings.gemini_pro_model,
                     contents=generation_prompt,
                     config=config
                 )
                 async for chunk in stream:
                     if chunk.text:
                         yield {"type": "content", "text": chunk.text}
-                
+
                 # Track usage after stream completes
                 if hasattr(stream, 'usage_metadata') and stream.usage_metadata:
                     usage = stream.usage_metadata
                     await UsageService.track_usage_async(
                         user_id=user_id,
-                        model_name=self.settings.gemini_flash_model,
+                        model_name=self.settings.gemini_pro_model,
                         input_tokens=usage.prompt_token_count or 0,
                         output_tokens=usage.candidates_token_count or 0,
                         request_type="contract_generation_legacy"
@@ -5930,33 +5930,48 @@ class AIService:
         if context is None:
             context = {}
 
-        # STEP 0: RAG RETRIEVAL FOR CONTRACT GENERATION
-        search_queries = self._build_contract_search_queries(category, requirements)
-        all_results = []
-        seen_articles = set()
-
-        self._init_rag_engine()
-
-        for search_query in search_queries:
-            try:
-                results = await self._enhanced_retrieve_context(search_query, top_k=50)
-                for result in results:
-                    article_key = f"{result.get('metadata', {}).get('source')}_{result.get('metadata', {}).get('article_display')}"
-                    if article_key not in seen_articles:
-                        seen_articles.add(article_key)
-                        all_results.append(result)
-            except Exception as e:
-                logger.warning(f"Generation RAG query failed: {e}")
-                continue
-
-        all_results.sort(key=lambda x: x.get("similarity", 0), reverse=True)
-        final_results = all_results[:150]
-
-        generation_legal_context = self._format_enhanced_context(final_results)
-        sources = self._format_sources_with_quality(final_results)
+        # The sources list will be updated inside the generator
+        sources = []
 
         async def stream_ultra_response():
             try:
+                # ═══════════════════════════════════════════
+                # STEP 0: RAG RETRIEVAL (Moved inside stream to prevent timeout)
+                # ═══════════════════════════════════════════
+                yield {"type": "status", "text": "📚 **Инициализация правовой базы данных...**"}
+                
+                search_queries = self._build_contract_search_queries(category, requirements)
+                all_results = []
+                seen_articles = set()
+
+                self._init_rag_engine()
+
+                yield {"type": "status", "text": f"🔎 **Поиск профильных норм законодательства (0/{len(search_queries)})...**"}
+                
+                for i, search_query in enumerate(search_queries):
+                    try:
+                        yield {"type": "status", "text": f"🔎 **Поиск по запросу: {search_query}...**"}
+                        results = await self._enhanced_retrieve_context(search_query, top_k=15)
+                        for result in results:
+                            meta = result.get('metadata', {})
+                            article_key = f"{meta.get('source')}_{meta.get('article_display')}"
+                            if article_key not in seen_articles:
+                                seen_articles.add(article_key)
+                                all_results.append(result)
+                    except Exception as e:
+                        logger.warning(f"Generation RAG query failed: {e}")
+                        continue
+
+                yield {"type": "status", "text": "📊 **Ранжирование и фильтрация правового контекста...**"}
+                all_results.sort(key=lambda x: x.get("similarity", 0), reverse=True)
+                final_results = all_results[:50]
+
+                generation_legal_context = self._format_enhanced_context(final_results)
+                
+                # Update shared sources list
+                new_sources = self._format_sources_with_quality(final_results)
+                sources.extend(new_sources)
+
                 # ═══════════════════════════════════════════
                 # PHASE 1: DRAFT GENERATION
                 # ═══════════════════════════════════════════
@@ -6355,7 +6370,7 @@ class AIService:
 НАЧИНАЙТЕ СРАЗУ С ЗАГОЛОВКА ДОГОВОРА. БЕЗ комментариев."""
 
                 final_stream = await self.client.aio.models.generate_content_stream(
-                    model=self.settings.gemini_flash_model,
+                    model=self.settings.gemini_pro_model,
                     contents=final_prompt,
                     config=types.GenerateContentConfig(
                         system_instruction=GENERATOR_PROMPT,
@@ -6368,13 +6383,13 @@ class AIService:
                 async for chunk in final_stream:
                     if chunk.text:
                         yield {"type": "content", "text": chunk.text}
-                
+
                 # Track usage for Phase 3
                 if hasattr(final_stream, 'usage_metadata') and final_stream.usage_metadata:
                     usage = final_stream.usage_metadata
                     await UsageService.track_usage_async(
                         user_id=user_id,
-                        model_name=self.settings.gemini_flash_model,
+                        model_name=self.settings.gemini_pro_model,
                         input_tokens=usage.prompt_token_count or 0,
                         output_tokens=usage.candidates_token_count or 0,
                         request_type="contract_ultra_phase3_final"
@@ -6608,14 +6623,14 @@ class AIService:
             contract_text=contract_text
         )
 
-        # Step 5: Perform validation with stricter parameters
+        # Step 5: Perform validation with stricter parameters (Pro model for quality)
         try:
             response = await self.client.aio.models.generate_content(
-                model=self.settings.gemini_flash_model,
+                model=self.settings.gemini_pro_model,
                 contents=audit_prompt,
                 config=types.GenerateContentConfig(
                     system_instruction=VALIDATOR_PROMPT,
-                    temperature=0.1,  # Reduced from 0.2 for more consistent results
+                    temperature=0.1,
                     max_output_tokens=MAX_OUTPUT_TOKENS,
                     thinking_config=types.ThinkingConfig(
                         thinking_level="high"
@@ -6630,7 +6645,7 @@ class AIService:
                 usage_meta = response.usage_metadata
                 await UsageService.track_usage_async(
                     user_id=user_id,
-                    model_name=self.settings.gemini_flash_model,
+                    model_name=self.settings.gemini_pro_model,
                     input_tokens=usage_meta.prompt_token_count or 0,
                     output_tokens=usage_meta.candidates_token_count or 0,
                     request_type="contract_validation"
@@ -6777,7 +6792,7 @@ class AIService:
         
         try:
             response = await self.client.aio.models.generate_content(
-                model=self.settings.gemini_flash_model,
+                model=self.settings.gemini_pro_model,
                 contents=audit_prompt,
                 config=types.GenerateContentConfig(
                     system_instruction=DOCUMENT_VALIDATOR_PROMPT,
@@ -6786,16 +6801,16 @@ class AIService:
                     thinking_config=types.ThinkingConfig(thinking_level="high"),
                 )
             )
-            
+
             raw_text = response.text
             audit = self._parse_document_audit_response(raw_text)
-            
+
             # Track usage
             if response.usage_metadata:
                 usage = response.usage_metadata
                 await UsageService.track_usage_async(
                     user_id=user_id,
-                    model_name=self.settings.gemini_flash_model,
+                    model_name=self.settings.gemini_pro_model,
                     input_tokens=usage.prompt_token_count or 0,
                     output_tokens=usage.candidates_token_count or 0,
                     request_type="document_analysis"
