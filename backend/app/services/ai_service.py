@@ -6205,7 +6205,10 @@ class AIService:
                     contract_text=draft_text
                 )
 
-                audit_response = await self.client.messages.create(
+                raw_audit_text = ""
+                chunk_count = 0
+                
+                async with self.client.messages.stream(
                     model=self.settings.claude_haiku_model,
                     max_tokens=MAX_OUTPUT_TOKENS,
                     system=VALIDATOR_PROMPT,
@@ -6217,12 +6220,15 @@ class AIService:
                         "role": "user",
                         "content": audit_prompt
                     }]
-                )
+                ) as stream:
+                    async for text in stream.text_stream:
+                        raw_audit_text += text
+                        chunk_count += 1
+                        if chunk_count % 50 == 0:
+                            yield {"type": "status", "text": "📜 **Глубокий 8-этапный аудит... (анализ)**"}
 
-                raw_audit_text = ""
-                for block in audit_response.content:
-                    if block.type == "text":
-                        raw_audit_text += block.text
+                    audit_response = await stream.get_final_message()
+                
                 raw_audit_text = raw_audit_text.strip()
 
                 # Track usage for audit
@@ -6238,7 +6244,7 @@ class AIService:
 
                 # Parse audit JSON
                 audit = {}
-                raw_audit_text = audit_response.text.strip() if audit_response.text else ""
+                # raw_audit_text is already populated from the stream
                 try:
                     json_text = raw_audit_text
                     if "```" in json_text:
@@ -6267,7 +6273,9 @@ class AIService:
                 yield {"type": "status", "text": "⚔️ **Red Team — поиск лазеек и уязвимостей...**"}
                 red_team_json = {}
                 try:
-                    red_team_response = await self.client.messages.create(
+                    raw_red_text = ""
+                    chunk_count = 0
+                    async with self.client.messages.stream(
                         model=self.settings.claude_haiku_model,
                         max_tokens=4000,
                         thinking={
@@ -6278,12 +6286,15 @@ class AIService:
                             "role": "user",
                             "content": RED_TEAM_PROMPT + f"\n\nТЕКСТ ДОГОВОРА:\n{draft_text}"
                         }]
-                    )
-                    
-                    raw_red_text = ""
-                    for block in red_team_response.content:
-                        if block.type == "text":
-                            raw_red_text += block.text
+                    ) as stream:
+                        async for text in stream.text_stream:
+                            raw_red_text += text
+                            chunk_count += 1
+                            if chunk_count % 30 == 0:
+                                yield {"type": "status", "text": "⚔️ **Red Team — поиск лазеек... (анализ)**"}
+                        
+                        red_team_response = await stream.get_final_message()
+
                     red_team_json = json.loads(self._clean_json_response(raw_red_text))
                     # Track usage
                     if hasattr(red_team_response, 'usage'):
@@ -6302,7 +6313,9 @@ class AIService:
                 yield {"type": "status", "text": "🌪 **Стресс-тест — симуляция проблемных сценариев...**"}
                 risk_json = {}
                 try:
-                    risk_response = await self.client.messages.create(
+                    raw_risk_text = ""
+                    chunk_count = 0
+                    async with self.client.messages.stream(
                         model=self.settings.claude_haiku_model,
                         max_tokens=4000,
                         thinking={
@@ -6313,12 +6326,15 @@ class AIService:
                             "role": "user",
                             "content": RISK_SIMULATION_PROMPT + f"\n\nТЕКСТ ДОГОВОРА:\n{draft_text}"
                         }]
-                    )
-                    
-                    raw_risk_text = ""
-                    for block in risk_response.content:
-                        if block.type == "text":
-                            raw_risk_text += block.text
+                    ) as stream:
+                        async for text in stream.text_stream:
+                            raw_risk_text += text
+                            chunk_count += 1
+                            if chunk_count % 30 == 0:
+                                yield {"type": "status", "text": "🌪 **Стресс-тест — симуляция проблем... (анализ)**"}
+
+                        risk_response = await stream.get_final_message()
+
                     risk_json = json.loads(self._clean_json_response(raw_risk_text))
                     # Track usage
                     if hasattr(risk_response, 'usage'):
