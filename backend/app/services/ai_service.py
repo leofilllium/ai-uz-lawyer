@@ -5980,12 +5980,6 @@ class AIService:
 Убедитесь, что договор соответствует всем требованиям Гражданского кодекса Узбекистана."""
 
         # 4. Generate
-        config = types.GenerateContentConfig(
-            system_instruction=GENERATOR_PROMPT,
-            max_output_tokens=MAX_OUTPUT_TOKENS,
-            temperature=0.1,
-            thinking_config=types.ThinkingConfig(thinking_level="high"),
-        )
         
         async def stream_response():
             try:
@@ -6105,7 +6099,9 @@ class AIService:
 Включите ВСЕ обязательные разделы: преамбула, предмет, права и обязанности, цена и расчёты, сроки, порядок приёмки, качество и гарантии, ответственность, форс-мажор, разрешение споров, конфиденциальность, антикоррупционная оговорка, заключительные положения, реквизиты.
 Это черновик — пишите МАКСИМАЛЬНО ПОДРОБНО и ДЕТАЛЬНО. Минимум 80-120 пунктов."""
 
-                draft_response = await self.client.messages.create(
+                draft_text = ""
+                chunk_count = 0
+                async with self.client.messages.stream(
                     model=self.settings.claude_haiku_model,
                     max_tokens=MAX_OUTPUT_TOKENS,
                     system=GENERATOR_PROMPT,
@@ -6113,15 +6109,18 @@ class AIService:
                         "role": "user",
                         "content": draft_prompt
                     }]
-                )
-                
-                draft_text = ""
-                for block in draft_response.content:
-                    if block.type == "text":
-                        draft_text += block.text
+                ) as stream:
+                    async for text in stream.text_stream:
+                        draft_text += text
+                        chunk_count += 1
+                        if chunk_count % 80 == 0:
+                            yield {"type": "status", "text": f"📝 **Фаза 1/3: Генерация черновика... ({len(draft_text)} символов)**"}
+
+                    draft_response = await stream.get_final_message()
+
                 draft_text = draft_text.strip()
                 logger.info(f"Draft generated: {len(draft_text)} chars")
-                
+
                 # Track usage for Phase 1
                 if hasattr(draft_response, 'usage'):
                     usage = draft_response.usage
@@ -6149,8 +6148,9 @@ class AIService:
                 yield {"type": "status", "text": "📚 **Поиск релевантных статей законов для валидации...**"}
                 validation_context_results = []
                 try:
-                    for query in validation_queries:
+                    for qi, query in enumerate(validation_queries):
                         try:
+                            yield {"type": "status", "text": f"📚 **Валидация: поиск норм ({qi+1}/{len(validation_queries)})...**"}
                             context_results = await self._enhanced_retrieve_context(query=query, top_k=10)
                             validation_context_results.extend(context_results)
                         except Exception as e:
