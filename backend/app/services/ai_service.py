@@ -6691,7 +6691,7 @@ class AIService:
         try:
             response = await self.client.messages.create(
                 model=self.settings.claude_haiku_model,
-                max_tokens=8000,
+                max_tokens=MAX_OUTPUT_TOKENS,
                 system=VALIDATOR_PROMPT,
                 thinking={
                     "type": "enabled",
@@ -6880,7 +6880,7 @@ class AIService:
         try:
             response = await self.client.messages.create(
                 model=self.settings.claude_haiku_model,
-                max_tokens=8000,
+                max_tokens=MAX_OUTPUT_TOKENS,
                 system=DOCUMENT_VALIDATOR_PROMPT,
                 thinking={
                     "type": "enabled",
