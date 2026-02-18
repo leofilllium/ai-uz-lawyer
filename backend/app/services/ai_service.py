@@ -3672,11 +3672,11 @@ OUTPUT FORMAT:
 # ⚙️ SYSTEM CONFIGURATION & CONSTANTS
 # ═══════════════════════════════════════════════════════════════
 
-DEFAULT_TOP_K = 20
+DEFAULT_TOP_K = 35
 PRE_SEARCH_TOP_K = 50
 MIN_RELEVANCE_SCORE = 0.35  # Minimum similarity score for RAG results
 MAX_AGENTIC_ROUNDS = 10 # Max rounds for agentic search
-MAX_OUTPUT_TOKENS = 16000
+MAX_OUTPUT_TOKENS = 16000  # Claude Haiku 4.5 max output tokens
 
 # ═══════════════════════════════════════════════════════════════
 # 🛡️ SAFETY & QUALITY INSTRUCTIONS
@@ -4370,13 +4370,11 @@ CONTRACT_AUDIT_PROMPT = """Вы проводите КОМПЛЕКСНЫЙ 8-ЭТ
     }}
   ],
 
-  "positive_aspects": [
-    "<Что в договоре сделано ХОРОШО (перечислите 2-5 позитивных моментов)>"
-  ],
+  "positive_aspects": ["<1-2 позитивных момента>"],
 
-  "summary": "<Резюме: общая оценка, критические проблемы, рекомендация (подписывать/доработать/отказаться)>",
+  "summary": "<1-2 предложения: оценка и рекомендация (подписывать/доработать/отказаться)>",
 
-  "negotiation_strategy": "<ПРАКТИЧЕСКИЕ советы (3-5 пунктов): 1) На чём КАТЕГОРИЧЕСКИ настаивать 2) Где можно УСТУПИТЬ без потерь 3) Какие пункты использовать как РЫЧАГ давления 4) Какие аргументы приводить контрагенту 5) Порядок действий при переговорах>"
+  "negotiation_strategy": "<2-3 ключевых совета для переговоров>"
 }}
 ```
 
@@ -4397,10 +4395,10 @@ CONTRACT_AUDIT_PROMPT = """Вы проводите КОМПЛЕКСНЫЙ 8-ЭТ
 ═══════════════════════════════════════════════════════════════
 
 1. Верните ТОЛЬКО валидный JSON без дополнительного текста (никаких ```json обёрток).
-2. Минимальное количество элементов: critical_errors >= 1, warnings >= 3, missing_clauses >= 3, ambiguities >= 2 (ОБЯЗАТЕЛЬНО найдите хотя бы 2 двусмысленности), hidden_risks >= 1 (ОБЯЗАТЕЛЬНО найдите хотя бы 1 скрытый риск).
-3. КАЖДЫЙ fix и drafted_text ОБЯЗАН быть ГОТОВЫМ юридическим текстом, а не общим описанием.
-4. Будьте ТОЧНЫ и КОНКРЕТНЫ в каждом поле.
-5. Проанализируйте КАЖДЫЙ пункт договора, а не только первые разделы."""
+2. Ограничьте количество элементов: максимум 3 critical_errors, 3 warnings, 3 missing_clauses, 2 ambiguities, 2 hidden_risks. Указывайте ТОЛЬКО самые важные.
+3. fix и drafted_text — КРАТКИЙ готовый юридический текст (1-3 строки).
+4. Будьте ЛАКОНИЧНЫ в каждом поле — без повторов и воды.
+5. ВАЖНО: ответ ОБЯЗАН уместиться в лимит токенов. Краткость критична."""
 
 # ═══════════════════════════════════════════════════════════════
 # 📄 DOCUMENT VALIDATOR PROMPTS (11-BLOCK COMPREHENSIVE ANALYSIS)
@@ -6136,7 +6134,21 @@ class AIService:
                             if stripped.startswith("{"):
                                 json_text = stripped
                                 break
-                    audit = json.loads(json_text)
+                    try:
+                        audit = json.loads(json_text)
+                    except json.JSONDecodeError:
+                        # Attempt truncated JSON recovery
+                        logger.warning("Ultra audit JSON truncated, attempting recovery...")
+                        repaired = json_text
+                        last_complete = max(repaired.rfind('},'), repaired.rfind('"],'), repaired.rfind('"]'))
+                        if last_complete > 0:
+                            repaired = repaired[:last_complete + 1]
+                        open_brackets = repaired.count('[') - repaired.count(']')
+                        open_braces = repaired.count('{') - repaired.count('}')
+                        repaired += ']' * max(0, open_brackets)
+                        repaired += '}' * max(0, open_braces)
+                        audit = json.loads(repaired)
+                        logger.info("Ultra audit truncated JSON recovery successful")
                 except json.JSONDecodeError as e:
                     logger.warning(f"Audit JSON parse error: {e}")
                     audit = {
@@ -6720,7 +6732,25 @@ class AIService:
                         json_text = stripped
                         break
 
-            audit = json.loads(json_text)
+            # Try to parse JSON, with recovery for truncated output
+            try:
+                audit = json.loads(json_text)
+            except json.JSONDecodeError:
+                # Attempt to repair truncated JSON by closing open structures
+                logger.warning("JSON parse failed, attempting truncated JSON recovery...")
+                repaired = json_text
+                # Remove trailing incomplete string/value
+                # Find last complete key-value pair
+                last_complete = max(repaired.rfind('},'), repaired.rfind('"],'), repaired.rfind('"]'))
+                if last_complete > 0:
+                    repaired = repaired[:last_complete + 1]
+                # Close open arrays and objects
+                open_brackets = repaired.count('[') - repaired.count(']')
+                open_braces = repaired.count('{') - repaired.count('}')
+                repaired += ']' * max(0, open_brackets)
+                repaired += '}' * max(0, open_braces)
+                audit = json.loads(repaired)
+                logger.info("Truncated JSON recovery successful")
 
             # Validate audit structure
             required_fields = ['validity_score', 'critical_errors', 'warnings', 'missing_clauses', 'summary', 'hidden_risks', 'ambiguities']
