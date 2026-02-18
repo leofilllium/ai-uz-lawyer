@@ -3672,8 +3672,8 @@ OUTPUT FORMAT:
 # ⚙️ SYSTEM CONFIGURATION & CONSTANTS
 # ═══════════════════════════════════════════════════════════════
 
-DEFAULT_TOP_K = 35
-PRE_SEARCH_TOP_K = 50
+DEFAULT_TOP_K = 50
+PRE_SEARCH_TOP_K = 100
 MIN_RELEVANCE_SCORE = 0.35  # Minimum similarity score for RAG results
 MAX_AGENTIC_ROUNDS = 2 # Max rounds for agentic search
 MAX_OUTPUT_TOKENS = 18000  # Claude Haiku 4.5 max output tokens
@@ -4733,51 +4733,6 @@ RISK_SIMULATION_PROMPT = """Вы — аналитик бизнес-рисков.
 # ═══════════════════════════════════════════════════════════════
 
 
-# Tool definition for Gemini (Function Declaration)
-GEMINI_SEARCH_TOOL = {
-    "name": "search_legal_database",
-    "description": """Поиск в базе данных законодательства Узбекистана. Возвращает релевантные статьи законов и кодексов с оценкой релевантности (similarity score).
-
-КРИТИЧЕСКИ ВАЖНО: Используйте этот инструмент для ЛЮБОГО юридического вопроса. НЕ отвечайте на правовые вопросы без поиска.
-
-Параметры:
-- query: Поисковый запрос (3-10 ключевых слов, используйте русский и/или узбекский)
-- top_k: Количество результатов (15-30, рекомендуется 20-25)
-- filter_source: Фильтр по имени файла, например "CIVIL-CODE-PART-1.docx" или "-24724_El-yurt_hurmati..." (опционально)
-
-Каждый результат содержит:
-- content: Текст статьи/нормы
-- article: Номер статьи
-- source: Источник (кодекс/закон)
-- relevance_score: Оценка релевантности (0-1, используйте только результаты с score ≥ 0.50)
-
-🔍 СТРАТЕГИЯ МНОГОКРАТНОГО ПОИСКА (ОБЯЗАТЕЛЬНА для сложных вопросов):
-1. ПЕРВЫЙ поиск: основные ключевые слова вопроса (например: "увольнение работника основания")
-2. ВТОРОЙ поиск: юридические термины и синонимы (например: "расторжение трудового договора инициатива работодателя")
-3. ТРЕТИЙ поиск: связанные нормы и процедуры (например: "компенсация выходное пособие трудовой кодекс")
-4. При необходимости: поиск с filter_source по конкретному кодексу для точных статей
-
-⚠️ НЕ останавливайтесь на одном поиске! Комплексный ответ требует 2-4 поисков разными формулировками для полного покрытия темы.""",
-    "parameters": {
-        "type": "OBJECT",
-        "properties": {
-            "query": {
-                "type": "STRING",
-                "description": "Поисковый запрос (3-10 ключевых слов). Используйте юридические термины на русском и/или узбекском языке."
-            },
-            "top_k": {
-                "type": "INTEGER",
-                "description": "Количество результатов для возврата (15-30). По умолчанию 20."
-            },
-            "filter_source": {
-                "type": "STRING",
-                "description": "Фильтр по имени файла, например 'CIVIL-CODE-PART-1.docx' (опционально)"
-            }
-        },
-        "required": ["query"]
-    }
-}
-
 # Tool definition for Anthropic Claude (JSON Schema format)
 ANTHROPIC_SEARCH_TOOL = {
     "name": "search_legal_database",
@@ -4799,11 +4754,11 @@ ANTHROPIC_SEARCH_TOOL = {
         "properties": {
             "query": {
                 "type": "string",
-                "description": "Поисковый запрос (3-10 ключевых слов). Используйте юридические термины на русском и/или узбекском языке."
+                "description": "Поисковый запрос (5-20 ключевых слов). Используйте юридические термины на русском и/или узбекском языке."
             },
             "top_k": {
                 "type": "integer",
-                "description": "Количество результатов для возврата (10-30). По умолчанию 15."
+                "description": "Количество результатов для возврата (25-50). По умолчанию 35."
             },
             "filter_source": {
                 "type": "string",
@@ -4977,7 +4932,7 @@ class AIService:
         if extra_context:
             ctx_keywords = extract_search_keywords(extra_context[:2000])
             if ctx_keywords:
-                search_query = f"{question} {' '.join(ctx_keywords[:10])}"
+                search_query = f"{question} {' '.join(ctx_keywords[:20])}"
                 logger.info(f"Augmented search query with context keywords: {search_query}")
 
         logger.info("Running search for context...")
@@ -5116,7 +5071,7 @@ class AIService:
         
         # ── Step 2: Run hybrid search for each variant ──
         all_results = []
-        per_variant_k = max(top_k, 60)
+        per_variant_k = max(top_k, 100)
         
         for variant in query_variants:
             try:
@@ -5124,8 +5079,8 @@ class AIService:
                     variant,
                     top_k=per_variant_k,
                     filter_metadata=filter_metadata,
-                    semantic_weight=0.6,
-                    keyword_weight=0.4,
+                    semantic_weight=0.7,
+                    keyword_weight=0.3,
                 )
                 all_results.extend(results)
             except Exception as e:
@@ -5282,7 +5237,7 @@ class AIService:
                             rounds_used += 1
                             tool_input = block.input
                             query = tool_input.get("query", "")
-                            top_k = tool_input.get("top_k", 15)
+                            top_k = tool_input.get("top_k", 25)
                             filter_source = tool_input.get("filter_source")
 
                             yield {"type": "status", "text": f"🔎 Поиск: {query[:80]}..."}
@@ -5335,7 +5290,7 @@ class AIService:
 
             for fq in fallback_queries:
                 try:
-                    results = await self._enhanced_retrieve_context(query=fq, top_k=15)
+                    results = await self._enhanced_retrieve_context(query=fq, top_k=25)
                     all_results.extend(results)
                     rounds_used += 1
                 except Exception as e:
@@ -5961,17 +5916,15 @@ class AIService:
         async def stream_response():
             try:
                 async with self.client.messages.stream(
-                    model=self.settings.claude_haiku_model,
-                    thinking={
-                        "type": "enabled",
-                        "budget_tokens": self.settings.thinking_budget_tokens
-                    },
+                    model=self.settings.claude_sonnet_model,
+                    thinking={"type": "adaptive"},
                     max_tokens=MAX_OUTPUT_TOKENS,
                     system=GENERATOR_PROMPT,
                     messages=[{
                         "role": "user",
                         "content": generation_prompt
-                    }]
+                    }],
+                    output_config={"effort": "high"},
                 ) as stream:
                     async for text in stream.text_stream:
                         yield {"type": "content", "text": text}
@@ -5983,7 +5936,7 @@ class AIService:
                             usage = final_message.usage
                             await UsageService.track_usage_async(
                                 user_id=user_id,
-                                model_name=self.settings.claude_haiku_model,
+                                model_name=self.settings.claude_sonnet_model,
                                 input_tokens=usage.input_tokens,
                                 output_tokens=usage.output_tokens,
                                 request_type="contract_generation_legacy"

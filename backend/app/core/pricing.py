@@ -122,6 +122,16 @@ PRICING_RATES: Dict[str, ModelPricing] = {
             output_rate=2.50
         )
     ),
+
+    # =========================================
+    # Claude 4.5 Sonnet
+    # =========================================
+    "claude-sonnet-4-6": ModelPricing(
+        standard=SimpleRate(
+            input_rate=3.00,
+            output_rate=15.00
+        )
+    ),
 }
 
 def calculate_cost(
