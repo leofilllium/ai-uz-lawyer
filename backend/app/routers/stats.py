@@ -23,12 +23,8 @@ from pydantic import BaseModel
 router = APIRouter()
 
 # Map raw request_type to feature category
-FEATURE_MAP = {
-    'agentic_step_lawyer': 'lawyer',
-    'agentic_final_lawyer': 'lawyer',
-    'chat_simple_lawyer': 'lawyer',
-    'chat_simple_validator': 'lawyer',
-    'chat_simple_generator': 'lawyer',
+# Exact matches checked first, then prefix matching via _classify_feature()
+FEATURE_MAP_EXACT = {
     'contract_validation': 'validator',
     'contract_type_detection': 'validator',
     'contract_generation_legacy': 'generator',
@@ -38,6 +34,13 @@ FEATURE_MAP = {
     'contract_ultra_phase2_risktest': 'generator_ultra',
     'contract_ultra_phase3_final': 'generator_ultra',
     'document_analysis': 'doc_validator',
+}
+
+# Prefix-based mapping for dynamic chat modes (consultant, practitioner, commercial, etc.)
+FEATURE_PREFIX_MAP = {
+    'agentic_step_': 'lawyer',
+    'agentic_final_': 'lawyer',
+    'chat_simple_': 'lawyer',
 }
 
 
@@ -111,8 +114,13 @@ class UsageRecord(BaseModel):
 
 
 def _classify_feature(request_type: str) -> str:
-    """Map request_type to human-readable feature name."""
-    return FEATURE_MAP.get(request_type, 'other')
+    """Map request_type to feature category. Checks exact match, then prefix match."""
+    if request_type in FEATURE_MAP_EXACT:
+        return FEATURE_MAP_EXACT[request_type]
+    for prefix, feature in FEATURE_PREFIX_MAP.items():
+        if request_type.startswith(prefix):
+            return feature
+    return 'other'
 
 
 @router.get("/summary", response_model=UsageStats)
@@ -213,9 +221,16 @@ async def get_usage_history(
 
     # Filter by feature category
     if feature:
-        matching_types = [k for k, v in FEATURE_MAP.items() if v == feature]
+        matching_types = [k for k, v in FEATURE_MAP_EXACT.items() if v == feature]
+        matching_prefixes = [p for p, v in FEATURE_PREFIX_MAP.items() if v == feature]
+        conditions = []
         if matching_types:
-            query = query.filter(ModelUsage.request_type.in_(matching_types))
+            conditions.append(ModelUsage.request_type.in_(matching_types))
+        for prefix in matching_prefixes:
+            conditions.append(ModelUsage.request_type.like(f"{prefix}%"))
+        if conditions:
+            from sqlalchemy import or_
+            query = query.filter(or_(*conditions))
 
     records = query.offset(skip).limit(limit).all()
 

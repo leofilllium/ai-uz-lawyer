@@ -16,11 +16,6 @@ const FEATURE_LABELS: Record<string, { label: string; icon: typeof Scale; color:
 };
 
 const REQUEST_TYPE_LABELS: Record<string, string> = {
-  agentic_step_lawyer: 'Lawyer — RAG Step',
-  agentic_final_lawyer: 'Lawyer — Final Answer',
-  chat_simple_lawyer: 'Lawyer — Simple Chat',
-  chat_simple_validator: 'Validator — Simple Chat',
-  chat_simple_generator: 'Generator — Simple Chat',
   contract_validation: 'Contract Validation',
   contract_type_detection: 'Contract Type Detection',
   contract_generation_legacy: 'Contract Generation',
@@ -31,6 +26,24 @@ const REQUEST_TYPE_LABELS: Record<string, string> = {
   contract_ultra_phase3_final: 'Ultra — Final',
   document_analysis: 'Document Analysis',
 };
+
+function formatRequestType(rt: string): string {
+  if (REQUEST_TYPE_LABELS[rt]) return REQUEST_TYPE_LABELS[rt];
+  // Dynamic chat modes: agentic_step_commercial → "Commercial — RAG Step"
+  if (rt.startsWith('agentic_step_')) {
+    const mode = rt.replace('agentic_step_', '');
+    return `${mode.charAt(0).toUpperCase() + mode.slice(1)} — RAG Step`;
+  }
+  if (rt.startsWith('agentic_final_')) {
+    const mode = rt.replace('agentic_final_', '');
+    return `${mode.charAt(0).toUpperCase() + mode.slice(1)} — Final Answer`;
+  }
+  if (rt.startsWith('chat_simple_')) {
+    const mode = rt.replace('chat_simple_', '');
+    return `${mode.charAt(0).toUpperCase() + mode.slice(1)} — Simple Chat`;
+  }
+  return rt;
+}
 
 function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -291,7 +304,7 @@ export default function UsageStats({ authHeader }: UsageStatsProps) {
                       <td style={{ padding: '12px 16px' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                           <span style={{ fontWeight: 500, color: 'var(--color-text-primary)', fontSize: '13px' }}>
-                            {REQUEST_TYPE_LABELS[record.request_type] || record.request_type}
+                            {formatRequestType(record.request_type)}
                           </span>
                           <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>
                             {record.model_name}
