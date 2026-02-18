@@ -3676,7 +3676,7 @@ DEFAULT_TOP_K = 35
 PRE_SEARCH_TOP_K = 50
 MIN_RELEVANCE_SCORE = 0.35  # Minimum similarity score for RAG results
 MAX_AGENTIC_ROUNDS = 10 # Max rounds for agentic search
-MAX_OUTPUT_TOKENS = 16000  # Claude Haiku 4.5 max output tokens
+MAX_OUTPUT_TOKENS = 18000  # Claude Haiku 4.5 max output tokens
 
 # ═══════════════════════════════════════════════════════════════
 # 🛡️ SAFETY & QUALITY INSTRUCTIONS
