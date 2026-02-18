@@ -2382,6 +2382,9 @@ body {
   border-radius: var(--radius-md);
   padding: var(--space-base);
   margin-bottom: var(--space-md);
+  overflow-wrap: break-word;
+  word-break: break-word;
+  min-width: 0;
 }
 
 .error-card {
@@ -2434,8 +2437,21 @@ body {
 
 /* Negotiation content */
 .negotiation-content {
-  white-space: pre-wrap;
   line-height: 1.6;
+}
+
+.negotiation-content ol,
+.negotiation-content ul {
+  padding-left: var(--space-lg);
+  margin: var(--space-sm) 0;
+}
+
+.negotiation-content li {
+  margin-bottom: var(--space-sm);
+}
+
+.negotiation-content p {
+  margin: var(--space-sm) 0;
 }
 
 /* Summary section */
@@ -2611,6 +2627,9 @@ body {
   padding: var(--space-base);
   border-radius: var(--radius-md);
   margin-bottom: var(--space-md);
+  overflow-wrap: break-word;
+  word-break: break-word;
+  min-width: 0;
 }
 
 .risk-card {
@@ -2638,10 +2657,10 @@ body.dark .risk-card.severity-low { border-left-color: #64B5F6; }
   font-weight: 700;
   font-size: 1.05rem;
   margin-bottom: var(--space-xs);
-  display: flex;
-  align-items: center;
-  gap: 8px;
   color: var(--color-text-primary);
+  overflow-wrap: break-word;
+  word-break: break-word;
+  line-height: 1.4;
 }
 
 .card-meta {
@@ -2651,6 +2670,8 @@ body.dark .risk-card.severity-low { border-left-color: #64B5F6; }
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 600;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .fix-suggestion {

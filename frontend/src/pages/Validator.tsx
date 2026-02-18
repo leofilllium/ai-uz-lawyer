@@ -2,7 +2,7 @@
  * Contract Validator Page
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -17,15 +17,22 @@ export default function Validator() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  // Track the ID we just submitted to prevent the useEffect from re-fetching
+  const justSubmittedId = useRef<number | null>(null);
 
-  // Load existing validation if ID is in URL
+  // Load existing validation if ID is in URL (only on direct navigation / page load)
   useEffect(() => {
     const idParam = searchParams.get('id');
     if (idParam) {
       const id = parseInt(idParam, 10);
       if (!isNaN(id)) {
-        // Prevent reloading if we already have this result
+        // Skip if we already have this result loaded
         if (result?.id === id) return;
+        // Skip if we just submitted this — handleSubmit already set the result
+        if (justSubmittedId.current === id) {
+          justSubmittedId.current = null;
+          return;
+        }
         loadValidation(id);
       }
     }
@@ -58,8 +65,9 @@ export default function Validator() {
     try {
       const data = await analyzeContract(contractText);
       setResult(data);
-      // Persist by updating URL with the new analysis ID
+      // Mark this ID so the useEffect doesn't re-fetch it
       if (data.id) {
+        justSubmittedId.current = data.id;
         navigate(`?id=${data.id}`, { replace: true });
       }
     } catch (err) {
