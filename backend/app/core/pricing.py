@@ -108,6 +108,20 @@ PRICING_RATES: Dict[str, ModelPricing] = {
             google_search_per_1000=14.00
         )
     ),
+
+    # =========================================
+    # Claude 4.5 Haiku
+    # =========================================
+    "claude-haiku-4-5-20251001": ModelPricing(
+        standard=SimpleRate(
+            input_rate=1.00,
+            output_rate=5.00
+        ),
+        batch=SimpleRate(
+            input_rate=1.00,
+            output_rate=2.50
+        )
+    ),
 }
 
 def calculate_cost(

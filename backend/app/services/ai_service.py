@@ -11,8 +11,7 @@ import traceback
 from typing import List, Dict, Any, Optional, Union, Callable, Awaitable
 from datetime import datetime
 
-from google import genai
-from google.genai import types
+import anthropic
 
 from app.config import get_settings
 from app.services.usage_service import UsageService
@@ -3677,7 +3676,7 @@ DEFAULT_TOP_K = 20
 PRE_SEARCH_TOP_K = 50
 MIN_RELEVANCE_SCORE = 0.35  # Minimum similarity score for RAG results
 MAX_AGENTIC_ROUNDS = 10 # Max rounds for agentic search
-MAX_OUTPUT_TOKENS = 32768 # Gemini 3 Flash maximum for exhaustive, detailed responses
+MAX_OUTPUT_TOKENS = 16000 # Gemini 3 Flash maximum for exhaustive, detailed responses
 
 # ═══════════════════════════════════════════════════════════════
 # 🛡️ SAFETY & QUALITY INSTRUCTIONS
@@ -5047,10 +5046,10 @@ class AIService:
         self.mode = mode
         self.settings = get_settings()
         
-        if not self.settings.google_api_key:
-            raise ValueError("GOOGLE_API_KEY is required")
+        if not self.settings.anthropic_api_key:
+            raise ValueError("ANTHROPIC_API_KEY is required")
         
-        self.client = genai.Client(api_key=self.settings.google_api_key)
+        self.client = anthropic.AsyncAnthropic(api_key=self.settings.anthropic_api_key)
         self._init_rag_engine()
     
     def _init_rag_engine(self):
@@ -5077,27 +5076,41 @@ class AIService:
             classifier_input += f"\n\nКОНТЕКСТ ЗАДАЧИ:\n{extra_context[:2000]}"
         
         try:
-            response = await self.client.aio.models.generate_content(
-                model=self.settings.gemini_flash_model,
-                contents=classifier_input,
-                config=types.GenerateContentConfig(
-                    system_instruction=AUTO_DETECT_CLASSIFIER_PROMPT,
-                    temperature=0.1,
-                    max_output_tokens=1024,
-                    thinking_config=types.ThinkingConfig(
-                        thinking_level="low"
-                    )
-                )
+            response = await self.client.messages.create(
+                model=self.settings.claude_haiku_model,
+                max_tokens=1024,
+                system=AUTO_DETECT_CLASSIFIER_PROMPT,
+                messages=[{"role": "user", "content": classifier_input}]
             )
             
-            raw_text = response.text.strip() if response.text else ""
+            # Extract text from response
+            raw_text = ""
+            for block in response.content:
+                if block.type == "text":
+                    raw_text += block.text
+            
+            raw_text = raw_text.strip()
             # Extract JSON from response (handle markdown code blocks)
             if "```" in raw_text:
-                raw_text = raw_text.split("```")[1]
-                if raw_text.startswith("json"):
-                    raw_text = raw_text[4:]
-                raw_text = raw_text.strip()
+                parts = raw_text.split("```")
+                for part in parts:
+                    if part.strip().startswith("json"):
+                        raw_text = part.strip()[4:].strip()
+                        break
+                    elif part.strip().startswith("{"):
+                        raw_text = part.strip()
+                        break
             
+            if "{" not in raw_text and "}" not in raw_text:
+                 # Fallback if no JSON found
+                 raise ValueError("No JSON found in response")
+
+            # Try to find the JSON object if there's extra text
+            start = raw_text.find("{")
+            end = raw_text.rfind("}")
+            if start != -1 and end != -1:
+                raw_text = raw_text[start:end+1]
+
             result = json.loads(raw_text)
             detected_mode = result.get("detected_mode", "consultant")
             confidence = float(result.get("confidence", 0.5))
@@ -5140,10 +5153,9 @@ class AIService:
         user_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """
-        Enhanced agentic RAG with hallucination prevention and quality validation.
-        Uses Gemini 3 Flash with thinking_level for deep reasoning.
+        Enhanced RAG with Claude 3.5 Haiku and Extended Thinking.
         """
-        logger.info(f"=== ENHANCED AI SERVICE (GEMINI): query_with_rag ===")
+        logger.info(f"=== AI SERVICE (CLAUDE): query_with_rag ===")
         logger.info(f"Question: {question[:100]}...")
         logger.info(f"Chat mode: {chat_mode}")
         
@@ -5168,329 +5180,98 @@ class AIService:
             return await self._simple_query(question, history, chat_mode, system_prompt, user_id=user_id)
         
         # ═══════════════════════════════════════════════════════════════
-        # PHASE 1: PRE-SEARCH FOR BASELINE CONTEXT
+        # PHASE 1: SEARCH FOR CONTEXT
         # ═══════════════════════════════════════════════════════════════
         
-        all_sources = []
-        all_context_parts = []
-        quality_metrics = {
-            'pre_search_results': 0,
-            'agentic_search_results': 0,
-            'avg_relevance_score': 0.0,
-            'high_quality_results': 0,
-            'medium_quality_results': 0,
-            'low_quality_results': 0,
-        }
-        
-        # Prepare search query with context if available
         search_query = question
         if extra_context:
-            # Extract keywords from the first 2000 chars of context
             ctx_keywords = extract_search_keywords(extra_context[:2000])
             if ctx_keywords:
-                # Append extracted Uzbek terms to the query for better recall
-                search_query = f"{question} {' '.join(ctx_keywords[:10])}"  # Limit to top 10 keywords
+                search_query = f"{question} {' '.join(ctx_keywords[:10])}"
                 logger.info(f"Augmented search query with context keywords: {search_query}")
 
-        logger.info("Running mandatory pre-search for baseline context...")
+        logger.info("Running search for context...")
         if progress_callback:
             await progress_callback("searching")
         
-        pre_search_results = await self._enhanced_retrieve_context(
+        # Use enhanced retrieval from existing implementation
+        results = await self._enhanced_retrieve_context(
             search_query, 
-            top_k=PRE_SEARCH_TOP_K
+            top_k=top_k
         )
         
-        if pre_search_results:
-            # Filter by quality threshold
-            quality_results = [r for r in pre_search_results if r.get('similarity', 0) >= MIN_RELEVANCE_SCORE]
-            
-            if quality_results:
-                pre_context = self._format_enhanced_context(quality_results)
-                all_context_parts.append(pre_context)
-                pre_sources = self._format_sources_with_quality(quality_results)
-                all_sources.extend(pre_sources)
-                
-                quality_metrics['pre_search_results'] = len(quality_results)
-                avg_score = sum(r.get('similarity', 0) for r in quality_results) / len(quality_results)
-                quality_metrics['avg_relevance_score'] = avg_score
-                
-                logger.info(f"Pre-search found {len(quality_results)} quality results (avg score: {avg_score:.2%})")
-            else:
-                logger.warning("Pre-search found no results meeting quality threshold")
+        # Calculate simplified quality metrics for compatibility
+        quality_results = [r for r in results if r.get('similarity', 0) >= MIN_RELEVANCE_SCORE]
+        similarities = [r.get('similarity', 0) for r in quality_results]
+        avg_sim = sum(similarities) / len(similarities) if similarities else 0
+        high_q = sum(1 for s in similarities if s >= HIGH_QUALITY_THRESHOLD)
+        medium_q = sum(1 for s in similarities if MEDIUM_QUALITY_THRESHOLD <= s < HIGH_QUALITY_THRESHOLD)
+        low_q = sum(1 for s in similarities if MIN_RELEVANCE_SCORE <= s < MEDIUM_QUALITY_THRESHOLD)
         
-        # ═══════════════════════════════════════════════════════════════
-        # PHASE 2: AGENTIC SEARCH LOOP WITH GEMINI
-        # ═══════════════════════════════════════════════════════════════
+        quality_metrics = {
+            'agentic_search_results': len(quality_results),
+            'high_quality_results': high_q,
+            'medium_quality_results': medium_q,
+            'low_quality_results': low_q,
+            'avg_relevance_score': avg_sim
+        }
         
-        # Inject extra context into system prompt
-        task_context_section = ""
-        if extra_context:
-            task_context_section = f"\n\nCONTEXT FROM USER TASK:\n{extra_context}\n\n"
-
-        full_system_prompt = (
-            system_prompt + "\n\n" + 
-            task_context_section +
-            ANTI_HALLUCINATION_RULES + "\n\n" + 
-            ENHANCED_AGENTIC_INSTRUCTION
-        )
+        # Format context
+        context_str = self._format_enhanced_context(results)
+        unique_sources = self._format_sources_with_quality(results)
         
-        logger.info(f"Starting enhanced agentic loop (max {MAX_AGENTIC_ROUNDS} rounds)...")
-        
-        # Tools configuration — use low thinking for fast agentic tool-calling
-        tools = [types.Tool(function_declarations=[GEMINI_SEARCH_TOOL])]
-        config = types.GenerateContentConfig(
-            system_instruction=full_system_prompt,
-            tools=tools,
-            temperature=0.3,
-            max_output_tokens=MAX_OUTPUT_TOKENS,
-            thinking_config=types.ThinkingConfig(
-                thinking_level="low"
-            ),
-        )
-        
-        # Convert history to Gemini format
-        gemini_history = self._convert_history_to_gemini(history)
-        
-        # Add current user question to history
-        gemini_history.append(types.Content(role="user", parts=[types.Part.from_text(text=question)]))
-        
-        search_round_details = []
-        
-        for round_num in range(1, MAX_AGENTIC_ROUNDS + 1):
-            logger.info(f"=== AGENTIC ROUND {round_num}/{MAX_AGENTIC_ROUNDS} ===")
-            if progress_callback:
-                await progress_callback(f"agentic_round_{round_num}")
-            
-            try:
-                # Send message with full history
-                # Use client.aio.models.generate_content for async call in new SDK
-                response = await self.client.aio.models.generate_content(
-                    model=self.settings.gemini_flash_model,
-                    contents=gemini_history,
-                    config=config
-                )
-                
-                if not response.candidates:
-                    logger.warning("No candidates returned from Gemini.")
-                    break
-                
-                # Track usage for agentic step
-                if response.usage_metadata:
-                    usage = response.usage_metadata
-                    await UsageService.track_usage_async(
-                        user_id=user_id,
-                        model_name=self.settings.gemini_flash_model,
-                        input_tokens=usage.prompt_token_count or 0,
-                        output_tokens=usage.candidates_token_count or 0,
-                        request_type=f"agentic_step_{chat_mode}"
-                    )
-
-                # Add model's response to history
-                gemini_history.append(response.candidates[0].content)
-                
-                function_calls = []
-                if response.candidates[0].content.parts:
-                    for part in response.candidates[0].content.parts:
-                        if part.function_call:
-                            function_calls.append(part.function_call)
-                
-                if function_calls:
-                    # For simplicity, handle the first function call
-                    part = function_calls[0]
-                    fc_name = part.name
-                    fc_args = part.args
-                    
-                    if fc_name == "search_legal_database":
-                        query = fc_args.get("query", "")
-                        search_top_k = min(int(fc_args.get("top_k", 20)), 30)
-                        filter_source = fc_args.get("filter_source", "") or None
-                        
-                        logger.info(f"  Tool call: search_legal_database(query='{query}', top_k={search_top_k})")
-                        
-                        # Execute enhanced search
-                        results = await self._enhanced_retrieve_context(
-                            query, 
-                            top_k=search_top_k,
-                            filter_source=filter_source
-                        )
-                        
-                        # Filter by quality
-                        quality_results = [r for r in results if r.get('similarity', 0) >= MIN_RELEVANCE_SCORE]
-                        
-                        logger.info(f"  Found {len(quality_results)} quality results (total: {len(results)})")
-                        
-                        result_summary = ""
-                        if quality_results:
-                             # Calculate quality metrics
-                            similarities = [r.get('similarity', 0) for r in quality_results]
-                            avg_sim = sum(similarities) / len(similarities)
-                            high_q = sum(1 for s in similarities if s >= HIGH_QUALITY_THRESHOLD)
-                            medium_q = sum(1 for s in similarities if MEDIUM_QUALITY_THRESHOLD <= s < HIGH_QUALITY_THRESHOLD)
-                            low_q = sum(1 for s in similarities if MIN_RELEVANCE_SCORE <= s < MEDIUM_QUALITY_THRESHOLD)
-                            
-                            quality_metrics['agentic_search_results'] += len(quality_results)
-                            quality_metrics['high_quality_results'] += high_q
-                            quality_metrics['medium_quality_results'] += medium_q
-                            quality_metrics['low_quality_results'] += low_q
-                            
-                            search_round_details.append({
-                                'round': round_num,
-                                'query': query,
-                                'results': len(quality_results),
-                                'avg_score': avg_sim,
-                                'high_quality': high_q,
-                                'medium_quality': medium_q,
-                                'low_quality': low_q,
-                            })
-                            
-                            # Format enhanced context with quality indicators
-                            context_str = self._format_enhanced_context(quality_results)
-                            all_context_parts.append(context_str)
-                            
-                            # Collect sources
-                            round_sources = self._format_sources_with_quality(quality_results)
-                            all_sources.extend(round_sources)
-                            
-                            # Build detailed tool result with quality metrics
-                            result_summary = self._build_search_result_summary(
-                                quality_results, 
-                                avg_sim,
-                                high_q,
-                                medium_q,
-                                low_q
-                            )
-                        else:
-                            result_summary = (
-                                "⚠️ No results meeting minimum quality threshold (relevance ≥ 35%) found. "
-                                "Try reformulating the query with different terms or language."
-                            )
-                        
-                        # Construct Tool Response
-                        tool_response_part = types.Part.from_function_response(
-                            name=fc_name,
-                            response={"result": result_summary}
-                        )
-                        # Append tool response to history (role='tool' is standard for new SDK, but often treated as user role with function_response part in chat context)
-                        # We used 'function' in prev step comment, but let's stick to 'tool' if possible or check docs. 
-                        # To be safe and compatible with typical Gemini chat history structure: Model (function_call) -> User/Tool (function_response).
-                        gemini_history.append(types.Content(role="tool", parts=[tool_response_part]))
-                        continue
-
-                    else:
-                        logger.warning(f"Unknown function call: {fc_name}")
-                        # Append error response
-                        error_part = types.Part.from_function_response(
-                            name=fc_name,
-                            response={"error": "Unknown function call"}
-                        )
-                        gemini_history.append(types.Content(role="tool", parts=[error_part]))
-                        continue
-                else:
-                    logger.info("Agentic loop: Model produced text, stopping search.")
-                    break
-                    
-            except Exception as e:
-                logger.error(f"Agentic loop error: {e}")
-                logger.error(traceback.format_exc())
-                break
-
         # ═══════════════════════════════════════════════════════════════
         # PHASE 3: FINAL SYNTHESIS
         # ═══════════════════════════════════════════════════════════════
         
-        combined_context = "\n\n".join(all_context_parts)
-        unique_sources = self._deduplicate_sources(all_sources)
-        final_history = self._convert_history_to_gemini(history)
+        anthropic_history = self._convert_history_to_anthropic(history)
         
         final_prompt = self._build_final_prompt(
             question,
-            combined_context,
+            context_str,
             extra_context,
             quality_metrics
         )
-        
-        logger.info(f"Phase 3: Streaming final response with Gemini Pro...")
+        if auto_detect_plan:
+             final_prompt += f"\n\n### 📋 ПЛАН ОТВЕТА (ОБЯЗАТЕЛЬНО СЛЕДУЙТЕ):\n{auto_detect_plan}\n"
+
+        logger.info(f"Phase 3: Streaming final response with Claude...")
         if progress_callback:
             await progress_callback("synthesizing")
         
-        # Build auto-detect plan instruction if available
-        auto_detect_instruction = ""
-        if auto_detect_plan:
-            auto_detect_instruction = (
-                f"\n\n### 📋 ПЛАН ОТВЕТА (ОБЯЗАТЕЛЬНО СЛЕДУЙТЕ):\n{auto_detect_plan}\n"
-            )
-        
-        model_final_config = types.GenerateContentConfig(
-            system_instruction=(
-                system_prompt + "\n\n" + 
-                ANTI_HALLUCINATION_RULES + "\n\n" +
-                EXPERT_REASONING_FRAMEWORK + "\n\n" +
-                DEPTH_ENFORCEMENT_RULES + "\n\n" +
-                auto_detect_instruction + "\n\n" +
-                """КРИТИЧЕСКИЕ ИНСТРУКЦИИ ДЛЯ КАЧЕСТВА ОТВЕТА:
-
-1. ВЫ — ВЕДУЩИЙ ЭКСПЕРТ в данной области права с 20+ годами практики в Узбекистане. Ваш ответ должен быть ИСЧЕРПЫВАЮЩИМ и ПРОФЕССИОНАЛЬНЫМ. Вы консультируете на уровне СТАРШЕГО ПАРТНЁРА юридической фирмы.
-
-2. ПЕРВАЯ СТРОКА вашего ответа ОБЯЗАТЕЛЬНО должна быть заголовком формата (## 📌 или ## ⚖️ и т.д.). НЕ выводите НИЧЕГО перед заголовком — ни пробелов, ни пустых строк, ни комментариев.
-
-3. ОБЪЁМ И ДЕТАЛИЗАЦИЯ:
-   - Для КАЖДОГО правового утверждения укажите: (а) конкретную статью закона/кодекса из контекста, (б) как она применяется к данной ситуации, (в) практические последствия, (г) потенциальные риски и исключения.
-   - НЕ сокращайте и НЕ обобщайте. Раскрывайте КАЖДЫЙ пункт максимально подробно.
-   - Используйте таблицы для структурированных данных (сроки, штрафы, сравнения).
-   - Приводите пошаговые инструкции с конкретными действиями.
-   - Указывайте ВСЕ применимые нормативные акты из предоставленного контекста.
-
-4. СТРУКТУРА: Строго следуйте формату, определённому в системной подсказке. Не пропускайте ни одного раздела.
-
-5. ПОЛНОТА: Ответ должен быть настолько полным, чтобы у пользователя НЕ возникло необходимости задавать уточняющие вопросы. Предвосхищайте связанные вопросы и отвечайте на них.
-
-6. АНАЛИТИЧЕСКАЯ ГЛУБИНА: Для каждого правового аспекта проведите ПОЛНЫЙ анализ:
-   - Определите ВСЕ применимые нормы из контекста
-   - Объясните ВЗАИМОДЕЙСТВИЕ норм из разных кодексов/законов
-   - Укажите ИЕРАРХИЮ при коллизии норм
-   - Дайте ПРАКТИЧЕСКИЕ рекомендации с конкретными действиями, сроками, органами
-   - Предупредите о РИСКАХ и типичных ошибках
-
-7. ЮРИДИЧЕСКАЯ ТОЧНОСТЬ: Каждая ссылка на статью должна точно соответствовать контексту. Никогда не округляйте и не обобщайте номера статей. Если сомневаетесь — укажите на необходимость уточнения у юриста."""
-                + "\n\n" + QUALITY_SELF_CHECK
-            ),
-            temperature=0.3,
-            max_output_tokens=MAX_OUTPUT_TOKENS,
-            thinking_config=types.ThinkingConfig(
-                thinking_level="high"
-            ),
-        )
+        # Add current query with context
+        messages = anthropic_history + [{"role": "user", "content": final_prompt}]
         
         async def stream_response():
-            first_chunk = True
-            last_usage = None
             try:
-                stream = await self.client.aio.models.generate_content_stream(
-                    model=self.settings.gemini_pro_model,
-                    contents=final_history + [final_prompt],
-                    config=model_final_config
-                )
-
-                async for chunk in stream:
-                    if chunk.text:
-                        text = chunk.text
-                        if first_chunk:
-                            text = text.lstrip()
-                            first_chunk = False
+                # Use extended thinking as requested
+                async with self.client.messages.stream(
+                    model=self.settings.claude_haiku_model,
+                    max_tokens=16000,
+                    system=system_prompt,
+                    thinking={
+                        "type": "enabled",
+                        "budget_tokens": self.settings.thinking_budget_tokens
+                    },
+                    messages=messages,
+                ) as stream:
+                    async for text in stream.text_stream:
                         yield text
-                    if hasattr(chunk, 'usage_metadata') and chunk.usage_metadata:
-                        last_usage = chunk.usage_metadata
-
-                # Track usage from last chunk
-                if last_usage:
-                    await UsageService.track_usage_async(
-                        user_id=user_id,
-                        model_name=self.settings.gemini_pro_model,
-                        input_tokens=last_usage.prompt_token_count or 0,
-                        output_tokens=last_usage.candidates_token_count or 0,
-                        request_type=f"agentic_final_{chat_mode}"
-                    )
+                    
+                    # Track usage for RAG synthesis
+                    try:
+                        final_message = await stream.get_final_message()
+                        if hasattr(final_message, 'usage'):
+                            usage = final_message.usage
+                            await UsageService.track_usage_async(
+                                user_id=user_id,
+                                model_name=self.settings.claude_haiku_model,
+                                input_tokens=usage.input_tokens,
+                                output_tokens=usage.output_tokens,
+                                request_type=f"chat_rag_{chat_mode}"
+                            )
+                    except Exception as usage_err:
+                        logger.warning(f"Failed to track RAG usage: {usage_err}")
             except Exception as e:
                 logger.error(f"Streaming error: {e}")
                 yield f"\n\n⚠️ Error generating response: {str(e)}"
@@ -5499,7 +5280,7 @@ class AIService:
             "response": stream_response(),
             "sources": unique_sources,
             "quality_metrics": quality_metrics,
-            "search_rounds": search_round_details,
+            "search_rounds": [], # Legacy field for frontend compatibility
         }
 
     async def _enhanced_retrieve_context(
@@ -5725,18 +5506,18 @@ class AIService:
         )
         return summary
     
-    def _convert_history_to_gemini(self, history: List[Dict[str, str]]) -> List[Dict[str, Any]]:
-        gemini_history = []
+    def _convert_history_to_anthropic(self, history: List[Dict[str, str]]) -> List[Dict[str, Any]]:
+        anthropic_messages = []
         if not history:
             return []
         for msg in history:
-            role = "user" if msg["role"] == "user" else "model"
+            role = "user" if msg["role"] == "user" else "assistant"
             content_text = str(msg.get("content", ""))
-            gemini_history.append({
+            anthropic_messages.append({
                 "role": role,
-                "parts": [content_text]
+                "content": content_text
             })
-        return gemini_history
+        return anthropic_messages
 
     def _build_final_prompt(self, question, combined_context, extra_context, quality_metrics) -> str:
         extra_context_section = ""
@@ -6048,12 +5829,32 @@ class AIService:
         if dict_result != text and dict_result.lower() != text.lower():
             return dict_result
         try:
-            response = await self.client.aio.models.generate_content(
-                model=self.settings.gemini_flash_model,
-                contents=f"Translate the following Russian legal query into Uzbek (Latin script). Output ONLY the Uzbek translation, nothing else. Query: {text}",
-                config=types.GenerateContentConfig(temperature=0.1)
+            response = await self.client.messages.create(
+                model=self.settings.claude_haiku_model,
+                max_tokens=1024,
+                messages=[{
+                    "role": "user", 
+                    "content": f"Translate the following Russian legal query into Uzbek (Latin script). Output ONLY the Uzbek translation, nothing else. Query: {text}"
+                }]
             )
-            return response.text.strip() if response.text else text
+            
+            # Track usage
+            if hasattr(response, 'usage'):
+                usage = response.usage
+                await UsageService.track_usage_async(
+                    user_id=None, # System call
+                    model_name=self.settings.claude_haiku_model,
+                    input_tokens=usage.input_tokens,
+                    output_tokens=usage.output_tokens,
+                    request_type="translation_uzbek"
+                )
+            
+            translated_text = ""
+            for block in response.content:
+                if block.type == "text":
+                    translated_text += block.text
+            
+            return translated_text.strip() if translated_text else text
         except Exception as e:
             logger.warning(f"Translation error: {e}")
             return text
@@ -6066,53 +5867,54 @@ class AIService:
         system_prompt: str,
         user_id: Optional[int] = None
     ) -> Dict[str, Any]:
-        gemini_history = self._convert_history_to_gemini(history)
+        # Convert history for Claude
+        messages = []
+        if history:
+            for msg in history[-10:]:
+                messages.append({
+                    "role": msg["role"],
+                    "content": msg.get("content", "")
+                })
+        messages.append({"role": "user", "content": question})
         
-        # Add inputs to history for the call
-        contents = gemini_history + [types.Content(role="user", parts=[types.Part.from_text(text=question)])]
-        
-        config = types.GenerateContentConfig(
-            system_instruction=(
-                system_prompt + "\n\n" +
-                EXPERT_REASONING_FRAMEWORK + "\n\n" +
-                DEPTH_ENFORCEMENT_RULES + "\n\n" +
-                """КРИТИЧЕСКИЕ ИНСТРУКЦИИ:
+        full_system_prompt = (
+            system_prompt + "\n\n" +
+            EXPERT_REASONING_FRAMEWORK + "\n\n" +
+            DEPTH_ENFORCEMENT_RULES + "\n\n" +
+            """КРИТИЧЕСКИЕ ИНСТРУКЦИИ:
 1. ВЫ — ВЕДУЩИЙ ЭКСПЕРТ по законодательству Узбекистана с 20+ годами практики.
 2. Ваш ответ должен быть ИСЧЕРПЫВАЮЩИМ — пользователю НЕ должно потребоваться задавать уточняющие вопросы.
 3. ПЕРВАЯ СТРОКА ответа ОБЯЗАТЕЛЬНО = заголовок (## 📌 или ## ⚖️).
 4. НЕ сокращайте — раскрывайте КАЖДЫЙ пункт полностью со всеми нюансами.
 5. Используйте таблицы, пошаговые инструкции и конкретные действия.
 6. Для каждого правового утверждения: укажите норму → объясните применение → дайте практические последствия."""
-            ),
-            max_output_tokens=MAX_OUTPUT_TOKENS,
-            temperature=0.4,
-            thinking_config=types.ThinkingConfig(
-                thinking_level="high"
-            ),
         )
 
         async def stream_response():
-            last_usage = None
             try:
-                stream = await self.client.aio.models.generate_content_stream(
-                    model=self.settings.gemini_flash_model,
-                    contents=contents,
-                    config=config
-                )
-                async for chunk in stream:
-                    if chunk.text:
-                        yield chunk.text
-                    if hasattr(chunk, 'usage_metadata') and chunk.usage_metadata:
-                        last_usage = chunk.usage_metadata
-
-                if last_usage:
-                    await UsageService.track_usage_async(
-                        user_id=user_id,
-                        model_name=self.settings.gemini_flash_model,
-                        input_tokens=last_usage.prompt_token_count or 0,
-                        output_tokens=last_usage.candidates_token_count or 0,
-                        request_type=f"chat_simple_{chat_mode}"
-                    )
+                async with self.client.messages.stream(
+                    model=self.settings.claude_haiku_model,
+                    max_tokens=4000,
+                    system=full_system_prompt,
+                    messages=messages,
+                ) as stream:
+                    async for text in stream.text_stream:
+                        yield text
+                    
+                    # Track usage for simple query
+                    try:
+                        final_message = await stream.get_final_message()
+                        if hasattr(final_message, 'usage'):
+                            usage = final_message.usage
+                            await UsageService.track_usage_async(
+                                user_id=user_id,
+                                model_name=self.settings.claude_haiku_model,
+                                input_tokens=usage.input_tokens,
+                                output_tokens=usage.output_tokens,
+                                request_type=f"chat_simple_{chat_mode}"
+                            )
+                    except Exception as usage_err:
+                        logger.warning(f"Failed to track simple query usage: {usage_err}")
             except Exception as e:
                 logger.error(f"Simple query error: {e}")
                 yield f"Error: {str(e)}"
@@ -6186,27 +5988,33 @@ class AIService:
         )
         
         async def stream_response():
-            last_usage = None
             try:
-                stream = await self.client.aio.models.generate_content_stream(
-                    model=self.settings.gemini_pro_model,
-                    contents=generation_prompt,
-                    config=config
-                )
-                async for chunk in stream:
-                    if chunk.text:
-                        yield {"type": "content", "text": chunk.text}
-                    if hasattr(chunk, 'usage_metadata') and chunk.usage_metadata:
-                        last_usage = chunk.usage_metadata
-
-                if last_usage:
-                    await UsageService.track_usage_async(
-                        user_id=user_id,
-                        model_name=self.settings.gemini_pro_model,
-                        input_tokens=last_usage.prompt_token_count or 0,
-                        output_tokens=last_usage.candidates_token_count or 0,
-                        request_type="contract_generation_legacy"
-                    )
+                async with self.client.messages.stream(
+                    model=self.settings.claude_haiku_model,
+                    max_tokens=MAX_OUTPUT_TOKENS,
+                    system=GENERATOR_PROMPT,
+                    messages=[{
+                        "role": "user",
+                        "content": generation_prompt
+                    }]
+                ) as stream:
+                    async for text in stream.text_stream:
+                        yield {"type": "content", "text": text}
+                    
+                    # Track usage for contract generation
+                    try:
+                        final_message = await stream.get_final_message()
+                        if hasattr(final_message, 'usage'):
+                            usage = final_message.usage
+                            await UsageService.track_usage_async(
+                                user_id=user_id,
+                                model_name=self.settings.claude_haiku_model,
+                                input_tokens=usage.input_tokens,
+                                output_tokens=usage.output_tokens,
+                                request_type="contract_generation_legacy"
+                            )
+                    except Exception as usage_err:
+                        logger.warning(f"Failed to track contract generation usage: {usage_err}")
             except Exception as e:
                 logger.error(f"Generate Contract Error: {e}")
                 yield f"\n\n⚠️ Error: {str(e)}"
@@ -6297,27 +6105,31 @@ class AIService:
 Включите ВСЕ обязательные разделы: преамбула, предмет, права и обязанности, цена и расчёты, сроки, порядок приёмки, качество и гарантии, ответственность, форс-мажор, разрешение споров, конфиденциальность, антикоррупционная оговорка, заключительные положения, реквизиты.
 Это черновик — пишите МАКСИМАЛЬНО ПОДРОБНО и ДЕТАЛЬНО. Минимум 80-120 пунктов."""
 
-                draft_response = await self.client.aio.models.generate_content(
-                    model=self.settings.gemini_flash_model,
-                    contents=draft_prompt,
-                    config=types.GenerateContentConfig(
-                        system_instruction=GENERATOR_PROMPT,
-                        max_output_tokens=MAX_OUTPUT_TOKENS,
-                        temperature=0.2,
-                        thinking_config=types.ThinkingConfig(thinking_level="high"),
-                    )
+                draft_response = await self.client.messages.create(
+                    model=self.settings.claude_haiku_model,
+                    max_tokens=MAX_OUTPUT_TOKENS,
+                    system=GENERATOR_PROMPT,
+                    messages=[{
+                        "role": "user",
+                        "content": draft_prompt
+                    }]
                 )
-                draft_text = draft_response.text
+                
+                draft_text = ""
+                for block in draft_response.content:
+                    if block.type == "text":
+                        draft_text += block.text
+                draft_text = draft_text.strip()
                 logger.info(f"Draft generated: {len(draft_text)} chars")
                 
                 # Track usage for Phase 1
-                if draft_response.usage_metadata:
-                    usage = draft_response.usage_metadata
+                if hasattr(draft_response, 'usage'):
+                    usage = draft_response.usage
                     await UsageService.track_usage_async(
                         user_id=user_id,
-                        model_name=self.settings.gemini_flash_model,
-                        input_tokens=usage.prompt_token_count or 0,
-                        output_tokens=usage.candidates_token_count or 0,
+                        model_name=self.settings.claude_haiku_model,
+                        input_tokens=usage.input_tokens,
+                        output_tokens=usage.output_tokens,
                         request_type="contract_ultra_phase1_draft"
                     )
 
@@ -6393,25 +6205,34 @@ class AIService:
                     contract_text=draft_text
                 )
 
-                audit_response = await self.client.aio.models.generate_content(
-                    model=self.settings.gemini_flash_model,
-                    contents=audit_prompt,
-                    config=types.GenerateContentConfig(
-                        system_instruction=VALIDATOR_PROMPT,
-                        temperature=0.1,
-                        max_output_tokens=MAX_OUTPUT_TOKENS,
-                        thinking_config=types.ThinkingConfig(thinking_level="high"),
-                    )
+                audit_response = await self.client.messages.create(
+                    model=self.settings.claude_haiku_model,
+                    max_tokens=MAX_OUTPUT_TOKENS,
+                    system=VALIDATOR_PROMPT,
+                    thinking={
+                        "type": "enabled",
+                        "budget_tokens": self.settings.thinking_budget_tokens
+                    },
+                    messages=[{
+                        "role": "user",
+                        "content": audit_prompt
+                    }]
                 )
 
+                raw_audit_text = ""
+                for block in audit_response.content:
+                    if block.type == "text":
+                        raw_audit_text += block.text
+                raw_audit_text = raw_audit_text.strip()
+
                 # Track usage for audit
-                if audit_response.usage_metadata:
-                    usage_meta = audit_response.usage_metadata
+                if hasattr(audit_response, 'usage'):
+                    usage_meta = audit_response.usage
                     await UsageService.track_usage_async(
                         user_id=user_id,
-                        model_name=self.settings.gemini_flash_model,
-                        input_tokens=usage_meta.prompt_token_count or 0,
-                        output_tokens=usage_meta.candidates_token_count or 0,
+                        model_name=self.settings.claude_haiku_model,
+                        input_tokens=usage_meta.input_tokens,
+                        output_tokens=usage_meta.output_tokens,
                         request_type="contract_ultra_phase2_audit"
                     )
 
@@ -6446,23 +6267,32 @@ class AIService:
                 yield {"type": "status", "text": "⚔️ **Red Team — поиск лазеек и уязвимостей...**"}
                 red_team_json = {}
                 try:
-                    red_team_response = await self.client.aio.models.generate_content(
-                        model=self.settings.gemini_flash_model,
-                        contents=RED_TEAM_PROMPT + f"\n\nТЕКСТ ДОГОВОРА:\n{draft_text}",
-                        config=types.GenerateContentConfig(
-                            temperature=0.4, max_output_tokens=4000,
-                            thinking_config=types.ThinkingConfig(thinking_level="high")
-                        )
+                    red_team_response = await self.client.messages.create(
+                        model=self.settings.claude_haiku_model,
+                        max_tokens=4000,
+                        thinking={
+                            "type": "enabled",
+                            "budget_tokens": self.settings.thinking_budget_tokens // 2 # Less thinking for Red Team
+                        },
+                        messages=[{
+                            "role": "user",
+                            "content": RED_TEAM_PROMPT + f"\n\nТЕКСТ ДОГОВОРА:\n{draft_text}"
+                        }]
                     )
-                    red_team_json = json.loads(self._clean_json_response(red_team_response.text))
+                    
+                    raw_red_text = ""
+                    for block in red_team_response.content:
+                        if block.type == "text":
+                            raw_red_text += block.text
+                    red_team_json = json.loads(self._clean_json_response(raw_red_text))
                     # Track usage
-                    if red_team_response.usage_metadata:
-                        usage_meta = red_team_response.usage_metadata
+                    if hasattr(red_team_response, 'usage'):
+                        usage_meta = red_team_response.usage
                         await UsageService.track_usage_async(
                             user_id=user_id,
-                            model_name=self.settings.gemini_flash_model,
-                            input_tokens=usage_meta.prompt_token_count or 0,
-                            output_tokens=usage_meta.candidates_token_count or 0,
+                            model_name=self.settings.claude_haiku_model,
+                            input_tokens=usage_meta.input_tokens,
+                            output_tokens=usage_meta.output_tokens,
                             request_type="contract_ultra_phase2_redteam"
                         )
                 except Exception as e:
@@ -6472,23 +6302,32 @@ class AIService:
                 yield {"type": "status", "text": "🌪 **Стресс-тест — симуляция проблемных сценариев...**"}
                 risk_json = {}
                 try:
-                    risk_response = await self.client.aio.models.generate_content(
-                        model=self.settings.gemini_flash_model,
-                        contents=RISK_SIMULATION_PROMPT + f"\n\nТЕКСТ ДОГОВОРА:\n{draft_text}",
-                        config=types.GenerateContentConfig(
-                            temperature=0.4, max_output_tokens=4000,
-                            thinking_config=types.ThinkingConfig(thinking_level="high")
-                        )
+                    risk_response = await self.client.messages.create(
+                        model=self.settings.claude_haiku_model,
+                        max_tokens=4000,
+                        thinking={
+                            "type": "enabled",
+                            "budget_tokens": self.settings.thinking_budget_tokens // 2
+                        },
+                        messages=[{
+                            "role": "user",
+                            "content": RISK_SIMULATION_PROMPT + f"\n\nТЕКСТ ДОГОВОРА:\n{draft_text}"
+                        }]
                     )
-                    risk_json = json.loads(self._clean_json_response(risk_response.text))
+                    
+                    raw_risk_text = ""
+                    for block in risk_response.content:
+                        if block.type == "text":
+                            raw_risk_text += block.text
+                    risk_json = json.loads(self._clean_json_response(raw_risk_text))
                     # Track usage
-                    if risk_response.usage_metadata:
-                        usage_meta = risk_response.usage_metadata
+                    if hasattr(risk_response, 'usage'):
+                        usage_meta = risk_response.usage
                         await UsageService.track_usage_async(
                             user_id=user_id,
-                            model_name=self.settings.gemini_flash_model,
-                            input_tokens=usage_meta.prompt_token_count or 0,
-                            output_tokens=usage_meta.candidates_token_count or 0,
+                            model_name=self.settings.claude_haiku_model,
+                            input_tokens=usage_meta.input_tokens,
+                            output_tokens=usage_meta.output_tokens,
                             request_type="contract_ultra_phase2_risktest"
                         )
                 except Exception as e:
@@ -6674,37 +6513,43 @@ class AIService:
 
 НАЧИНАЙТЕ СРАЗУ С ЗАГОЛОВКА ДОГОВОРА. БЕЗ комментариев."""
 
-                final_stream = await self.client.aio.models.generate_content_stream(
-                    model=self.settings.gemini_pro_model,
-                    contents=final_prompt,
-                    config=types.GenerateContentConfig(
-                        system_instruction=GENERATOR_PROMPT,
-                        max_output_tokens=MAX_OUTPUT_TOKENS,
-                        temperature=0.1,
-                        thinking_config=types.ThinkingConfig(thinking_level="high"),
-                    )
-                )
+                try:
+                    async with self.client.messages.stream(
+                        model=self.settings.claude_haiku_model,
+                        max_tokens=MAX_OUTPUT_TOKENS,
+                        system=GENERATOR_PROMPT,
+                        messages=[{
+                            "role": "user",
+                            "content": final_prompt
+                        }]
+                    ) as stream:
+                        async for text in stream.text_stream:
+                            yield {"type": "content", "text": text}
+                        
+                        # Track usage for Phase 3 (Synthesis)
+                        try:
+                            final_message = await stream.get_final_message()
+                            if hasattr(final_message, 'usage'):
+                                usage = final_message.usage
+                                await UsageService.track_usage_async(
+                                    user_id=user_id,
+                                    model_name=self.settings.claude_haiku_model,
+                                    input_tokens=usage.input_tokens,
+                                    output_tokens=usage.output_tokens,
+                                    request_type="contract_ultra_phase3_final"
+                                )
+                        except Exception as usage_err:
+                            logger.warning(f"Failed to track Ultra P3 usage: {usage_err}")
 
-                last_usage_p3 = None
-                async for chunk in final_stream:
-                    if chunk.text:
-                        yield {"type": "content", "text": chunk.text}
-                    if hasattr(chunk, 'usage_metadata') and chunk.usage_metadata:
-                        last_usage_p3 = chunk.usage_metadata
 
-                if last_usage_p3:
-                    await UsageService.track_usage_async(
-                        user_id=user_id,
-                        model_name=self.settings.gemini_pro_model,
-                        input_tokens=last_usage_p3.prompt_token_count or 0,
-                        output_tokens=last_usage_p3.candidates_token_count or 0,
-                        request_type="contract_ultra_phase3_final"
-                    )
+                except Exception as e:
+                    logger.error(f"Ultra generation P3 error: {e}")
+                    yield {"type": "content", "text": f"\n\n⚠️ Ошибка в Фазе 3: {str(e)}"}
 
             except Exception as e:
-                logger.error(f"Ultra generation error: {e}")
+                logger.error(f"Ultra generation fatal error: {e}")
                 logger.error(traceback.format_exc())
-                yield {"type": "content", "text": f"\n\n⚠️ Ошибка в режиме Ultra: {str(e)}"}
+                yield {"type": "content", "text": f"\n\n⚠️ Критическая ошибка Ultra: {str(e)}"}
 
         return {
             "response": stream_ultra_response(),
@@ -6750,25 +6595,30 @@ class AIService:
 {contract_text[:4000]}"""
 
         try:
-            response = await self.client.aio.models.generate_content(
-                model=self.settings.gemini_flash_model,
-                contents=detection_prompt,
-                config=types.GenerateContentConfig(
-                    temperature=0.1,
-                    max_output_tokens=1000,
-                )
+            response = await self.client.messages.create(
+                model=self.settings.claude_haiku_model,
+                max_tokens=1000,
+                temperature=0.1,
+                messages=[{
+                    "role": "user",
+                    "content": detection_prompt
+                }]
             )
 
-            raw_text = response.text.strip()
+            raw_text = ""
+            for block in response.content:
+                if block.type == "text":
+                    raw_text += block.text
+            raw_text = raw_text.strip()
 
             # Track usage
-            if response.usage_metadata:
-                usage_meta = response.usage_metadata
+            if hasattr(response, 'usage'):
+                usage_meta = response.usage
                 await UsageService.track_usage_async(
                     user_id=user_id,
-                    model_name=self.settings.gemini_flash_model,
-                    input_tokens=usage_meta.prompt_token_count or 0,
-                    output_tokens=usage_meta.candidates_token_count or 0,
+                    model_name=self.settings.claude_haiku_model,
+                    input_tokens=usage_meta.input_tokens,
+                    output_tokens=usage_meta.output_tokens,
                     request_type="contract_type_detection"
                 )
 
@@ -6929,31 +6779,36 @@ class AIService:
             contract_text=contract_text
         )
 
-        # Step 5: Perform validation with stricter parameters (Pro model for quality)
+        # Step 5: Perform validation with Claude (using thinking for high quality)
         try:
-            response = await self.client.aio.models.generate_content(
-                model=self.settings.gemini_pro_model,
-                contents=audit_prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=VALIDATOR_PROMPT,
-                    temperature=0.1,
-                    max_output_tokens=MAX_OUTPUT_TOKENS,
-                    thinking_config=types.ThinkingConfig(
-                        thinking_level="high"
-                    ),
-                )
+            response = await self.client.messages.create(
+                model=self.settings.claude_haiku_model,
+                max_tokens=8000,
+                system=VALIDATOR_PROMPT,
+                thinking={
+                    "type": "enabled",
+                    "budget_tokens": self.settings.thinking_budget_tokens
+                },
+                messages=[{
+                    "role": "user",
+                    "content": audit_prompt
+                }]
             )
 
-            raw_text = response.text.strip() if response.text else ""
+            raw_text = ""
+            for block in response.content:
+                if block.type == "text":
+                    raw_text += block.text
+            raw_text = raw_text.strip()
 
             # Track usage
-            if response.usage_metadata:
-                usage_meta = response.usage_metadata
+            if hasattr(response, 'usage'):
+                usage_meta = response.usage
                 await UsageService.track_usage_async(
                     user_id=user_id,
-                    model_name=self.settings.gemini_pro_model,
-                    input_tokens=usage_meta.prompt_token_count or 0,
-                    output_tokens=usage_meta.candidates_token_count or 0,
+                    model_name=self.settings.claude_haiku_model,
+                    input_tokens=usage_meta.input_tokens,
+                    output_tokens=usage_meta.output_tokens,
                     request_type="contract_validation"
                 )
 
@@ -7097,28 +6952,36 @@ class AIService:
         )
         
         try:
-            response = await self.client.aio.models.generate_content(
-                model=self.settings.gemini_pro_model,
-                contents=audit_prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=DOCUMENT_VALIDATOR_PROMPT,
-                    temperature=0.1,
-                    max_output_tokens=MAX_OUTPUT_TOKENS,
-                    thinking_config=types.ThinkingConfig(thinking_level="high"),
-                )
+            response = await self.client.messages.create(
+                model=self.settings.claude_haiku_model,
+                max_tokens=8000,
+                system=DOCUMENT_VALIDATOR_PROMPT,
+                thinking={
+                    "type": "enabled",
+                    "budget_tokens": self.settings.thinking_budget_tokens
+                },
+                messages=[{
+                    "role": "user",
+                    "content": audit_prompt
+                }]
             )
 
-            raw_text = response.text
+            raw_text = ""
+            for block in response.content:
+                if block.type == "text":
+                    raw_text += block.text
+            raw_text = raw_text.strip()
             audit = self._parse_document_audit_response(raw_text)
 
             # Track usage
-            if response.usage_metadata:
-                usage = response.usage_metadata
+            # Track usage
+            if hasattr(response, 'usage'):
+                usage = response.usage
                 await UsageService.track_usage_async(
                     user_id=user_id,
-                    model_name=self.settings.gemini_pro_model,
-                    input_tokens=usage.prompt_token_count or 0,
-                    output_tokens=usage.candidates_token_count or 0,
+                    model_name=self.settings.claude_haiku_model,
+                    input_tokens=usage.input_tokens,
+                    output_tokens=usage.output_tokens,
                     request_type="document_analysis"
                 )
             

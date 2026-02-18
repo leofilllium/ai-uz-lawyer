@@ -18,10 +18,11 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expiry_days: int = 365
     
-    # Google Gemini AI
-    google_api_key: str = ""
-    gemini_flash_model: str = "gemini-3-flash-preview"
-    gemini_pro_model: str = "gemini-3-pro-preview"
+    # Anthropic Claude AI
+    anthropic_api_key: str = ""
+    claude_haiku_model: str = "claude-haiku-4-5-20251001"  # Using 3.5 Haiku as requested "Claude Haiku 4.5" 
+    thinking_budget_tokens: int = 4000
+
     
     # OpenAI Models
     voyage_api_key: str = ""
