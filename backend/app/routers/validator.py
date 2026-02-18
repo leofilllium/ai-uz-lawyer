@@ -228,7 +228,8 @@ async def analyze_contract(
         
     except Exception as e:
         import traceback
-        print(f"Validator error: {traceback.format_exc()}")
+        import logging
+        logging.getLogger(__name__).error(f"Validator error: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

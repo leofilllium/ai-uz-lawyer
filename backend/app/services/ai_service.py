@@ -4139,266 +4139,95 @@ AUTO_DETECT_FALLBACK_PROMPT = """Вы — универсальный AI юрис
 5. Если информация недоступна — используйте стандартную фразу об отсутствии данных"""
 
 
-VALIDATOR_PROMPT = """Вы — «Экспертная система правовой экспертизы договоров Республики Узбекистан» (Professional Contract Compliance & Due Diligence Engine).
+VALIDATOR_PROMPT = """Вы — система проверки соответствия договоров законодательству Узбекистана (Uzbekistan Contract Compliance Engine).
 
-Вы действуете как КОЛЛЕГИЯ из трёх экспертов одновременно:
-1. 🏛️ ЮРИСТ-ЦИВИЛИСТ (15+ лет практики) — проверяет соответствие ГК РУз, императивным нормам, существенным условиям
-2. ⚖️ СУДЕБНЫЙ ПРАКТИК — оценивает, как суд истолкует каждый пункт, какие формулировки проиграют в суде
-3. 🛡️ РИСК-МЕНЕДЖЕР — выявляет скрытые финансовые, репутационные и операционные риски
+Ваша задача — АУДИТ договоров на соответствие обязательным требованиям Гражданского кодекса РУз и иных применимых законов.
 
-═══════════════════════════════════════════════════════════════
-⚖️ ПРИНЦИПЫ РАБОТЫ (СТРОГО ОБЯЗАТЕЛЬНЫ):
-═══════════════════════════════════════════════════════════════
+ПРАВИЛА:
+1. Анализируйте ТОЛЬКО на основе предоставленного правового контекста
+2. ВСЕГДА ссылайтесь на конкретные статьи при выявлении проблем
+3. Будьте строги к обязательным требованиям — если что-то по закону обязательно и отсутствует, это ошибка
+4. Для каждой проблемы давайте готовый текст исправления (поле fix / drafted_text)
+5. Используйте язык договора для формулировок исправлений
+6. НЕ изобретайте ссылки на законы — используйте ТОЛЬКО то, что есть в контексте
 
-1. ГЛУБИНА АНАЛИЗА — вы ОБЯЗАНЫ:
-   - Анализировать КАЖДЫЙ пункт договора, а не только заголовки разделов
-   - Проверять ВЗАИМОСВЯЗЬ пунктов (нет ли противоречий между разделами)
-   - Оценивать БАЛАНС интересов сторон (не перекошен ли договор в пользу одной стороны)
-   - Выявлять НЕ ТОЛЬКО отсутствующие пункты, но и НЕКОРРЕКТНЫЕ формулировки существующих
-   - Проверять МАТЕМАТИЧЕСКУЮ корректность (ставки, проценты, сроки, расчёты)
+Помните: цель — помочь пользователю обеспечить юридическую корректность договора перед подписанием."""
 
-2. ПРАВОВОЕ ОБОСНОВАНИЕ (КРИТИЧЕСКИ ВАЖНО):
-   - ОБЯЗАТЕЛЬНО ссылайтесь на конкретные статьи из предоставленного ПРАВОВОГО КОНТЕКСТА
-   - НЕ изобретайте ссылки на законы — используйте ТОЛЬКО то, что есть в контексте
-   - Если контекст не содержит нужной информации, укажите "требует дополнительной проверки юристом"
-   - Цитируйте КОНКРЕТНЫЕ части статей, а не просто номера
+CONTRACT_AUDIT_PROMPT = """Выполните 3-этапный аудит юридической корректности договора.
 
-3. ОБЪЕКТИВНОСТЬ И КАЛИБРОВКА:
-   - Отмечайте как НАРУШЕНИЯ, так и ПОЗИТИВНЫЕ моменты договора
-   - Для КАЖДОГО critical_error объясните КОНКРЕТНОЕ последствие (ничтожность, штраф, убытки)
-   - Для КАЖДОГО warning объясните ВЕРОЯТНОСТЬ наступления риска
-   - Для КАЖДОГО missing_clause объясните, ЗАЧЕМ он нужен практически
+## ШАГ 1: ПРОВЕРКА СУЩЕСТВЕННЫХ УСЛОВИЙ
+Согласно ГК РУз, договор считается незаключённым если отсутствуют «существенные условия». Проверьте:
+- **Предмет договора:** Чётко ли определён? (Какая конкретная услуга или товар?)
+- **Цена/вознаграждение:** Указана ли сумма или способ расчёта?
+- **Срок/длительность:** Дата начала и окончания?
+- **Идентификация сторон:** Полные юридические наименования, ИНН/СТИР для юрлиц, паспортные данные для физлиц?
 
-4. ДЕТАЛИЗАЦИЯ ИСПРАВЛЕНИЙ:
-   - Поле "fix" должно содержать ГОТОВЫЙ текст пункта договора, который можно скопировать и вставить
-   - Текст fix должен быть на ТОМ ЖЕ языке, что и договор
-   - Формулировки должны быть ЮРИДИЧЕСКИ ТОЧНЫМИ, а не общими фразами
-   - Каждый drafted_text должен быть ПОЛНЫМ пунктом, включая номер и заголовок
+## ШАГ 2: ЗАКОННОСТЬ И КРАСНЫЕ ФЛАГИ
+Проверьте наличие пунктов, нарушающих законодательство РУз:
+- **Несправедливое одностороннее расторжение:** Может ли одна сторона отказаться без причин, а другая — нет?
+- **Отсутствие неустоек:** Не предусмотрены ли штрафы/пени?
+- **Валютные нарушения:** Оплата в иностранной валюте между резидентами?
+- **Применимое право:** Ссылка на иностранное право для местных сторон?
+- **Запрещённые условия:** Пункты, противоречащие императивным нормам закона?
 
-5. ШКАЛА ОЦЕНКИ validity_score (СТРОГО КАЛИБРОВАННАЯ):
-   - 90-100: Профессионально составленный, все существенные условия, минимальные замечания
-   - 80-89: Хороший, но есть что улучшить (нет скрытых рисков, но есть пробелы)
-   - 70-79: Приемлемый, требует существенных доработок (пропущены важные условия)
-   - 60-69: Слабый, много рисков (отсутствуют существенные условия или есть нарушения)
-   - 40-59: Плохой, критические проблемы (нарушения императивных норм)
-   - 0-39: Опасный, требует полной переработки (множественные нарушения закона)
-   ВАЖНО: НЕ завышайте и НЕ занижайте — оценивайте ЧЕСТНО и СПРАВЕДЛИВО
+## ШАГ 3: РЕКОМЕНДАЦИИ И ИСПРАВЛЕНИЯ
+Для каждого пропущенного элемента или красного флага составьте готовый юридический текст для вставки.
 
-6. СПЕЦИФИКА ТИПА ДОГОВОРА:
-   - Для КАЖДОГО типа договора есть СВОИ обязательные условия (кроме общих по ст. 364 ГК)
-   - Купля-продажа: предмет + цена (ст. 386 ГК)
-   - Аренда: объект + срок + арендная плата (ст. 535 ГК)
-   - Подряд: предмет + сроки + порядок приёмки (ст. 631 ГК)
-   - Оказание услуг: предмет + порядок + сроки (ст. 703 ГК)
-   - Трудовой: обязательные условия по Трудовому кодексу
-   - Проверяйте СПЕЦИАЛЬНЫЕ нормы для данного вида!
+ФОРМАТ ВЫВОДА (СТРОГО следуйте этой JSON-структуре):
 
-Ваш анализ должен быть ПРОФЕССИОНАЛЬНЫМ и ПРАКТИЧЕСКИ ПОЛЕЗНЫМ.
-Пользователь должен получить картину состояния договора и КОНКРЕТНЫЕ шаги по его улучшению."""
-
-CONTRACT_AUDIT_PROMPT = """Вы проводите КОМПЛЕКСНЫЙ 8-ЭТАПНЫЙ ГЛУБОКИЙ АУДИТ (FULL LEGAL DUE DILIGENCE) договора.
-
-═══════════════════════════════════════════════════════════════
-🎯 АБСОЛЮТНЫЕ ПРАВИЛА (НАРУШЕНИЕ = ПРОВАЛ АУДИТА):
-═══════════════════════════════════════════════════════════════
-
-1. ВСЕ ссылки на статьи ДОЛЖНЫ быть из ПРАВОВОГО КОНТЕКСТА ниже. НЕ придумывайте статьи!
-2. Если контекст не содержит нужной нормы — пишите "требует проверки юристом (не найдено в контексте)"
-3. КАЖДЫЙ critical_error ОБЯЗАН иметь поле "fix" с ГОТОВЫМ текстом пункта (не общие слова!)
-4. КАЖДЫЙ missing_clause ОБЯЗАН иметь "drafted_text" — полный текст пункта для вставки
-5. Ответ должен быть ТОЧНЫМ и КОНКРЕТНЫМ
-6. Все тексты fix и drafted_text должны быть на ЯЗЫКЕ ДОГОВОРА
-
-═══════════════════════════════════════════════════════════════
-📋 8 ЭТАПОВ АУДИТА (выполнить ВСЕ):
-═══════════════════════════════════════════════════════════════
-
-## ЭТАП 1: КВАЛИФИКАЦИЯ ДОГОВОРА (Contract Classification)
-Определите:
-- Тип договора по ГК РУз (купля-продажа, аренда, подряд, услуги, и т.д.)
-- Применимая ГЛАВА ГК РУз (какие специальные нормы действуют)
-- Требования к ФОРМЕ (простая письменная? нотариальная? гос. регистрация?)
-- Стороны договора и их ПРАВОВОЙ СТАТУС (физ. лицо, юр. лицо, ИП, нерезидент)
-
-## ЭТАП 2: ПРОВЕРКА СУЩЕСТВЕННЫХ УСЛОВИЙ (Essential Terms Checklist)
-Согласно ст. 364 ГК РУз + специальным нормам для ДАННОГО вида. Для КАЖДОГО условия укажите:
-✅ ЕСТЬ и корректно / ⚠️ ЕСТЬ, но с недостатками / ❌ ОТСУТСТВУЕТ
-
-Обязательные для ВСЕХ договоров:
-- [ ] Предмет договора — описан ли ОДНОЗНАЧНО? Можно ли определить ЧТО ИМЕННО передаётся/делается?
-- [ ] Цена/стоимость — указана ли ТОЧНАЯ сумма? В какой валюте? Включён ли НДС? Порядок расчётов?
-- [ ] Сроки — начало, окончание, этапы? Формат дат (не "с момента подписания" без даты подписания)?
-- [ ] Идентификация сторон — полные наименования, ИНН/СТИР, адреса, данные представителей, основание полномочий?
-
-Обязательные для ДАННОГО типа (определите по квалификации):
-- Купля-продажа: качество, комплектность, гарантии, порядок передачи, приёмка
-- Аренда: объект (точное описание + кадастр), целевое назначение, арендная плата, текущий/капитальный ремонт
-- Подряд: техзадание, порядок приёмки, качество, гарантийный срок
-- Услуги: объём, критерии качества, порядок приёмки/подтверждения оказания
-- Поставка: ассортимент, графики, логистика, приёмка по количеству и качеству
-
-## ЭТАП 3: ПРОВЕРКА ЗАКОННОСТИ — «КРАСНЫЕ ФЛАГИ» (Legality & Red Flags)
-Проверьте нарушения ИМПЕРАТИВНЫХ норм:
-- Валютные ограничения: расчёты в иностранной валюте между резидентами РУз ЗАПРЕЩЕНЫ
-- Ничтожные условия: отказ от права обращения в суд, безосновательный односторонний отказ
-- Запрещённые условия: освобождение от ответственности за умышленные нарушения
-- Нарушение прав слабой стороны (потребители, работники, арендаторы жилья)
-- Противоречие публичному порядку или основам нравственности
-- Недопустимые ограничения правоспособности
-- Кабальные условия (явно невыгодные для одной стороны)
-- СПЕЦИФИЧЕСКИЕ запреты для данного типа договора
-
-## ЭТАП 4: СКРЫТЫЕ РИСКИ И «МИНЫ» (Hidden Risks Deep Scan)
-Проведите ПОСТРОЧНЫЙ анализ на скрытые угрозы:
-- АВТОМАТИЧЕСКАЯ пролонгация на невыгодных условиях?
-- ОДНОСТОРОННЕЕ изменение цены/объёма/условий без ограничений?
-- НЕСОРАЗМЕРНЫЕ штрафы/неустойки (более 0.5% в день, более 50% от суммы)?
-- ОТСУТСТВИЕ верхнего предела (cap) неустойки?
-- СЛОЖНАЯ или ДОРОГАЯ процедура расторжения?
-- Невыгодная подсудность или принудительный арбитраж?
-- ДИСБАЛАНС прав и обязанностей (одна сторона имеет больше прав)?
-- ПРИВЯЗКА к курсу валюты без ограничения коридора?
-- Передача прав третьим лицам без согласия?
-- Автоматический отказ от претензий при определённых условиях?
-- Нечёткая процедура приёмки (кто подписывает акт, в какие сроки)?
-
-## ЭТАП 5: АНАЛИЗ ДВУСМЫСЛЕННОСТЕЙ (Ambiguity Deep Analysis)
-Найдите ВСЕ размытые формулировки и для КАЖДОЙ предложите КОНКРЕТНУЮ замену:
-- "В разумный срок" → укажите КОНКРЕТНЫЙ срок (например: "в течение 10 рабочих дней")
-- "Надлежащим образом" → укажите КОНКРЕТНЫЕ критерии качества
-- "По согласованию сторон" → предусмотрите процедуру (письменное уведомление за X дней)
-- "По мере необходимости" → укажите КОНКРЕТНЫЕ триггеры/условия
-- "Иные расходы" → перечислите ВСЕ виды расходов
-- "Существенное нарушение" → определите КРИТЕРИИ существенности
-- "Своевременно" → укажите ТОЧНЫЙ срок
-- "Соответствующий" → укажите КАКОЙ ИМЕННО
-- "Может быть изменён" → укажите ПРОЦЕДУРУ изменения
-- Любые другие нечёткие формулировки
-
-## ЭТАП 6: ПРОВЕРКА ЗАЩИТНЫХ МЕХАНИЗМОВ (Protection Check)
-Наличие и качество:
-- Порядок разрешения споров (претензионный + судебный)
-- Форс-мажор (определение + процедура уведомления + последствия)
-- Конфиденциальность (если применимо)
-- Ответственность сторон (КОНКРЕТНЫЕ ставки неустоек, а не "в соответствии с законодательством")
-- Порядок расторжения (условия + сроки уведомления + последствия)
-- Порядок изменения условий (письменно? доп. соглашение?)
-- Антикоррупционная оговорка (для крупных контрактов)
-- Уведомления (адреса, способы, сроки)
-
-## ЭТАП 7: ФИНАНСОВЫЙ АНАЛИЗ РИСКОВ (Financial Risk Assessment)
-Оцените потенциальные финансовые потери:
-- Максимальные штрафы/неустойки для КАЖДОЙ стороны
-- Потенциальные убытки при расторжении
-- Скрытые расходы (пошлины, экспертизы, доставка, хранение)
-- Налоговые риски (НДС, валютные операции)
-
-## ЭТАП 8: ИТОГОВАЯ ОЦЕНКА И СТРАТЕГИЯ (Final Assessment)
-Сведите всё воедино:
-- Общая оценка с обоснованием КАЖДОГО балла
-- ТОП-3 критичных проблемы, которые надо исправить ПЕРВЫМИ
-- Стратегия переговоров: на чём НАСТАИВАТЬ, где можно УСТУПИТЬ
-- Оценка баланса интересов сторон
-
-═══════════════════════════════════════════════════════════════
-📊 ШКАЛА ОЦЕНКИ (validity_score) — КАЛИБРОВАННАЯ:
-═══════════════════════════════════════════════════════════════
-- 90-100: Профессиональный договор. Все существенные условия, нет нарушений, грамотные формулировки
-- 80-89: Хороший. Основа крепкая, но есть пробелы в защитных механизмах
-- 70-79: Приемлемый. Пропущены важные условия, есть размытые формулировки
-- 60-69: Слабый. Отсутствуют существенные условия или есть правовые нарушения
-- 40-59: Плохой. Множественные нарушения, критические пробелы
-- 0-39: Опасный. Подписание создаёт серьёзные правовые риски
-
-═══════════════════════════════════════════════════════════════
-📤 ФОРМАТ ВЫВОДА — СТРОГО JSON:
-═══════════════════════════════════════════════════════════════
-
-ВАЖНО: Каждое поле должно содержать КОНКРЕТНОЕ описание. fix и drafted_text — готовый юридический текст.
-
-```json
 {{
   "validity_score": <0-100>,
-  "score_explanation": "<Объяснение оценки: что повысило балл, что снизило>",
-  "contract_type": "<тип договора>",
-  "strictness_level": "maximum",
-
+  "score_explanation": "<краткое объяснение оценки>",
   "critical_errors": [
     {{
-      "error": "<Описание нарушения: ЧТО нарушено, ГДЕ (номер пункта), ПОЧЕМУ критично>",
-      "article": "<ТОЧНАЯ ссылка из ПРАВОВОГО КОНТЕКСТА: 'Статья X, часть Y ГК РУз: [краткая цитата нормы]'>",
-      "consequence": "<КОНКРЕТНЫЕ последствия: 'Договор может быть признан незаключённым по ст. 364 ГК. Финансовый риск: до X сум штрафа + возмещение убытков контрагенту'>",
-      "fix": "<ГОТОВЫЙ текст пункта договора для замены/добавления. Формулировка должна быть ЮРИДИЧЕСКИ ТОЧНОЙ и готовой к вставке в договор.>"
+      "error": "<описание проблемы>",
+      "article": "<Статья X ГК РУз / название закона>",
+      "fix": "<готовый текст пункта для добавления или замены>"
     }}
   ],
-
-  "hidden_risks": [
-    {{
-      "risk": "<Описание скрытой угрозы>",
-      "location": "<Точное место: 'Пункт X.Y договора' или 'Раздел Z'>",
-      "severity": "high/medium",
-      "financial_impact": "<Оценка потенциальных потерь>",
-      "mitigation": "<КОНКРЕТНЫЕ действия: что изменить, что добавить, что удалить>"
-    }}
-  ],
-
-  "ambiguities": [
-    {{
-      "phrase": "<ТОЧНАЯ цитата размытой фразы из договора>",
-      "location": "<Пункт X.Y>",
-      "risk": "<КАК суд может истолковать? Какая сторона пострадает?>",
-      "suggestion": "<ТОЧНАЯ замена формулировки — готовый текст для вставки>"
-    }}
-  ],
-
   "warnings": [
     {{
-      "risk": "<Умеренный риск (1-2 предложения)>",
-      "explanation": "<Пояснение: почему это проблема и кто пострадает>",
-      "article": "<Ссылка на норму, если применимо>",
-      "suggestion": "<КОНКРЕТНАЯ рекомендация с готовой формулировкой>"
+      "risk": "<описание риска>",
+      "explanation": "<почему это проблематично>",
+      "suggestion": "<рекомендуемое действие>"
     }}
   ],
-
   "missing_clauses": [
     {{
-      "clause_name": "<Название пункта>",
-      "importance": "critical/high/medium",
-      "reason": "<ЗАЧЕМ этот пункт нужен ПРАКТИЧЕСКИ — описание реального сценария, когда его отсутствие приведёт к проблемам>",
-      "article_reference": "<Ссылка на статью, ЕСЛИ требуется по закону>",
-      "drafted_text": "<Готовый текст пункта для вставки в договор: юридически точная формулировка>"
+      "clause_name": "<название необходимого пункта>",
+      "article_reference": "<статья, требующая это>",
+      "drafted_text": "<полный текст пункта для копирования>"
     }}
   ],
-
-  "positive_aspects": ["<1-2 позитивных момента>"],
-
-  "summary": "<1-2 предложения: оценка и рекомендация (подписывать/доработать/отказаться)>",
-
+  "hidden_risks": [
+    {{
+      "risk": "<описание скрытого риска>",
+      "location": "<где найдено в договоре>",
+      "severity": "high/medium/low",
+      "mitigation": "<как устранить>"
+    }}
+  ],
+  "ambiguities": [
+    {{
+      "phrase": "<цитата размытой формулировки>",
+      "risk": "<чем опасна>",
+      "suggestion": "<точная замена>"
+    }}
+  ],
+  "summary": "<2-3 предложения: общая оценка и рекомендация>",
   "negotiation_strategy": "<2-3 ключевых совета для переговоров>"
 }}
-```
 
-═══════════════════════════════════════════════════════════════
-📚 ПРАВОВОЙ КОНТЕКСТ (используйте ТОЛЬКО эти ссылки):
-═══════════════════════════════════════════════════════════════
-
+ПРАВОВОЙ КОНТЕКСТ ИЗ ЗАКОНОДАТЕЛЬСТВА УЗБЕКИСТАНА:
 {context}
 
-═══════════════════════════════════════════════════════════════
-📄 ДОГОВОР ДЛЯ АНАЛИЗА:
-═══════════════════════════════════════════════════════════════
-
+ДОГОВОР ДЛЯ АНАЛИЗА:
 {contract_text}
 
-═══════════════════════════════════════════════════════════════
-⚠️ ФИНАЛЬНЫЕ ИНСТРУКЦИИ:
-═══════════════════════════════════════════════════════════════
-
-1. Верните ТОЛЬКО валидный JSON без дополнительного текста (никаких ```json обёрток).
-2. Ограничьте количество элементов: максимум 3 critical_errors, 3 warnings, 3 missing_clauses, 2 ambiguities, 2 hidden_risks. Указывайте ТОЛЬКО самые важные.
-3. fix и drafted_text — КРАТКИЙ готовый юридический текст (1-3 строки).
-4. Будьте ЛАКОНИЧНЫ в каждом поле — без повторов и воды.
-5. ВАЖНО: ответ ОБЯЗАН уместиться в лимит токенов. Краткость критична."""
+Проанализируйте договор и верните ТОЛЬКО JSON-ответ без дополнительного текста.
+Ограничьте: максимум 3 critical_errors, 3 warnings, 3 missing_clauses, 2 hidden_risks, 2 ambiguities.
+fix и drafted_text — КРАТКИЙ готовый юридический текст (1-3 строки).
+ВАЖНО: ответ ОБЯЗАН уместиться в лимит токенов. Краткость критична."""
 
 # ═══════════════════════════════════════════════════════════════
 # 📄 DOCUMENT VALIDATOR PROMPTS (11-BLOCK COMPREHENSIVE ANALYSIS)
@@ -6011,9 +5840,9 @@ class AIService:
                     )
 
                 # ═══════════════════════════════════════════
-                # PHASE 2: FULL LEGAL VALIDATION
+                # PHASE 2: CONTRACT VALIDATION (same logic as analyze_contract)
                 # ═══════════════════════════════════════════
-                yield {"type": "status", "text": "🔍 **Фаза 2/3: Полная юридическая экспертиза черновика...**"}
+                yield {"type": "status", "text": "🔍 **Фаза 2/3: Юридическая проверка черновика...**"}
 
                 # 2.1: Detect contract type
                 contract_info = await self._detect_contract_type(draft_text, user_id=user_id)
@@ -6022,13 +5851,12 @@ class AIService:
                 # 2.2: Build targeted validation RAG queries
                 validation_queries = self._build_contract_validation_queries(contract_info)
 
-                # 2.3: Agentic RAG retrieval for validation
+                # 2.3: RAG retrieval for validation
                 yield {"type": "status", "text": "📚 **Поиск релевантных статей законов для валидации...**"}
                 validation_context_results = []
                 try:
                     for qi, query in enumerate(validation_queries):
                         try:
-                            yield {"type": "status", "text": f"📚 **Валидация: поиск норм ({qi+1}/{len(validation_queries)})...**"}
                             context_results = await self._enhanced_retrieve_context(query=query, top_k=10)
                             validation_context_results.extend(context_results)
                         except Exception as e:
@@ -6058,34 +5886,17 @@ class AIService:
                     logger.warning(f"Validation RAG retrieval failed: {e}")
                     validation_legal_context = generation_legal_context
 
-                # 2.4: Deep Structural Audit (8-step)
-                yield {"type": "status", "text": "📜 **Глубокий 8-этапный аудит по законодательству...**"}
+                # 2.4: Contract audit (same as analyze_contract)
+                yield {"type": "status", "text": "📜 **Аудит черновика по законодательству...**"}
 
-                specific_checks = contract_info.get('specific_checks', [])
-                checks_text = '\n'.join(f'- {check}' for check in specific_checks) if specific_checks else '- Стандартные проверки по ГК РУз'
-
-                enhanced_audit_prompt = f"""═══════════════════════════════════════════════════════════════
-🔎 ПРЕДВАРИТЕЛЬНЫЙ АНАЛИЗ ДОГОВОРА:
-═══════════════════════════════════════════════════════════════
-
-Тип договора: {contract_info.get('contract_type', 'не определен')}
-Ключевые темы: {', '.join(contract_info.get('key_topics', []))}
-Проверяемые области права: {', '.join(contract_info.get('legal_areas', []))}
-Специфические проверки:
-{checks_text}
-
-═══════════════════════════════════════════════════════════════
-
-{CONTRACT_AUDIT_PROMPT}"""
-
-                audit_prompt = enhanced_audit_prompt.format(
+                audit_prompt = CONTRACT_AUDIT_PROMPT.format(
                     context=validation_legal_context,
                     contract_text=draft_text
                 )
 
                 raw_audit_text = ""
                 chunk_count = 0
-                
+
                 async with self.client.messages.stream(
                     model=self.settings.claude_haiku_model,
                     max_tokens=MAX_OUTPUT_TOKENS,
@@ -6103,10 +5914,10 @@ class AIService:
                         raw_audit_text += text
                         chunk_count += 1
                         if chunk_count % 50 == 0:
-                            yield {"type": "status", "text": "📜 **Глубокий 8-этапный аудит... (анализ)**"}
+                            yield {"type": "status", "text": "📜 **Аудит черновика... (анализ)**"}
 
                     audit_response = await stream.get_final_message()
-                
+
                 raw_audit_text = raw_audit_text.strip()
 
                 # Track usage for audit
@@ -6122,7 +5933,6 @@ class AIService:
 
                 # Parse audit JSON
                 audit = {}
-                # raw_audit_text is already populated from the stream
                 try:
                     json_text = raw_audit_text
                     if "```" in json_text:
@@ -6137,7 +5947,6 @@ class AIService:
                     try:
                         audit = json.loads(json_text)
                     except json.JSONDecodeError:
-                        # Attempt truncated JSON recovery
                         logger.warning("Ultra audit JSON truncated, attempting recovery...")
                         repaired = json_text
                         last_complete = max(repaired.rfind('},'), repaired.rfind('"],'), repaired.rfind('"]'))
@@ -6157,123 +5966,27 @@ class AIService:
                         "hidden_risks": [], "ambiguities": [], "summary": raw_audit_text[:2000]
                     }
 
-                audit['contract_type'] = contract_info.get('contract_type', 'не определен')
-                audit['detected_topics'] = contract_info.get('key_topics', [])
-                logger.info(f"Structural audit complete. Score: {audit.get('validity_score', 'N/A')}")
+                logger.info(f"Contract audit complete. Score: {audit.get('validity_score', 'N/A')}")
 
-                # 2.5: Red Team Analysis
-                yield {"type": "status", "text": "⚔️ **Red Team — поиск лазеек и уязвимостей...**"}
-                red_team_json = {}
-                try:
-                    raw_red_text = ""
-                    chunk_count = 0
-                    async with self.client.messages.stream(
-                        model=self.settings.claude_haiku_model,
-                        max_tokens=4000,
-                        thinking={
-                            "type": "enabled",
-                            "budget_tokens": self.settings.thinking_budget_tokens // 2 # Less thinking for Red Team
-                        },
-                        messages=[{
-                            "role": "user",
-                            "content": RED_TEAM_PROMPT + f"\n\nТЕКСТ ДОГОВОРА:\n{draft_text}"
-                        }]
-                    ) as stream:
-                        async for text in stream.text_stream:
-                            raw_red_text += text
-                            chunk_count += 1
-                            if chunk_count % 30 == 0:
-                                yield {"type": "status", "text": "⚔️ **Red Team — поиск лазеек... (анализ)**"}
-                        
-                        red_team_response = await stream.get_final_message()
-
-                    red_team_json = json.loads(self._clean_json_response(raw_red_text))
-                    # Track usage
-                    if hasattr(red_team_response, 'usage'):
-                        usage_meta = red_team_response.usage
-                        await UsageService.track_usage_async(
-                            user_id=user_id,
-                            model_name=self.settings.claude_haiku_model,
-                            input_tokens=usage_meta.input_tokens,
-                            output_tokens=usage_meta.output_tokens,
-                            request_type="contract_ultra_phase2_redteam"
-                        )
-                except Exception as e:
-                    logger.warning(f"Red Team analysis error: {e}")
-
-                # 2.6: Risk Simulation
-                yield {"type": "status", "text": "🌪 **Стресс-тест — симуляция проблемных сценариев...**"}
-                risk_json = {}
-                try:
-                    raw_risk_text = ""
-                    chunk_count = 0
-                    async with self.client.messages.stream(
-                        model=self.settings.claude_haiku_model,
-                        max_tokens=4000,
-                        thinking={
-                            "type": "enabled",
-                            "budget_tokens": self.settings.thinking_budget_tokens // 2
-                        },
-                        messages=[{
-                            "role": "user",
-                            "content": RISK_SIMULATION_PROMPT + f"\n\nТЕКСТ ДОГОВОРА:\n{draft_text}"
-                        }]
-                    ) as stream:
-                        async for text in stream.text_stream:
-                            raw_risk_text += text
-                            chunk_count += 1
-                            if chunk_count % 30 == 0:
-                                yield {"type": "status", "text": "🌪 **Стресс-тест — симуляция проблем... (анализ)**"}
-
-                        risk_response = await stream.get_final_message()
-
-                    risk_json = json.loads(self._clean_json_response(raw_risk_text))
-                    # Track usage
-                    if hasattr(risk_response, 'usage'):
-                        usage_meta = risk_response.usage
-                        await UsageService.track_usage_async(
-                            user_id=user_id,
-                            model_name=self.settings.claude_haiku_model,
-                            input_tokens=usage_meta.input_tokens,
-                            output_tokens=usage_meta.output_tokens,
-                            request_type="contract_ultra_phase2_risktest"
-                        )
-                except Exception as e:
-                    logger.warning(f"Risk simulation error: {e}")
-
-                # ═══════════════════════════════════════════
-                # STREAM ANALYSIS REPORT AS VISIBLE CONTENT
-                # ═══════════════════════════════════════════
-                # REQUEST CHANGE: Do not show analysis report in the response, only the final contract.
-                # yielding status only.
-                yield {"type": "status", "text": "📊 **Анализ завершен. Формирование финального договора...**"}
-
-                # NOTE: The visual streaming of 'header', 'critical_errors', 'risks' etc. 
-                # has been removed to satisfy the user request.
-                # However, we still collect the errors for Phase 3 Fixes.
-
-                score = audit.get('validity_score', 0)
+                # Collect all issues from audit for Phase 3
                 all_errors_found = []
 
-                # --- Collect Critical Errors for context ---
                 if audit.get('critical_errors'):
                     for e in audit['critical_errors']:
                         all_errors_found.append({
                             'type': 'critical_error', 'category': 'Критическая ошибка',
                             'description': e.get('error'), 'article': e.get('article'),
-                            'consequence': e.get('consequence'), 'fix': e.get('fix')
+                            'fix': e.get('fix')
                         })
 
-                # --- Collect Hidden Risks ---
                 if audit.get('hidden_risks'):
                     for r in audit['hidden_risks']:
                         all_errors_found.append({
                             'type': 'hidden_risk', 'category': 'Скрытый риск',
                             'description': r.get('risk'), 'location': r.get('location'),
-                            'severity': r.get('severity'), 'mitigation': r.get('mitigation')
+                            'mitigation': r.get('mitigation')
                         })
 
-                # --- Collect Ambiguities ---
                 if audit.get('ambiguities'):
                     for a in audit['ambiguities']:
                         all_errors_found.append({
@@ -6282,7 +5995,6 @@ class AIService:
                             'suggestion': a.get('suggestion')
                         })
 
-                # --- Collect Warnings ---
                 if audit.get('warnings'):
                     for w in audit['warnings']:
                         all_errors_found.append({
@@ -6291,47 +6003,21 @@ class AIService:
                             'suggestion': w.get('suggestion')
                         })
 
-                # --- Collect Missing Clauses ---
                 if audit.get('missing_clauses'):
                     for m in audit['missing_clauses']:
                         all_errors_found.append({
                             'type': 'missing_clause', 'category': 'Отсутствующая оговорка',
-                            'description': m.get('clause_name'), 'importance': m.get('importance'),
+                            'description': m.get('clause_name'),
                             'article_reference': m.get('article_reference'),
                             'drafted_text': m.get('drafted_text')
                         })
 
-                # --- Collect Red Team Findings ---
-                if red_team_json.get('loop_holes'):
-                    for lh in red_team_json['loop_holes']:
-                        all_errors_found.append({'type': 'loophole', 'category': 'Лазейка', 'description': lh})
-                if red_team_json.get('unfair_terms'):
-                    for ut in red_team_json['unfair_terms']:
-                        all_errors_found.append({'type': 'unfair_term', 'category': 'Несправедливое условие', 'description': ut})
-                if red_team_json.get('ambiguities'):
-                    for amb in red_team_json['ambiguities']:
-                        all_errors_found.append({'type': 'red_team_ambiguity', 'category': 'Нечеткая формулировка (Red Team)', 'description': amb})
-
-                # --- Collect Stress Test Findings ---
-                if risk_json.get('scenarios'):
-                    risky = [s for s in risk_json['scenarios'] if s.get('verdict') in ['Risky', 'Critical']]
-                    if risky:
-                         for s in risky:
-                            all_errors_found.append({
-                                'type': 'risk_scenario', 'category': 'Риск-сценарий',
-                                'description': f"{s['name']}: {s.get('outcome')}", 'verdict': s.get('verdict')
-                            })
-
-                # --- No visual output for analysis, proceed to Phase 3 ---
-                # We do NOT yield content here.
-
                 # Save validation data
-                ultra_data = {
-                    'structural_audit': audit, 'contract_info': contract_info,
-                    'red_team': red_team_json, 'risk_simulation': risk_json,
+                context['ultra_data'] = {
+                    'audit': audit,
+                    'contract_info': contract_info,
                     'total_issues_found': len(all_errors_found),
                 }
-                context['ultra_data'] = ultra_data
 
                 # ═══════════════════════════════════════════
                 # PHASE 3: GENERATE FINAL VALIDATED CONTRACT
@@ -6339,7 +6025,7 @@ class AIService:
                 yield {"type": "status", "text": f"✨ **Фаза 3/3: Генерация финального договора с учётом {len(all_errors_found)} проблем...**"}
 
                 # Build fix instructions
-                fix_instructions = ["# ПОЛНЫЙ ПЕРЕЧЕНЬ ПРОБЛЕМ ДЛЯ УСТРАНЕНИЯ\n"]
+                fix_instructions = []
                 errors_by_type = {}
                 for err in all_errors_found:
                     et = err['category']
@@ -6348,78 +6034,52 @@ class AIService:
                     errors_by_type[et].append(err)
 
                 for err_category, errors in errors_by_type.items():
-                    fix_instructions.append(f"\n## {err_category} ({len(errors)} проблем):")
+                    fix_instructions.append(f"\n## {err_category} ({len(errors)}):")
                     for i, err in enumerate(errors, 1):
-                        fix_instructions.append(f"\n{i}. **{err.get('description', 'Без описания')}**")
+                        fix_instructions.append(f"{i}. {err.get('description', 'Без описания')}")
                         if err.get('article'):
-                            fix_instructions.append(f"   - Статья закона: {err['article']}")
+                            fix_instructions.append(f"   Статья: {err['article']}")
                         if err.get('fix'):
-                            fix_instructions.append(f"   - Готовое исправление: {err['fix']}")
+                            fix_instructions.append(f"   Исправление: {err['fix']}")
                         if err.get('mitigation'):
-                            fix_instructions.append(f"   - Способ устранения: {err['mitigation']}")
+                            fix_instructions.append(f"   Устранение: {err['mitigation']}")
                         if err.get('suggestion'):
-                            fix_instructions.append(f"   - Рекомендация: {err['suggestion']}")
+                            fix_instructions.append(f"   Рекомендация: {err['suggestion']}")
                         if err.get('drafted_text'):
-                            fix_instructions.append(f"   - Готовый текст пункта:\n```\n{err['drafted_text']}\n```")
-                        if err.get('consequence'):
-                            fix_instructions.append(f"   - Последствия: {err['consequence']}")
+                            fix_instructions.append(f"   Текст пункта: {err['drafted_text']}")
 
                 fix_instructions_text = "\n".join(fix_instructions)
 
-                report_summary = f"Оценка: {score}/100. Обнаружено: {len(all_errors_found)} проблем. Критических: {len(audit.get('critical_errors', []))}. Скрытых рисков: {len(audit.get('hidden_risks', []))}. Размытых формулировок: {len(audit.get('ambiguities', []))}. Отсутствующих пунктов: {len(audit.get('missing_clauses', []))}."
+                score = audit.get('validity_score', 0)
+                report_summary = f"Оценка: {score}/100. Обнаружено проблем: {len(all_errors_found)}."
 
-                final_prompt = f"""═══════════════════════════════════════════════════════════════
-🎯 ЗАДАЧА: ГЕНЕРАЦИЯ ФИНАЛЬНОГО ВАЛИДИРОВАННОГО ДОГОВОРА
-═══════════════════════════════════════════════════════════════
+                final_prompt = f"""Исправьте черновик договора, устранив найденные проблемы. СОХРАНЯЙТЕ СТРУКТУРУ ШАБЛОНА.
 
-Вы получили ЧЕРНОВИК договора, который прошёл ПОЛНУЮ юридическую экспертизу (8-этапный аудит, Red Team, стресс-тест).
-Исправьте черновик, устранив ВСЕ найденные проблемы. СОХРАНЯЙТЕ СТРУКТУРУ ШАБЛОНА — НЕ добавляйте новые разделы.
+КАТЕГОРИЯ: {category}
+ТРЕБОВАНИЯ: {requirements}
 
-═══════════════════════════════════════════════════════════════
-📋 ИСХОДНЫЕ ДАННЫЕ:
-═══════════════════════════════════════════════════════════════
-Категория: {category}
-Требования: {requirements}
-
-═══════════════════════════════════════════════════════════════
-📜 ШАБЛОНЫ ДОГОВОРОВ:
-═══════════════════════════════════════════════════════════════
+ШАБЛОНЫ ДОГОВОРОВ:
 {template_context}
 
-═══════════════════════════════════════════════════════════════
-📜 ПРАВОВОЙ КОНТЕКСТ (законодательство РУз):
-═══════════════════════════════════════════════════════════════
+ПРАВОВОЙ КОНТЕКСТ:
 {validation_legal_context}
 
-═══════════════════════════════════════════════════════════════
-📄 ЧЕРНОВИК (содержит ошибки — основа для исправления):
-═══════════════════════════════════════════════════════════════
+ЧЕРНОВИК (основа для исправления):
 {draft_text}
 
-═══════════════════════════════════════════════════════════════
-📊 РЕЗУЛЬТАТЫ ЭКСПЕРТИЗЫ:
-═══════════════════════════════════════════════════════════════
-{report_summary}
+РЕЗУЛЬТАТЫ ПРОВЕРКИ: {report_summary}
 
-═══════════════════════════════════════════════════════════════
-🛠 ВСЕ ПРОБЛЕМЫ И ИСПРАВЛЕНИЯ:
-═══════════════════════════════════════════════════════════════
+ПРОБЛЕМЫ ДЛЯ УСТРАНЕНИЯ:
 {fix_instructions_text}
 
-═══════════════════════════════════════════════════════════════
-⚖️ ТРЕБОВАНИЯ К ФИНАЛЬНОМУ ДОГОВОРУ:
-═══════════════════════════════════════════════════════════════
-
-1. СТРОГО СЛЕДУЙТЕ СТРУКТУРЕ ШАБЛОНА — используйте ТОЛЬКО разделы из предоставленного шаблона
-2. Устраните найденные проблемы, применяя ГОТОВЫЕ формулировки из полей "fix" и "drafted_text"
-3. Замените двусмысленные формулировки на ТОЧНЫЕ (сроки в рабочих днях, суммы, проценты)
-4. Обеспечьте ЗЕРКАЛЬНУЮ ответственность для обеих сторон
+ТРЕБОВАНИЯ:
+1. СТРОГО СЛЕДУЙТЕ СТРУКТУРЕ ШАБЛОНА — НЕ добавляйте новые разделы
+2. Устраните найденные проблемы, используя готовые формулировки из полей "fix" и "drafted_text"
+3. Замените размытые формулировки на точные
+4. Обеспечьте зеркальную ответственность сторон
 5. Все суммы — ТОЛЬКО в UZS
-6. Ссылайтесь на статьи ГК РУз
-7. Устраните лазейки из Red Team и защитите от рисковых сценариев
-8. КАЖДЫЙ пункт — конкретное условие (не общие фразы)
-9. Будьте КОМПАКТНЫ: без воды, повторов и избыточных формулировок
-10. НЕ раздувайте договор — генерируйте длинный договор ТОЛЬКО если этого требуют требования пользователя
+6. Будьте КОМПАКТНЫ: без воды и повторов
+7. НЕ раздувайте договор — длинный ТОЛЬКО если требуют требования пользователя
 
 НАЧИНАЙТЕ СРАЗУ С ЗАГОЛОВКА ДОГОВОРА. БЕЗ комментариев."""
 
@@ -6435,8 +6095,7 @@ class AIService:
                     ) as stream:
                         async for text in stream.text_stream:
                             yield {"type": "content", "text": text}
-                        
-                        # Track usage for Phase 3 (Synthesis)
+
                         try:
                             final_message = await stream.get_final_message()
                             if hasattr(final_message, 'usage'):
@@ -6450,7 +6109,6 @@ class AIService:
                                 )
                         except Exception as usage_err:
                             logger.warning(f"Failed to track Ultra P3 usage: {usage_err}")
-
 
                 except Exception as e:
                     logger.error(f"Ultra generation P3 error: {e}")
@@ -6794,7 +6452,7 @@ class AIService:
                 "audit": audit,
                 "sources": sources,
                 "contract_info": contract_info,
-                "raw_response": raw_text,
+                "raw_response": json.dumps(audit, ensure_ascii=False),
             }
 
         except json.JSONDecodeError as e:

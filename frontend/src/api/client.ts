@@ -594,31 +594,35 @@ export async function analyzeContract(contract: string): Promise<ContractAnalysi
     method: 'POST',
     body: JSON.stringify({ contract }),
   });
-  
+
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || 'Analysis failed');
+    try {
+      const error = await response.json();
+      throw new Error(error.detail || 'Analysis failed');
+    } catch (e) {
+      if (e instanceof Error && e.message !== 'Analysis failed') throw e;
+      throw new Error('Analysis failed');
+    }
   }
-  
+
   const data = await response.json();
-  
-  // API returns { audit: {...}, sources: [...] } structure
+
+  // API returns { success, analysis_id, audit: {...}, sources: [...] } structure
   // Flatten it to match ContractAnalysis interface
   return {
     id: data.analysis_id || 0,
     contract_preview: contract.substring(0, 100) + '...',
-    validity_score: data.audit?.validity_score || 0,
-    score_explanation: data.audit?.score_explanation || '',
-    critical_errors: data.audit?.critical_errors || [],
-    warnings: data.audit?.warnings || [],
-    missing_clauses: data.audit?.missing_clauses || [],
-    summary: data.audit?.summary || '',
-    // Map strict fields
-    strictness_level: data.audit?.strictness_level || 'standard',
-    hidden_risks: data.audit?.hidden_risks || [],
-    ambiguities: data.audit?.ambiguities || [],
-    negotiation_strategy: data.audit?.negotiation_strategy || '',
-    sources: data.sources || [],
+    validity_score: data.audit?.validity_score ?? 0,
+    score_explanation: data.audit?.score_explanation ?? '',
+    critical_errors: data.audit?.critical_errors ?? [],
+    warnings: data.audit?.warnings ?? [],
+    missing_clauses: data.audit?.missing_clauses ?? [],
+    summary: data.audit?.summary ?? '',
+    strictness_level: data.audit?.strictness_level ?? 'standard',
+    hidden_risks: data.audit?.hidden_risks ?? [],
+    ambiguities: data.audit?.ambiguities ?? [],
+    negotiation_strategy: data.audit?.negotiation_strategy ?? '',
+    sources: data.sources ?? [],
   };
 }
 

@@ -40,45 +40,46 @@ class ContractAnalysis(Base):
             'id': self.id,
             'user_id': self.user_id,
             'contract_preview': self.contract_text[:200] + '...' if len(self.contract_text) > 200 else self.contract_text,
-            'validity_score': self.validity_score,
-            'score_explanation': self.score_explanation,
+            'validity_score': self.validity_score or 0,
+            'score_explanation': self.score_explanation or '',
             'critical_errors': self.critical_errors or [],
             'warnings': self.warnings or [],
             'missing_clauses': self.missing_clauses or [],
             'hidden_risks': self.hidden_risks or [],
             'ambiguities': self.ambiguities or [],
-            'summary': self.summary,
+            'summary': self.summary or '',
             'sources': self.sources or [],
-            'created_at': self.created_at.isoformat() if self.created_at else None
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'negotiation_strategy': '',
+            'strictness_level': 'standard',
         }
-        
-        # Try to extract missing fields from raw_response if available
+
+        # Extract extra fields from raw_response (stored as JSON of the audit dict)
         if self.raw_response:
             try:
                 import json
-                raw_data = json.loads(self.raw_response)
-                # If raw_data is wrapped in 'audit', unwrap it
-                audit_data = raw_data.get('audit', raw_data)
-                
-                if not self.hidden_risks:
-                    base_dict['hidden_risks'] = audit_data.get('hidden_risks', [])
-                if not self.ambiguities:
-                    base_dict['ambiguities'] = audit_data.get('ambiguities', [])
-                # Sanitize negotiation_strategy to be a string
+                audit_data = json.loads(self.raw_response)
+                # Handle both formats: raw audit dict or wrapped in 'audit' key
+                if 'audit' in audit_data and isinstance(audit_data['audit'], dict):
+                    audit_data = audit_data['audit']
+
+                # Fill in fields that may be missing from DB columns
+                if not base_dict['hidden_risks']:
+                    base_dict['hidden_risks'] = audit_data.get('hidden_risks', []) or []
+                if not base_dict['ambiguities']:
+                    base_dict['ambiguities'] = audit_data.get('ambiguities', []) or []
+                if not base_dict['score_explanation']:
+                    base_dict['score_explanation'] = audit_data.get('score_explanation', '') or ''
+                if not base_dict['summary']:
+                    base_dict['summary'] = audit_data.get('summary', '') or ''
+
+                # Fields only in raw_response (no DB column)
                 ns = audit_data.get('negotiation_strategy', '')
                 if isinstance(ns, list):
-                    try:
-                        ns = "\n".join(str(s) for s in ns)
-                    except Exception:
-                        ns = str(ns) # Fallback to string representation of the list if join fails
-                base_dict['negotiation_strategy'] = ns
-                
-                base_dict['strictness_level'] = audit_data.get('strictness_level', 'standard')
+                    ns = "\n".join(str(s) for s in ns)
+                base_dict['negotiation_strategy'] = str(ns) if ns else ''
+                base_dict['strictness_level'] = audit_data.get('strictness_level', 'standard') or 'standard'
             except Exception:
-                # If JSON parse fails, return default empty values
-                base_dict['hidden_risks'] = []
-                base_dict['ambiguities'] = []
-                base_dict['negotiation_strategy'] = ''
-                base_dict['strictness_level'] = 'standard'
-        
+                pass
+
         return base_dict

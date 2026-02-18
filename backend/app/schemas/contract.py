@@ -58,10 +58,12 @@ class ValidateContractResponse(BaseModel):
 
 class ContractAnalysisResponse(BaseModel):
     """Response model for contract analysis history item."""
+    model_config = {"extra": "ignore", "from_attributes": True}
+
     id: int
     user_id: int | None = None
-    contract_preview: str
-    validity_score: int
+    contract_preview: str = ""
+    validity_score: int = 0
     score_explanation: str | None = None
     critical_errors: list[dict] = []
     warnings: list[dict] = []
@@ -73,9 +75,18 @@ class ContractAnalysisResponse(BaseModel):
     negotiation_strategy: str = ""
     sources: list[dict] = []
     created_at: datetime | None = None
-    
-    class Config:
-        from_attributes = True
+
+    @model_validator(mode="before")
+    @classmethod
+    def coerce_nulls(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        if data.get("validity_score") is None:
+            data["validity_score"] = 0
+        for key in ["critical_errors", "warnings", "missing_clauses", "hidden_risks", "ambiguities", "sources"]:
+            if not isinstance(data.get(key), list):
+                data[key] = []
+        return data
 
 
 # Generator schemas
@@ -111,8 +122,6 @@ class ValidationData(BaseModel):
     missing_clauses: list[dict] = []
     summary: str = ""
     negotiation_strategy: str = ""
-    red_team_analysis: dict = {}
-    risk_simulation: dict = {}
 
 
 class GeneratedContractResponse(BaseModel):
