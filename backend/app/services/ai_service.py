@@ -6526,7 +6526,7 @@ class AIService:
 
         try:
             response = await self.client.messages.create(
-                model=self.settings.claude_latest_model,
+                model=self.settings.claude_haiku_model,
                 max_tokens=MAX_OUTPUT_TOKENS,
                 system=VALIDATOR_PROMPT,
                 thinking={
@@ -6551,7 +6551,7 @@ class AIService:
                 usage = response.usage
                 await UsageService.track_usage_async(
                     user_id=user_id,
-                    model_name=self.settings.claude_latest_model,
+                    model_name=self.settings.claude_haiku_model,
                     input_tokens=usage.input_tokens,
                     output_tokens=usage.output_tokens,
                     request_type="contract_fix"
