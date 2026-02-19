@@ -4182,17 +4182,20 @@ VALIDATOR_PROMPT = """Вы — система проверки соответс�
 ПРАВИЛА:
 1. Анализируйте ТОЛЬКО на основе предоставленного правового контекста
 2. ВСЕГДА ссылайтесь на конкретные статьи при выявлении проблем
-3. КАЛИБРОВКА СТРОГОСТИ — классифицируйте проблемы АДЕКВАТНО:
-   - **critical_errors** — ТОЛЬКО прямые нарушения императивных норм закона (договор может быть признан недействительным/незаключённым)
-   - **warnings** — риски и рекомендательные замечания (несовершенства, но договор юридически действителен)
-   - **missing_clauses** — ТОЛЬКО пункты, которые РЕАЛЬНО требуются по закону или крайне желательны для защиты сторон
+3. КАЛИБРОВКА СТРОГОСТИ — будьте МЯГКИМИ и ПРАКТИЧНЫМИ:
+   - **critical_errors** — ТОЛЬКО прямые нарушения ИМПЕРАТИВНЫХ норм закона, которые делают договор НЕДЕЙСТВИТЕЛЬНЫМ или НЕЗАКЛЮЧЁННЫМ. Это единственная категория, серьёзно влияющая на оценку.
+   - **warnings** — рекомендательные замечания. НЕ влияют существенно на оценку. Договор без warnings уже хорош.
+   - **missing_clauses** — ТОЛЬКО пункты, ОБЯЗАТЕЛЬНЫЕ по закону. Желательные но необязательные пункты — это warnings, не missing_clauses.
+   - **hidden_risks** — информационные заметки для пользователя. НЕ снижают оценку существенно.
+   - **ambiguities** — стилистические рекомендации. Минимальное влияние на оценку.
    - НЕ раздувайте мелкие замечания до критических ошибок. Стилистические и терминологические неточности — это warnings, не errors.
+   - Если договор НЕ нарушает императивных норм — он ДЕЙСТВИТЕЛЕН, даже если несовершенен. Оценка должна быть ВЫСОКОЙ (75+).
 4. Для каждой проблемы давайте готовый текст исправления (поле fix / drafted_text)
 5. Используйте язык договора для формулировок исправлений
 6. НЕ изобретайте ссылки на законы — используйте ТОЛЬКО то, что есть в контексте
 7. КОМПАКТНОСТЬ: каждое описание (error, risk, fix, drafted_text) — максимум 1-3 предложения. Без воды.
 
-Помните: цель — помочь пользователю обеспечить юридическую корректность договора перед подписанием. Выявляйте ВСЕ реальные проблемы, но не преувеличивайте их серьёзность."""
+Помните: цель — помочь пользователю обеспечить юридическую корректность договора перед подписанием. Выявляйте реальные проблемы, но НЕ ПРЕУВЕЛИЧИВАЙТЕ их серьёзность. Большинство договоров юридически действительны — ставьте высокие оценки если нет критических нарушений закона."""
 
 CONTRACT_AUDIT_PROMPT = """Выполните 3-этапный аудит юридической корректности договора.
 
@@ -4216,6 +4219,13 @@ CONTRACT_AUDIT_PROMPT = """Выполните 3-этапный аудит юри
 
 ## ШАГ 3: РЕКОМЕНДАЦИИ И ИСПРАВЛЕНИЯ
 Для каждой проблемы — короткий готовый текст для вставки (1-3 предложения).
+
+ПРАВИЛА ОЦЕНКИ (validity_score):
+- Оценка 85-100: Нет критических ошибок. Договор юридически корректен. Warnings/risks/ambiguities НЕ снижают оценку ниже 85.
+- Оценка 60-84: Есть 1-2 критические ошибки, но они исправимы.
+- Оценка 30-59: Есть 3+ критических ошибок или серьёзные нарушения закона.
+- Оценка 0-29: Договор грубо нарушает закон, может быть признан недействительным.
+- ВАЖНО: warnings, hidden_risks, missing_clauses и ambiguities — это РЕКОМЕНДАЦИИ. Они НЕ должны существенно снижать оценку. Только critical_errors определяют основную оценку.
 
 ФОРМАТ ВЫВОДА (СТРОГО JSON):
 
@@ -6176,6 +6186,9 @@ class AIService:
                         "hidden_risks": [], "ambiguities": [], "summary": raw_audit_text[:2000]
                     }
 
+                # Recalculate score: critical errors dominate, other categories have minimal impact
+                audit = self._recalculate_validity_score(audit)
+
                 logger.info(f"Contract audit complete. Score: {audit.get('validity_score', 'N/A')}")
 
                 # Collect all issues from audit for Phase 3
@@ -6635,6 +6648,9 @@ class AIService:
             if not isinstance(audit.get('validity_score'), (int, float)):
                 audit['validity_score'] = 0
 
+            # Recalculate score: critical errors dominate, other categories have minimal impact
+            audit = self._recalculate_validity_score(audit)
+
             # Add contract metadata to audit
             audit['contract_type'] = contract_info.get('contract_type', 'не определен')
             audit['detected_topics'] = contract_info.get('key_topics', [])
@@ -6982,6 +6998,45 @@ class AIService:
             "raw_response": raw_text
         }
 
+    def _recalculate_validity_score(self, audit: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Recalculate validity_score so that critical_errors dominate the score.
+        Other categories (warnings, hidden_risks, missing_clauses, ambiguities) have minimal impact.
+        """
+        n_critical = len(audit.get('critical_errors', []))
+        n_warnings = len(audit.get('warnings', []))
+        n_missing = len(audit.get('missing_clauses', []))
+        n_risks = len(audit.get('hidden_risks', []))
+        n_ambiguities = len(audit.get('ambiguities', []))
+
+        # Start from 100, critical errors are the main driver
+        score = 100
+
+        # Critical errors: -20 each (main factor)
+        score -= n_critical * 20
+
+        # Minor categories: very small penalties
+        score -= n_warnings * 1        # warnings barely matter
+        score -= n_missing * 2         # missing clauses: small penalty
+        score -= n_risks * 1           # hidden risks: informational
+        score -= n_ambiguities * 1     # ambiguities: stylistic
+
+        score = max(0, min(100, score))
+
+        ai_score = audit.get('validity_score', 0)
+        if isinstance(ai_score, (int, float)):
+            # Blend: 70% our formula (critical-error-focused), 30% AI score
+            score = int(score * 0.7 + ai_score * 0.3)
+
+        score = max(0, min(100, score))
+
+        old_score = audit.get('validity_score', 0)
+        audit['validity_score'] = score
+        if old_score != score:
+            logger.info(f"Validity score recalculated: {old_score} -> {score} (critical={n_critical}, warn={n_warnings}, missing={n_missing}, risks={n_risks}, ambig={n_ambiguities})")
+
+        return audit
+
     def _parse_contract_audit_response(self, raw_text: str) -> Dict[str, Any]:
         """Helper to extract and parse JSON from contract audit response."""
         json_text = raw_text
@@ -7019,7 +7074,10 @@ class AIService:
                 if field == 'validity_score': audit[field] = 0
                 elif field in ['critical_errors', 'warnings', 'missing_clauses', 'hidden_risks', 'ambiguities']: audit[field] = []
                 else: audit[field] = "Не указано"
-        
+
+        # Recalculate score: critical errors dominate, other categories have minimal impact
+        audit = self._recalculate_validity_score(audit)
+
         return audit
 
     def _parse_document_audit_response(self, raw_text: str) -> Dict[str, Any]:
