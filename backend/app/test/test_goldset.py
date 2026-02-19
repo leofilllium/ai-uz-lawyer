@@ -55,11 +55,25 @@ async def main():
 
     logger.info(f"Loaded {len(goldset)} questions from goldset.json")
 
+    # Load existing answers for resume support
+    answered: dict[str, dict] = {}
+    if ANSWERS_PATH.exists():
+        with open(ANSWERS_PATH, "r", encoding="utf-8") as f:
+            existing = json.load(f)
+        for entry in existing:
+            if entry.get("answer") and not entry["answer"].startswith("ERROR:"):
+                answered[entry["id"]] = entry
+        logger.info(f"Resuming — {len(answered)}/{len(goldset)} already answered, skipping them")
+
     ai_service = AIService(mode="lawyer")
-    answers = []
 
     for i, item in enumerate(goldset):
-        qid = item.get("id", i)
+        qid = item["id"]
+
+        # Skip already answered
+        if qid in answered:
+            continue
+
         question = item["question"]
         logger.info(f"[{i+1}/{len(goldset)}] Answering: {question[:80]}...")
 
@@ -70,14 +84,14 @@ async def main():
             logger.error(f"[{i+1}/{len(goldset)}] Error: {e}")
             answer = f"ERROR: {e}"
 
-        entry = {**item, "answer": answer}
-        answers.append(entry)
+        answered[qid] = {**item, "answer": answer}
 
-        # Save after each question (in case of crash)
+        # Save after each question — rebuild full list in goldset order
+        answers = [answered.get(g["id"], g) for g in goldset if g["id"] in answered]
         with open(ANSWERS_PATH, "w", encoding="utf-8") as f:
             json.dump(answers, f, ensure_ascii=False, indent=2)
 
-    logger.info(f"Done! Saved {len(answers)} answers to {ANSWERS_PATH}")
+    logger.info(f"Done! Saved {len(answered)}/{len(goldset)} answers to {ANSWERS_PATH}")
 
 
 if __name__ == "__main__":

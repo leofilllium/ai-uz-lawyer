@@ -268,6 +268,15 @@ LEGAL_TERMINOLOGY_RU_UZ = {
 }
 
 
+def _is_uzbek_latin(text: str) -> bool:
+    """Check if text is already in Uzbek (Latin script) by looking for Cyrillic characters."""
+    latin_chars = sum(1 for c in text if c.isalpha() and ord(c) < 0x0400)
+    cyrillic_chars = sum(1 for c in text if c.isalpha() and 0x0400 <= ord(c) <= 0x04FF)
+    if latin_chars + cyrillic_chars == 0:
+        return False
+    return cyrillic_chars / (latin_chars + cyrillic_chars) < 0.3
+
+
 def fast_translate_to_uzbek(text: str) -> str:
     """
     Fast dictionary-based Russian → Uzbek translation for search queries.
@@ -5080,12 +5089,27 @@ class AIService:
         # ── Step 1: Generate query variants ──
         query_variants = [query]
         
-        # Fast dictionary translation (no LLM call)
-        dict_translated = fast_translate_to_uzbek(query)
-        if dict_translated != query and dict_translated.lower() != query.lower():
-            query_variants.append(dict_translated)
-            logger.info(f"Dict-translated query: '{query}' → '{dict_translated}'")
-        
+        # Skip translation if query is already in Uzbek Latin
+        if _is_uzbek_latin(query):
+            logger.info(f"Query is already in Uzbek, skipping translation")
+        else:
+            # Fast dictionary translation (no LLM call)
+            dict_translated = fast_translate_to_uzbek(query)
+            if dict_translated != query and dict_translated.lower() != query.lower():
+                query_variants.append(dict_translated)
+                logger.info(f"Dict-translated query: '{query}' → '{dict_translated}'")
+
+            # LLM translation as fallback
+            dict_coverage = sum(1 for w in query.lower().split() if w in LEGAL_TERMINOLOGY_RU_UZ)
+            if dict_coverage < len(query.split()) * 0.3:
+                try:
+                    llm_translated = await self._translate_to_uzbek(query)
+                    if llm_translated and llm_translated != query and llm_translated not in query_variants:
+                        query_variants.append(llm_translated)
+                        logger.info(f"LLM-translated query: '{llm_translated}'")
+                except Exception as e:
+                    logger.warning(f"LLM translation failed: {e}")
+
         # Extract Uzbek keywords for targeted keyword search
         uzbek_keywords = extract_search_keywords(query)
         if uzbek_keywords:
@@ -5093,17 +5117,6 @@ class AIService:
             if keyword_query not in query_variants:
                 query_variants.append(keyword_query)
                 logger.info(f"Keyword query: '{keyword_query}'")
-        
-        # LLM translation as fallback
-        dict_coverage = sum(1 for w in query.lower().split() if w in LEGAL_TERMINOLOGY_RU_UZ)
-        if dict_coverage < len(query.split()) * 0.3:
-            try:
-                llm_translated = await self._translate_to_uzbek(query)
-                if llm_translated and llm_translated != query and llm_translated not in query_variants:
-                    query_variants.append(llm_translated)
-                    logger.info(f"LLM-translated query: '{llm_translated}'")
-            except Exception as e:
-                logger.warning(f"LLM translation failed: {e}")
         
         logger.info(f"Search with {len(query_variants)} query variants")
         
@@ -5321,10 +5334,11 @@ class AIService:
                 task_description[:100],
                 " ".join(task_description.split()[:8]),
             ]
-            # Add translated variant
-            translated = fast_translate_to_uzbek(task_description[:100])
-            if translated != task_description[:100]:
-                fallback_queries.append(translated)
+            # Add translated variant (skip if already Uzbek)
+            if not _is_uzbek_latin(task_description):
+                translated = fast_translate_to_uzbek(task_description[:100])
+                if translated != task_description[:100]:
+                    fallback_queries.append(translated)
 
             for fq in fallback_queries:
                 try:
@@ -5800,6 +5814,8 @@ class AIService:
              }
 
     async def _translate_to_uzbek(self, text: str) -> str:
+        if _is_uzbek_latin(text):
+            return text
         dict_result = fast_translate_to_uzbek(text)
         if dict_result != text and dict_result.lower() != text.lower():
             return dict_result
