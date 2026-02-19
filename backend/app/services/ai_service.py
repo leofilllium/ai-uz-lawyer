@@ -6755,6 +6755,7 @@ class AIService:
         # Step 3: Audit with Claude Thinking
         yield {"type": "status", "text": "⚖️ Глубокий правовой аудит (Claude Thinking)..."}
         
+        checks_list = '\n'.join(f'- {check}' for check in specific_checks) if specific_checks else '- Стандартные проверки по ГК РУз'
         enhanced_prompt = f"""═══════════════════════════════════════════════════════════════
 🔎 ПРЕДВАРИТЕЛЬНЫЙ АНАЛИЗ ДОГОВОРА (используй при аудите):
 ═══════════════════════════════════════════════════════════════
@@ -6763,7 +6764,7 @@ class AIService:
 Ключевые темы: {', '.join(contract_info.get('key_topics', []))}
 Проверяемые области права: {', '.join(contract_info.get('legal_areas', []))}
 Специфические проверки, на которые обратить ОСОБОЕ внимание:
-{'\n'.join(f'- {check}' for check in specific_checks) if specific_checks else '- Стандартные проверки по ГК РУз'}
+{checks_list}
 
 ═══════════════════════════════════════════════════════════════
 
