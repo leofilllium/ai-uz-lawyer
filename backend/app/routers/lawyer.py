@@ -155,13 +155,42 @@ async def chat(
 
             logger.info(f"query_with_rag returned. Starting to stream response...")
             
-            # Stream the response
-            async for chunk in result['response']:
-                chunk_count += 1
-                full_response += chunk
-                if chunk_count <= 3 or chunk_count % 50 == 0:
-                    logger.debug(f"Streaming chunk #{chunk_count}, total length so far: {len(full_response)}")
-                yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+            # Stream the response with keep-alive support (non-cancelling)
+            response_iter = result['response'].__aiter__()
+            next_chunk_task = None
+            
+            try:
+                while True:
+                    if next_chunk_task is None:
+                        next_chunk_task = asyncio.create_task(response_iter.__anext__())
+                    
+                    # Wait for next chunk WITHOUT cancelling if timeout occurs
+                    done, _ = await asyncio.wait(
+                        [next_chunk_task], 
+                        timeout=8.0, 
+                        return_when=asyncio.FIRST_COMPLETED
+                    )
+                    
+                    if next_chunk_task in done:
+                        try:
+                            chunk = await next_chunk_task
+                            next_chunk_task = None
+                        except StopAsyncIteration:
+                            break
+                        except Exception as e:
+                            raise e
+                        
+                        chunk_count += 1
+                        full_response += chunk
+                        if chunk_count <= 3 or chunk_count % 50 == 0:
+                            logger.debug(f"Streaming chunk #{chunk_count}, total length so far: {len(full_response)}")
+                        yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+                    else:
+                        # Timeout reached, send keep-alive
+                        yield ": keep-alive\n\n"
+            finally:
+                if next_chunk_task and not next_chunk_task.done():
+                    next_chunk_task.cancel()
             
             logger.info(f"=== STREAMING COMPLETE ===")
             logger.info(f"Total chunks: {chunk_count}, Response length: {len(full_response)}")

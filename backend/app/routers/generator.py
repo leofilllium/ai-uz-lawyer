@@ -120,28 +120,49 @@ async def generate_contract(
             result = await gen_task
             sources = result.get('sources', [])
 
-            # Stream the response with keep-alive support
+            # Stream the response with keep-alive support (non-cancelling)
             response_iter = result['response'].__aiter__()
-            while True:
-                try:
-                    # Increased timeout to 15s to be safe for slow LLM chunks
-                    item = await asyncio.wait_for(response_iter.__anext__(), timeout=15.0)
-                except asyncio.TimeoutError:
-                    yield ": keep-alive\n\n"
-                    continue
-                except StopAsyncIteration:
-                    break
+            next_item_task = None
+            
+            try:
+                while True:
+                    if next_item_task is None:
+                        next_item_task = asyncio.create_task(response_iter.__anext__())
+                    
+                    # Wait for next chunk WITHOUT cancelling if timeout occurs
+                    done, _ = await asyncio.wait(
+                        [next_item_task], 
+                        timeout=10.0, 
+                        return_when=asyncio.FIRST_COMPLETED
+                    )
+                    
+                    if next_item_task in done:
+                        try:
+                            item = await next_item_task
+                            next_item_task = None
+                        except StopAsyncIteration:
+                            break
+                        except Exception as e:
+                            # Re-raise so it's caught by the outer try-except
+                            raise e
+                    else:
+                        # Timeout reached, send keep-alive but continue waiting for the same task
+                        yield ": keep-alive\n\n"
+                        continue
 
-                if isinstance(item, dict):
-                    if item.get("type") == "status":
-                        yield f"data: {json.dumps({'status': item['text']})}\n\n"
-                    elif item.get("type") == "content":
-                        chunk = item['text']
-                        full_response += chunk
-                        yield f"data: {json.dumps({'chunk': chunk})}\n\n"
-                else:
-                    full_response += item
-                    yield f"data: {json.dumps({'chunk': item})}\n\n"
+                    if isinstance(item, dict):
+                        if item.get("type") == "status":
+                            yield f"data: {json.dumps({'status': item['text']})}\n\n"
+                        elif item.get("type") == "content":
+                            chunk = item['text']
+                            full_response += chunk
+                            yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+                    else:
+                        full_response += item
+                        yield f"data: {json.dumps({'chunk': item})}\n\n"
+            finally:
+                if next_item_task and not next_item_task.done():
+                    next_item_task.cancel()
 
         except Exception as stream_error:
             import traceback
