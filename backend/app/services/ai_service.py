@@ -5917,7 +5917,6 @@ class AIService:
             try:
                 async with self.client.messages.stream(
                     model=self.settings.claude_sonnet_model,
-                    thinking={"type": "adaptive"},
                     max_tokens=MAX_OUTPUT_TOKENS,
                     system=GENERATOR_PROMPT,
                     messages=[{
