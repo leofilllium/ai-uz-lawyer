@@ -717,22 +717,23 @@ export async function generateContract(
     
     for (const line of lines) {
       if (line.startsWith('data: ')) {
+        let data;
         try {
-          const data = JSON.parse(line.slice(6));
-          if (data.status && onStatus) {
-            onStatus(data.status);
-          }
-          if (data.chunk && onChunk) {
-            onChunk(data.chunk);
-          }
-          if (data.done && onDone) {
-            onDone(data.contract_id, data.sources || []);
-          }
-          if (data.error) {
-            throw new Error(data.error);
-          }
-        } catch (e) {
-          // Ignore parse errors
+          data = JSON.parse(line.slice(6));
+        } catch {
+          continue; // Ignore JSON parse errors
+        }
+        if (data.error) {
+          throw new Error(data.error);
+        }
+        if (data.status && onStatus) {
+          onStatus(data.status);
+        }
+        if (data.chunk && onChunk) {
+          onChunk(data.chunk);
+        }
+        if (data.done && onDone) {
+          onDone(data.contract_id, data.sources || []);
         }
       }
     }
