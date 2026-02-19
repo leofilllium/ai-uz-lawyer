@@ -6036,7 +6036,7 @@ class AIService:
                     async for text in stream.text_stream:
                         draft_text += text
                         chunk_count += 1
-                        if chunk_count % 80 == 0:
+                        if chunk_count % 30 == 0:
                             yield {"type": "status", "text": f"📝 **Фаза 1/3: Генерация черновика... ({len(draft_text)} символов)**"}
 
                     draft_response = await stream.get_final_message()
@@ -6121,7 +6121,7 @@ class AIService:
                     async for text in stream.text_stream:
                         raw_audit_text += text
                         chunk_count += 1
-                        if chunk_count % 50 == 0:
+                        if chunk_count % 30 == 0:
                             yield {"type": "status", "text": "📜 **Аудит черновика... (анализ)**"}
 
                     audit_response = await stream.get_final_message()

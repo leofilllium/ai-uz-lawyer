@@ -80,6 +80,8 @@ async def generate_contract(
     async def generate_stream():
         full_response = ""
         sources = []
+        # Use queue to stream progress updates while waiting for long-running AI task
+        progress_queue = asyncio.Queue()
 
         try:
             # Run AI generation as a background task so we can send keep-alives
@@ -107,9 +109,12 @@ async def generate_contract(
 
             # Send keep-alives while waiting for generation to prepare
             while not gen_task.done():
-                await asyncio.sleep(3.0)
-                if not gen_task.done():
-                    yield ": keep-alive\n\n"
+                try:
+                    await asyncio.wait_for(asyncio.sleep(3.0), timeout=3.1)
+                    if not gen_task.done():
+                        yield ": keep-alive\n\n"
+                except asyncio.TimeoutError:
+                    continue
 
             # Get result (will raise if generation failed)
             result = await gen_task
@@ -119,7 +124,8 @@ async def generate_contract(
             response_iter = result['response'].__aiter__()
             while True:
                 try:
-                    item = await asyncio.wait_for(response_iter.__anext__(), timeout=5.0)
+                    # Increased timeout to 15s to be safe for slow LLM chunks
+                    item = await asyncio.wait_for(response_iter.__anext__(), timeout=15.0)
                 except asyncio.TimeoutError:
                     yield ": keep-alive\n\n"
                     continue
