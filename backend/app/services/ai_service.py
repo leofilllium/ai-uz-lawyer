@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 MIN_RELEVANCE_SCORE = 0.35        # ≥35% to use (lowered for debugging)
 HIGH_QUALITY_THRESHOLD = 0.70     # ≥70% = high confidence
 MEDIUM_QUALITY_THRESHOLD = 0.55   # 55-70% = medium confidence
-SIMPLE_MODES = ['smalltalk', 'quick-answer']
+SIMPLE_MODES = ['smalltalk']
 
 # Primary Legal Codes (Prioritized)
 PRIMARY_CODES_KEYWORDS = [
@@ -4046,7 +4046,7 @@ CHAT_MODE_PROMPTS = {
 }
 
 # Modes that use simpler/faster responses (no extended thinking)
-SIMPLE_MODES = {'smalltalk', 'quick-answer'}
+SIMPLE_MODES = {'smalltalk'}
 
 # ═══════════════════════════════════════════════════════════════
 # 🔒 UNIVERSAL KB ENFORCEMENT: Appended to ALL mode prompts
