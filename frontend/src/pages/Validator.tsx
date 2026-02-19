@@ -18,18 +18,14 @@ export default function Validator() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  // Track the ID we just submitted to prevent the useEffect from re-fetching
   const justSubmittedId = useRef<number | null>(null);
 
-  // Load existing validation if ID is in URL (only on direct navigation / page load)
   useEffect(() => {
     const idParam = searchParams.get('id');
     if (idParam) {
       const id = parseInt(idParam, 10);
       if (!isNaN(id)) {
-        // Skip if we already have this result loaded
         if (result?.id === id) return;
-        // Skip if we just submitted this — handleSubmit already set the result
         if (justSubmittedId.current === id) {
           justSubmittedId.current = null;
           return;
@@ -62,6 +58,7 @@ export default function Validator() {
     setError('');
     setLoading(true);
     setResult(null);
+    setFixedContract(null);
     setStatus('Инициализация...');
 
     try {
@@ -69,7 +66,6 @@ export default function Validator() {
         setStatus(msg);
       });
       setResult(data);
-      // Mark this ID so the useEffect doesn't re-fetch it
       if (data.id) {
         justSubmittedId.current = data.id;
         navigate(`?id=${data.id}`, { replace: true });
@@ -118,6 +114,13 @@ export default function Validator() {
     return '🔴';
   };
 
+  const getScoreLabel = (score: number) => {
+    if (score >= 80) return 'КОРРЕКТЕН';
+    if (score >= 60) return 'ТРЕБУЕТ ДОРАБОТКИ';
+    if (score >= 40) return 'РИСКОВАНО';
+    return 'КРИТИЧЕСКИ ОПАСНО';
+  };
+
   const getSeverityLabel = (severity: string) => {
     switch (severity.toLowerCase()) {
       case 'high': return 'Высокая';
@@ -135,6 +138,7 @@ export default function Validator() {
       </header>
 
       <main className="validator-content">
+        {/* Input Form */}
         <form onSubmit={handleSubmit} className="validator-form">
           <textarea
             value={contractText}
@@ -143,18 +147,20 @@ export default function Validator() {
             rows={12}
             disabled={loading}
           />
-          <div className="form-actions">
+          <div className="validator-form-actions">
             <button type="submit" className="btn-primary" disabled={loading || contractText.length < 50}>
               {loading ? 'Анализ...' : 'Проверить договор'}
             </button>
-            {loading && status && (
-              <div className="streaming-status">
-                <span className="spinner-small"></span>
-                {status}
-              </div>
-            )}
           </div>
         </form>
+
+        {/* Loading Overlay */}
+        {loading && status && (
+          <div className="validator-loading">
+            <div className="validator-loading-spinner" />
+            <p className="validator-loading-status">{status}</p>
+          </div>
+        )}
 
         {error && <div className="error-message">{error}</div>}
 
@@ -164,20 +170,12 @@ export default function Validator() {
             <div className={`score-card ${getScoreColor(result.validity_score)}`}>
               <div className="score-left">
                 <span className="score-emoji">{getScoreEmoji(result.validity_score)}</span>
-                <span className="score-value">{result.validity_score}/100</span>
+                <span className="score-value">{result.validity_score}<span className="score-max">/100</span></span>
               </div>
               <div className="score-right">
-                <span className="score-label">
-                  {result.validity_score >= 80 ? 'КОРРЕКТЕН' :
-                   result.validity_score >= 60 ? 'ТРЕБУЕТ ДОРАБОТКИ' :
-                   result.validity_score >= 40 ? 'РИСКОВАНО' : 'КРИТИЧЕСКИ ОПАСНО'}
-                </span>
+                <span className="score-label">{getScoreLabel(result.validity_score)}</span>
                 {result.validity_score < 95 && (
-                  <button
-                    onClick={handleFix}
-                    className="btn-fix-ai"
-                    disabled={fixing}
-                  >
+                  <button onClick={handleFix} className="btn-fix-ai" disabled={fixing}>
                     {fixing ? '✨ Исправление...' : '✨ Исправить с ИИ'}
                   </button>
                 )}

@@ -6211,9 +6211,6 @@ class AIService:
                         "hidden_risks": [], "ambiguities": [], "summary": raw_audit_text[:2000]
                     }
 
-                # Recalculate score: critical errors dominate, other categories have minimal impact
-                audit = self._recalculate_validity_score(audit)
-
                 logger.info(f"Contract audit complete. Score: {audit.get('validity_score', 'N/A')}")
 
                 # Collect all issues from audit for Phase 3
@@ -6670,9 +6667,6 @@ class AIService:
             if not isinstance(audit.get('validity_score'), (int, float)):
                 audit['validity_score'] = 0
 
-            # Recalculate score: critical errors dominate, other categories have minimal impact
-            audit = self._recalculate_validity_score(audit)
-
             # Add contract metadata to audit
             audit['contract_type'] = contract_info.get('contract_type', 'не определен')
             audit['detected_topics'] = contract_info.get('key_topics', [])
@@ -7018,50 +7012,6 @@ class AIService:
             "raw_response": raw_text
         }
 
-    def _recalculate_validity_score(self, audit: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Recalculate validity_score so that critical_errors dominate the score.
-        Other categories (warnings, hidden_risks, missing_clauses, ambiguities) have minimal impact.
-        """
-        n_critical = len(audit.get('critical_errors', []))
-        n_warnings = len(audit.get('warnings', []))
-        n_missing = len(audit.get('missing_clauses', []))
-        n_risks = len(audit.get('hidden_risks', []))
-        n_ambiguities = len(audit.get('ambiguities', []))
-        n_strengths = len(audit.get('strengths', []))
-
-        # Start from 100, critical errors are the main driver
-        score = 100
-
-        # Critical errors: -12 each (main factor, but not devastating)
-        score -= n_critical * 12
-
-        # Minor categories: very small penalties
-        score -= n_warnings * 1        # warnings barely matter
-        score -= n_missing * 1         # missing clauses: small penalty
-        score -= n_risks * 1           # hidden risks: informational
-        score -= n_ambiguities * 1     # ambiguities: stylistic
-
-        # Strengths boost: +2 per strength (up to +10), always applies
-        if n_strengths > 0:
-            score += min(n_strengths * 2, 10)
-
-        score = max(0, min(100, score))
-
-        ai_score = audit.get('validity_score', 0)
-        if isinstance(ai_score, (int, float)):
-            # Blend: 50% our formula (lenient, critical-error-focused), 50% AI score
-            score = int(score * 0.5 + ai_score * 0.5)
-
-        score = max(0, min(100, score))
-
-        old_score = audit.get('validity_score', 0)
-        audit['validity_score'] = score
-        if old_score != score:
-            logger.info(f"Validity score recalculated: {old_score} -> {score} (critical={n_critical}, warn={n_warnings}, missing={n_missing}, risks={n_risks}, ambig={n_ambiguities})")
-
-        return audit
-
     def _parse_contract_audit_response(self, raw_text: str) -> Dict[str, Any]:
         """Helper to extract and parse JSON from contract audit response."""
         logger.info(f"Parsing contract audit response ({len(raw_text)} chars). First 300: {raw_text[:300]}")
@@ -7108,9 +7058,6 @@ class AIService:
             audit['strengths'] = []
         if not isinstance(audit.get('improvement_suggestions'), list):
             audit['improvement_suggestions'] = []
-
-        # Recalculate score: critical errors dominate, other categories have minimal impact
-        audit = self._recalculate_validity_score(audit)
 
         return audit
 
