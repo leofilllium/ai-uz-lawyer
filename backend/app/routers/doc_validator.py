@@ -299,13 +299,8 @@ async def analyze_document(
         try:
             ai_service = AIService(mode='document-validator')
             
-            # Start analysis in background task
-            analysis_task = asyncio.create_task(
-                ai_service.analyze_document_stream(document_text, document_type, user_id=user_id)
-            )
-            
             # Streaming loop with robust keep-alive
-            analysis_iter = (await analysis_task).__aiter__()
+            analysis_iter = ai_service.analyze_document_stream(document_text, document_type, user_id=user_id).__aiter__()
             next_event_task = None
             
             while True:

@@ -170,26 +170,21 @@ async def analyze_contract(
         try:
             ai_service = AIService(mode='validator')
             
-            # Start analysis in background task
-            analysis_task = asyncio.create_task(
-                ai_service.analyze_contract_stream(contract_text, user_id=user_id)
-            )
-            
             # Streaming loop with robust keep-alive
-            analysis_iter = (await analysis_task).__aiter__()
+            analysis_iter = ai_service.analyze_contract_stream(contract_text, user_id=user_id).__aiter__()
             next_event_task = None
-            
+
             while True:
                 if next_event_task is None:
                     next_event_task = asyncio.create_task(analysis_iter.__anext__())
-                
+
                 # Wait for next event without cancelling
                 done, _ = await asyncio.wait(
                     [next_event_task],
                     timeout=8.0,
                     return_when=asyncio.FIRST_COMPLETED
                 )
-                
+
                 if next_event_task in done:
                     try:
                         event = await next_event_task
