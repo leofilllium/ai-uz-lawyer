@@ -15,10 +15,16 @@ export default function Validator() {
   const [fixing, setFixing] = useState(false);
   const [fixedContract, setFixedContract] = useState<string | null>(null);
   const [status, setStatus] = useState('');
+  const [statusLog, setStatusLog] = useState<string[]>([]);
+  const statusEndRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const justSubmittedId = useRef<number | null>(null);
+
+  useEffect(() => {
+    statusEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [statusLog]);
 
   useEffect(() => {
     const idParam = searchParams.get('id');
@@ -60,10 +66,15 @@ export default function Validator() {
     setResult(null);
     setFixedContract(null);
     setStatus('Инициализация...');
+    setStatusLog([]);
 
     try {
       const data = await analyzeContract(contractText, (msg) => {
         setStatus(msg);
+        setStatusLog(prev => {
+          if (prev[prev.length - 1] === msg) return prev;
+          return [...prev, msg];
+        });
       });
       setResult(data);
       if (data.id) {
@@ -157,8 +168,22 @@ export default function Validator() {
         {/* Loading Overlay */}
         {loading && status && (
           <div className="validator-loading">
-            <div className="validator-loading-spinner" />
-            <p className="validator-loading-status">{status}</p>
+            <div className="validator-loading-header">
+              <div className="validator-loading-spinner" />
+              <span className="validator-loading-title">Анализ договора</span>
+            </div>
+            <div className="validator-loading-log">
+              {statusLog.map((msg, i) => (
+                <div
+                  key={i}
+                  className={`validator-log-entry${i === statusLog.length - 1 ? ' active' : ' done'}`}
+                >
+                  <span className="validator-log-icon">{i === statusLog.length - 1 ? '' : '✓'}</span>
+                  <span className="validator-log-text">{msg}</span>
+                </div>
+              ))}
+              <div ref={statusEndRef} />
+            </div>
           </div>
         )}
 

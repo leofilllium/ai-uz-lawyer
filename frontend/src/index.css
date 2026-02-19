@@ -2308,37 +2308,111 @@ body {
 .validator-loading {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-base);
-  padding: var(--space-2xl) var(--space-lg);
+  gap: 0;
   margin-bottom: var(--space-xl);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  animation: validator-card-fade-in 0.4s ease-out;
+}
+
+@keyframes validator-card-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.validator-loading-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-base) var(--space-lg);
+  background: linear-gradient(135deg, rgba(196, 30, 58, 0.06) 0%, transparent 60%);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.validator-loading-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
 }
 
 .validator-loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid var(--color-border);
-  border-top-color: var(--color-primary);
+  position: relative;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.validator-loading-spinner::before,
+.validator-loading-spinner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
   border-radius: 50%;
-  animation: validator-spin 0.8s linear infinite;
+}
+
+.validator-loading-spinner::before {
+  border: 2.5px solid var(--color-border);
+}
+
+.validator-loading-spinner::after {
+  border: 2.5px solid transparent;
+  border-top-color: var(--color-primary);
+  border-right-color: var(--color-primary);
+  animation: validator-spin 0.9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
 @keyframes validator-spin {
   to { transform: rotate(360deg); }
 }
 
-.validator-loading-status {
-  font-size: 0.95rem;
-  color: var(--color-text-secondary);
-  text-align: center;
-  margin: 0;
-  animation: validator-pulse 1.5s ease-in-out infinite;
+.validator-loading-log {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: var(--space-sm) 0;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
-@keyframes validator-pulse {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
+.validator-log-entry {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-lg);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  animation: validator-log-slide-in 0.3s ease-out;
+}
+
+@keyframes validator-log-slide-in {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.validator-log-entry.done {
+  opacity: 0.45;
+}
+
+.validator-log-entry.active .validator-log-text {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.validator-log-icon {
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+  font-size: 0.75rem;
+}
+
+.validator-log-entry.done .validator-log-icon {
+  color: #2ea043;
+}
+
+.validator-log-text {
+  color: var(--color-text-secondary);
+  word-break: break-word;
 }
 
 /* Score Card */
