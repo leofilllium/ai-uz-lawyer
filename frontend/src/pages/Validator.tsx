@@ -204,6 +204,21 @@ export default function Validator() {
               </section>
             )}
 
+            {/* Strengths */}
+            {result.strengths && result.strengths.length > 0 && (
+              <section className="analysis-section">
+                <h2>🔥 Сильные стороны ({result.strengths.length})</h2>
+                <div className="strengths-list">
+                  {result.strengths.map((strength, i) => (
+                    <div key={i} className="strength-card">
+                      <span className="strength-icon">✅</span>
+                      <span className="strength-text">{strength}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {/* Critical Errors */}
             {result.critical_errors && result.critical_errors.length > 0 && (
               <section className="analysis-section">
@@ -283,6 +298,23 @@ export default function Validator() {
                     <div className="fix-suggestion">
                       <label>Текст для добавления</label>
                       <pre>{clause.drafted_text}</pre>
+                    </div>
+                  </div>
+                ))}
+              </section>
+            )}
+
+            {/* Improvement Suggestions */}
+            {result.improvement_suggestions && result.improvement_suggestions.length > 0 && (
+              <section className="analysis-section">
+                <h2>💡 Рекомендации по улучшению ({result.improvement_suggestions.length})</h2>
+                {result.improvement_suggestions.map((item, i) => (
+                  <div key={i} className="improvement-card">
+                    <div className="card-title">{item.suggestion}</div>
+                    <p className="improvement-reason">{item.reason}</p>
+                    <div className="fix-suggestion">
+                      <label>Текст для добавления</label>
+                      <pre>{item.drafted_text}</pre>
                     </div>
                   </div>
                 ))}

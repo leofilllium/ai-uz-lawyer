@@ -34,6 +34,8 @@ class ContractAudit(BaseModel):
     hidden_risks: list[dict] = []
     ambiguities: list[dict] = []
     negotiation_strategy: str = ""
+    strengths: list[str] = []
+    improvement_suggestions: list[dict] = []
 
     @model_validator(mode="before")
     @classmethod
@@ -44,7 +46,7 @@ class ContractAudit(BaseModel):
         for key in ["score_explanation", "summary", "strictness_level", "negotiation_strategy"]:
             if data.get(key) is None:
                 data[key] = ""
-        for key in ["critical_errors", "warnings", "missing_clauses", "hidden_risks", "ambiguities"]:
+        for key in ["critical_errors", "warnings", "missing_clauses", "hidden_risks", "ambiguities", "strengths", "improvement_suggestions"]:
             if not isinstance(data.get(key), list):
                 data[key] = []
         if not isinstance(data.get("validity_score"), (int, float)):
@@ -78,6 +80,8 @@ class ContractAnalysisResponse(BaseModel):
     hidden_risks: list[dict] = []
     ambiguities: list[dict] = []
     negotiation_strategy: str = ""
+    strengths: list[str] = []
+    improvement_suggestions: list[dict] = []
     sources: list[dict] = []
     created_at: datetime | None = None
 
@@ -88,7 +92,7 @@ class ContractAnalysisResponse(BaseModel):
             return data
         if data.get("validity_score") is None:
             data["validity_score"] = 0
-        for key in ["critical_errors", "warnings", "missing_clauses", "hidden_risks", "ambiguities", "sources"]:
+        for key in ["critical_errors", "warnings", "missing_clauses", "hidden_risks", "ambiguities", "sources", "strengths", "improvement_suggestions"]:
             if not isinstance(data.get(key), list):
                 data[key] = []
         return data
@@ -127,6 +131,8 @@ class ValidationData(BaseModel):
     missing_clauses: list[dict] = []
     summary: str = ""
     negotiation_strategy: str = ""
+    strengths: list[str] = []
+    improvement_suggestions: list[dict] = []
 
 
 class GeneratedContractResponse(BaseModel):

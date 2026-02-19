@@ -177,6 +177,8 @@ export interface ContractAnalysis {
   hidden_risks?: Array<{risk: string; location: string; severity: 'high'|'medium'|'low'; mitigation: string}>;
   ambiguities?: Array<{phrase: string; risk: string; suggestion: string}>;
   negotiation_strategy?: string;
+  strengths?: string[];
+  improvement_suggestions?: Array<{suggestion: string; reason: string; drafted_text: string}>;
   sources: Source[];
   created_at?: string;
   session_id?: number;
@@ -667,6 +669,8 @@ export async function analyzeContract(
               hidden_risks: data.audit?.hidden_risks ?? [],
               ambiguities: data.audit?.ambiguities ?? [],
               negotiation_strategy: data.audit?.negotiation_strategy ?? '',
+              strengths: data.audit?.strengths ?? [],
+              improvement_suggestions: data.audit?.improvement_suggestions ?? [],
               sources: data.sources ?? [],
               created_at: new Date().toISOString(),
               session_id: data.session_id

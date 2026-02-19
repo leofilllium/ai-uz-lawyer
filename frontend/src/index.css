@@ -2435,6 +2435,55 @@ body {
   font-size: 0.95rem;
 }
 
+/* Strength cards */
+.strengths-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.strength-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-success, #22c55e);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-base);
+}
+
+.strength-icon {
+  flex-shrink: 0;
+  font-size: 1.1rem;
+}
+
+.strength-text {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+}
+
+/* Improvement suggestion cards */
+.improvement-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-primary, #3b82f6);
+  border-radius: var(--radius-md);
+  padding: var(--space-base);
+  margin-bottom: var(--space-md);
+  overflow-wrap: break-word;
+  word-break: break-word;
+  min-width: 0;
+}
+
+.improvement-reason {
+  margin: var(--space-sm) 0;
+  color: var(--color-text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
 /* Negotiation content */
 .negotiation-content {
   line-height: 1.6;

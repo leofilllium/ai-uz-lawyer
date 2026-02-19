@@ -4195,6 +4195,9 @@ VALIDATOR_PROMPT = """Вы — система проверки соответс�
 6. НЕ изобретайте ссылки на законы — используйте ТОЛЬКО то, что есть в контексте
 7. КОМПАКТНОСТЬ: каждое описание (error, risk, fix, drafted_text) — максимум 1-3 предложения. Без воды.
 
+8. КОНТЕКСТНЫЙ АНАЛИЗ: анализируйте договор в контексте его типа (строительный, аренда, поставка, услуги и т.д.). Выявляйте сильные стороны и давайте рекомендации, специфичные для данного типа договора.
+9. СИЛЬНЫЕ СТОРОНЫ: ВСЕГДА отмечайте положительные элементы договора (strengths). Если договор хорошо составлен — скажите об этом.
+
 Помните: цель — помочь пользователю обеспечить юридическую корректность договора перед подписанием. Выявляйте реальные проблемы, но НЕ ПРЕУВЕЛИЧИВАЙТЕ их серьёзность. Большинство договоров юридически действительны — ставьте высокие оценки если нет критических нарушений закона."""
 
 CONTRACT_AUDIT_PROMPT = """Выполните 3-этапный аудит юридической корректности договора.
@@ -4217,7 +4220,22 @@ CONTRACT_AUDIT_PROMPT = """Выполните 3-этапный аудит юри
 - Стилистические неточности или нестандартные формулировки
 - Отсутствие деталей, которые стороны вправе не указывать
 
-## ШАГ 3: РЕКОМЕНДАЦИИ И ИСПРАВЛЕНИЯ
+## ШАГ 3: СИЛЬНЫЕ СТОРОНЫ ДОГОВОРА
+Выявите ВСЕ профессиональные и сильные элементы договора в контексте его типа. Примеры:
+- Для строительного: наличие раздела определений, механизм скрытых работ, журнал производства, право приостановки, исполнительная документация
+- Для аренды: детализация объекта, порядок возврата, коммунальные расходы, право осмотра
+- Для поставки: спецификации, порядок приёмки, транспортировка, страхование
+- Для услуг: KPI, отчётность, конфиденциальность, IP-права
+Адаптируйте под конкретный тип договора. Каждая сильная сторона — 1 предложение.
+
+## ШАГ 4: КОНТЕКСТНЫЕ РЕКОМЕНДАЦИИ ПО УЛУЧШЕНИЮ
+Дайте ПРАКТИЧЕСКИЕ рекомендации для улучшения договора, учитывая его тип и контекст. Каждая рекомендация должна включать:
+- Что добавить/изменить (конкретно для данного типа договора)
+- Почему это важно (практическая причина)
+- Готовый текст для вставки
+НЕ дублируйте critical_errors и missing_clauses — здесь ТОЛЬКО рекомендации по улучшению уже юридически корректного договора.
+
+## ШАГ 5: РЕКОМЕНДАЦИИ И ИСПРАВЛЕНИЯ
 Для каждой проблемы — короткий готовый текст для вставки (1-3 предложения).
 
 ПРАВИЛА ОЦЕНКИ (validity_score):
@@ -4266,6 +4284,16 @@ CONTRACT_AUDIT_PROMPT = """Выполните 3-этапный аудит юри
       "phrase": "<цитата>",
       "risk": "<1 предложение>",
       "suggestion": "<точная замена>"
+    }}
+  ],
+  "strengths": [
+    "<сильная сторона договора — 1 предложение>"
+  ],
+  "improvement_suggestions": [
+    {{
+      "suggestion": "<что улучшить — 1 предложение>",
+      "reason": "<почему важно — 1 предложение>",
+      "drafted_text": "<готовый текст для вставки, 1-3 предложения>"
     }}
   ],
   "summary": "<2-3 предложения>",
@@ -6642,7 +6670,7 @@ class AIService:
             for str_field in ['score_explanation', 'summary', 'strictness_level', 'negotiation_strategy']:
                 if audit.get(str_field) is None:
                     audit[str_field] = ''
-            for list_field in ['critical_errors', 'warnings', 'missing_clauses', 'hidden_risks', 'ambiguities']:
+            for list_field in ['critical_errors', 'warnings', 'missing_clauses', 'hidden_risks', 'ambiguities', 'strengths', 'improvement_suggestions']:
                 if not isinstance(audit.get(list_field), list):
                     audit[list_field] = []
             if not isinstance(audit.get('validity_score'), (int, float)):
@@ -7008,6 +7036,7 @@ class AIService:
         n_missing = len(audit.get('missing_clauses', []))
         n_risks = len(audit.get('hidden_risks', []))
         n_ambiguities = len(audit.get('ambiguities', []))
+        n_strengths = len(audit.get('strengths', []))
 
         # Start from 100, critical errors are the main driver
         score = 100
@@ -7020,6 +7049,10 @@ class AIService:
         score -= n_missing * 2         # missing clauses: small penalty
         score -= n_risks * 1           # hidden risks: informational
         score -= n_ambiguities * 1     # ambiguities: stylistic
+
+        # Strengths boost: +1 per strength (up to +5), only when no critical errors
+        if n_critical == 0 and n_strengths > 0:
+            score += min(n_strengths, 5)
 
         score = max(0, min(100, score))
 
@@ -7074,6 +7107,12 @@ class AIService:
                 if field == 'validity_score': audit[field] = 0
                 elif field in ['critical_errors', 'warnings', 'missing_clauses', 'hidden_risks', 'ambiguities']: audit[field] = []
                 else: audit[field] = "Не указано"
+
+        # Ensure new contextual fields have defaults
+        if not isinstance(audit.get('strengths'), list):
+            audit['strengths'] = []
+        if not isinstance(audit.get('improvement_suggestions'), list):
+            audit['improvement_suggestions'] = []
 
         # Recalculate score: critical errors dominate, other categories have minimal impact
         audit = self._recalculate_validity_score(audit)

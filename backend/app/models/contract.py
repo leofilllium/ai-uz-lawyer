@@ -52,6 +52,8 @@ class ContractAnalysis(Base):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'negotiation_strategy': '',
             'strictness_level': 'standard',
+            'strengths': [],
+            'improvement_suggestions': [],
         }
 
         # Extract extra fields from raw_response (stored as JSON of the audit dict)
@@ -79,6 +81,8 @@ class ContractAnalysis(Base):
                     ns = "\n".join(str(s) for s in ns)
                 base_dict['negotiation_strategy'] = str(ns) if ns else ''
                 base_dict['strictness_level'] = audit_data.get('strictness_level', 'standard') or 'standard'
+                base_dict['strengths'] = audit_data.get('strengths', []) or []
+                base_dict['improvement_suggestions'] = audit_data.get('improvement_suggestions', []) or []
             except Exception:
                 pass
 
