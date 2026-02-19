@@ -7033,25 +7033,25 @@ class AIService:
         # Start from 100, critical errors are the main driver
         score = 100
 
-        # Critical errors: -20 each (main factor)
-        score -= n_critical * 20
+        # Critical errors: -12 each (main factor, but not devastating)
+        score -= n_critical * 12
 
         # Minor categories: very small penalties
         score -= n_warnings * 1        # warnings barely matter
-        score -= n_missing * 2         # missing clauses: small penalty
+        score -= n_missing * 1         # missing clauses: small penalty
         score -= n_risks * 1           # hidden risks: informational
         score -= n_ambiguities * 1     # ambiguities: stylistic
 
-        # Strengths boost: +1 per strength (up to +5), only when no critical errors
-        if n_critical == 0 and n_strengths > 0:
-            score += min(n_strengths, 5)
+        # Strengths boost: +2 per strength (up to +10), always applies
+        if n_strengths > 0:
+            score += min(n_strengths * 2, 10)
 
         score = max(0, min(100, score))
 
         ai_score = audit.get('validity_score', 0)
         if isinstance(ai_score, (int, float)):
-            # Blend: 70% our formula (critical-error-focused), 30% AI score
-            score = int(score * 0.7 + ai_score * 0.3)
+            # Blend: 50% our formula (lenient, critical-error-focused), 50% AI score
+            score = int(score * 0.5 + ai_score * 0.5)
 
         score = max(0, min(100, score))
 
