@@ -179,6 +179,7 @@ export interface ContractAnalysis {
   negotiation_strategy?: string;
   sources: Source[];
   created_at?: string;
+  session_id?: number;
 }
 
 export interface GeneratedContract {
@@ -605,41 +606,85 @@ export async function draftTaskResult(
 }
 
 // Validator API
-export async function analyzeContract(contract: string): Promise<ContractAnalysis> {
-  const response = await fetchWithAuth('/api/validator/analyze', {
+export async function analyzeContract(
+  contract: string,
+  onStatus?: (status: string) => void
+): Promise<ContractAnalysis> {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/validator/analyze`, {
     method: 'POST',
+    headers,
     body: JSON.stringify({ contract }),
-  }, 1800000);
+  });
 
   if (!response.ok) {
-    try {
-      const error = await response.json();
-      throw new Error(error.detail || 'Analysis failed');
-    } catch (e) {
-      if (e instanceof Error && e.message !== 'Analysis failed') throw e;
-      throw new Error('Analysis failed');
+    const error = await response.json();
+    throw new Error(error.detail || 'Analysis failed');
+  }
+
+  // Parse SSE stream
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error('No response body');
+  
+  const decoder = new TextDecoder();
+  let buffer = '';
+  
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        try {
+          const data = JSON.parse(line.slice(6));
+          
+          if (data.status && onStatus) {
+            onStatus(data.status);
+          }
+          
+          if (data.done) {
+            return {
+              id: data.analysis_id || 0,
+              contract_preview: contract.substring(0, 100) + '...',
+              validity_score: data.audit?.validity_score ?? 0,
+              score_explanation: data.audit?.score_explanation ?? '',
+              critical_errors: data.audit?.critical_errors ?? [],
+              warnings: data.audit?.warnings ?? [],
+              missing_clauses: data.audit?.missing_clauses ?? [],
+              summary: data.audit?.summary ?? '',
+              strictness_level: data.audit?.strictness_level ?? 'standard',
+              hidden_risks: data.audit?.hidden_risks ?? [],
+              ambiguities: data.audit?.ambiguities ?? [],
+              negotiation_strategy: data.audit?.negotiation_strategy ?? '',
+              sources: data.sources ?? [],
+              created_at: new Date().toISOString(),
+              session_id: data.session_id
+            };
+          }
+          
+          if (data.error) {
+            throw new Error(data.error);
+          }
+        } catch (e) {
+          if (e instanceof Error && e.message.includes('JSON')) continue;
+          throw e;
+        }
+      }
     }
   }
 
-  const data = await response.json();
-
-  // API returns { success, analysis_id, audit: {...}, sources: [...] } structure
-  // Flatten it to match ContractAnalysis interface
-  return {
-    id: data.analysis_id || 0,
-    contract_preview: contract.substring(0, 100) + '...',
-    validity_score: data.audit?.validity_score ?? 0,
-    score_explanation: data.audit?.score_explanation ?? '',
-    critical_errors: data.audit?.critical_errors ?? [],
-    warnings: data.audit?.warnings ?? [],
-    missing_clauses: data.audit?.missing_clauses ?? [],
-    summary: data.audit?.summary ?? '',
-    strictness_level: data.audit?.strictness_level ?? 'standard',
-    hidden_risks: data.audit?.hidden_risks ?? [],
-    ambiguities: data.audit?.ambiguities ?? [],
-    negotiation_strategy: data.audit?.negotiation_strategy ?? '',
-    sources: data.sources ?? [],
-  };
+  throw new Error('Stream ended without result');
 }
 
 export async function getValidationHistory(): Promise<ContractAnalysis[]> {
@@ -874,23 +919,80 @@ export interface DocumentAnalysis {
   created_at?: string;
 }
 
-export async function analyzeDocument(document: string, documentType?: string): Promise<{
+export async function analyzeDocument(
+  document: string, 
+  documentType?: string,
+  onStatus?: (status: string) => void
+): Promise<{
   analysis_id: number;
   session_id?: number;
   audit: DocumentAudit;
   sources: Source[];
 }> {
-  const response = await fetchWithAuth('/api/document-validator/analyze', {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/document-validator/analyze`, {
     method: 'POST',
+    headers,
     body: JSON.stringify({ document, document_type: documentType }),
-  }, 1800000);
+  });
 
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.detail || 'Document analysis failed');
   }
 
-  return response.json();
+  // Parse SSE stream
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error('No response body');
+  
+  const decoder = new TextDecoder();
+  let buffer = '';
+  
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        try {
+          const data = JSON.parse(line.slice(6));
+          
+          if (data.status && onStatus) {
+            onStatus(data.status);
+          }
+          
+          if (data.done) {
+            return {
+              analysis_id: data.analysis_id,
+              session_id: data.session_id,
+              audit: data.audit,
+              sources: data.sources || []
+            };
+          }
+          
+          if (data.error) {
+            throw new Error(data.error);
+          }
+        } catch (e) {
+          if (e instanceof Error && e.message.includes('JSON')) continue;
+          throw e;
+        }
+      }
+    }
+  }
+
+  throw new Error('Stream ended without result');
 }
 
 export async function getDocumentValidationHistory(): Promise<DocumentAnalysis[]> {

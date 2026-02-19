@@ -3,7 +3,10 @@ Contract Validator Router
 Contract compliance checking using RAG and structured analysis.
 """
 
+import json
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -147,13 +150,13 @@ def format_audit_as_markdown(audit: dict) -> str:
     return "\n".join(lines)
 
 
-@router.post("/analyze", response_model=ValidateContractResponse)
+@router.post("/analyze")
 async def analyze_contract(
     request: ValidateContractRequest,
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_current_user)
 ):
-    """Analyze contract for compliance."""
+    """Analyze contract for compliance (SSE Streaming)."""
     contract_text = request.contract.strip()
     user_id = current_user.id if current_user else None
     
@@ -163,75 +166,113 @@ async def analyze_contract(
             detail="Contract text is too short for meaningful analysis"
         )
     
-    try:
-        # Analyze contract
-        ai_service = AIService(mode='validator')
-        result = await ai_service.analyze_contract(contract_text, user_id=user_id)
-        
-        audit = result.get('audit', {})
-        
-        # Save analysis to ContractAnalysis table
-        analysis = ContractAnalysis(
-            user_id=user_id,
-            contract_text=contract_text,
-            validity_score=audit.get('validity_score', 0),
-            score_explanation=audit.get('score_explanation', ''),
-            critical_errors=audit.get('critical_errors', []),
-            warnings=audit.get('warnings', []),
-            missing_clauses=audit.get('missing_clauses', []),
-            hidden_risks=audit.get('hidden_risks', []),
-            ambiguities=audit.get('ambiguities', []),
-            summary=audit.get('summary', ''),
-            sources=result.get('sources', []),
-            raw_response=result.get('raw_response', '')
-        )
-        db.add(analysis)
-        db.flush()
-        
-        # Also save to ChatSession for unified history view
-        session_title = f"Проверка договора (Оценка: {audit.get('validity_score', 0)}/100)"
-        chat_session = ChatSession(
-            user_id=user_id,
-            session_type='validator',
-            title=session_title
-        )
-        db.add(chat_session)
-        db.flush()
-        
-        # Save user message (contract text preview)
-        contract_preview = contract_text[:500] + "..." if len(contract_text) > 500 else contract_text
-        user_msg = ChatMessage(
-            session_id=chat_session.id,
-            role='user',
-            content=f"**Текст договора для проверки:**\n\n```\n{contract_preview}\n```"
-        )
-        db.add(user_msg)
-        
-        # Save assistant response (formatted audit result)
-        formatted_response = format_audit_as_markdown(audit)
-        assistant_msg = ChatMessage(
-            session_id=chat_session.id,
-            role='assistant',
-            content=formatted_response,
-            sources=result.get('sources', [])
-        )
-        db.add(assistant_msg)
-        
-        db.commit()
-        
-        return ValidateContractResponse(
-            success=True,
-            analysis_id=analysis.id,
-            session_id=chat_session.id,
-            audit=ContractAudit(**audit),
-            sources=result.get('sources', [])
-        )
-        
-    except Exception as e:
-        import traceback
-        import logging
-        logging.getLogger(__name__).error(f"Validator error: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=str(e))
+    async def generate_stream():
+        try:
+            ai_service = AIService(mode='validator')
+            
+            # Start analysis in background task
+            analysis_task = asyncio.create_task(
+                ai_service.analyze_contract_stream(contract_text, user_id=user_id)
+            )
+            
+            # Streaming loop with robust keep-alive
+            analysis_iter = (await analysis_task).__aiter__()
+            next_event_task = None
+            
+            while True:
+                if next_event_task is None:
+                    next_event_task = asyncio.create_task(analysis_iter.__anext__())
+                
+                # Wait for next event without cancelling
+                done, _ = await asyncio.wait(
+                    [next_event_task],
+                    timeout=8.0,
+                    return_when=asyncio.FIRST_COMPLETED
+                )
+                
+                if next_event_task in done:
+                    try:
+                        event = await next_event_task
+                        next_event_task = None
+                    except StopAsyncIteration:
+                        break
+                    except Exception as e:
+                        raise e
+                    
+                    if event["type"] == "status":
+                        yield f"data: {json.dumps({'status': event['text']})}\n\n"
+                    elif event["type"] == "result":
+                        audit = event["audit"]
+                        sources = event["sources"]
+                        raw_response = event["raw_response"]
+                        
+                        # Save result to DB (same logic as before)
+                        analysis = ContractAnalysis(
+                            user_id=user_id,
+                            contract_text=contract_text,
+                            validity_score=audit.get('validity_score', 0),
+                            score_explanation=audit.get('score_explanation', ''),
+                            critical_errors=audit.get('critical_errors', []),
+                            warnings=audit.get('warnings', []),
+                            missing_clauses=audit.get('missing_clauses', []),
+                            hidden_risks=audit.get('hidden_risks', []),
+                            ambiguities=audit.get('ambiguities', []),
+                            summary=audit.get('summary', ''),
+                            sources=sources,
+                            raw_response=raw_response
+                        )
+                        db.add(analysis)
+                        db.flush()
+                        
+                        session_title = f"Проверка договора (Оценка: {audit.get('validity_score', 0)}/100)"
+                        chat_session = ChatSession(
+                            user_id=user_id,
+                            session_type='validator',
+                            title=session_title
+                        )
+                        db.add(chat_session)
+                        db.flush()
+                        
+                        contract_preview = contract_text[:500] + "..." if len(contract_text) > 500 else contract_text
+                        user_msg = ChatMessage(
+                            session_id=chat_session.id,
+                            role='user',
+                            content=f"**Текст договора для проверки:**\n\n```\n{contract_preview}\n```"
+                        )
+                        db.add(user_msg)
+                        
+                        formatted_response = format_audit_as_markdown(audit)
+                        assistant_msg = ChatMessage(
+                            session_id=chat_session.id,
+                            role='assistant',
+                            content=formatted_response,
+                            sources=sources
+                        )
+                        db.add(assistant_msg)
+                        db.commit()
+                        
+                        # Yield final done event
+                        yield f"data: {json.dumps({
+                            'done': True,
+                            'analysis_id': analysis.id,
+                            'session_id': chat_session.id,
+                            'audit': audit,
+                            'sources': sources
+                        })}\n\n"
+                else:
+                    # Timeout, send keep-alive
+                    yield ": keep-alive\n\n"
+                    
+        except Exception as e:
+            import traceback
+            import logging
+            logging.getLogger(__name__).error(f"Validator stream error: {traceback.format_exc()}")
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        finally:
+            if 'next_event_task' in locals() and next_event_task and not next_event_task.done():
+                next_event_task.cancel()
+
+    return StreamingResponse(generate_stream(), media_type="text/event-stream")
 
 
 @router.get("/history", response_model=list[ContractAnalysisResponse])

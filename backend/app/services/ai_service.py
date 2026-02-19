@@ -5916,14 +5916,17 @@ class AIService:
         async def stream_response():
             try:
                 async with self.client.messages.stream(
-                    model=self.settings.claude_sonnet_model,
+                    model=self.settings.claude_haiku_model,
                     max_tokens=MAX_OUTPUT_TOKENS,
                     system=GENERATOR_PROMPT,
                     messages=[{
                         "role": "user",
                         "content": generation_prompt
                     }],
-                    output_config={"effort": "high"},
+                    thinking={
+                        "type": "enabled",
+                        "budget_tokens": self.settings.thinking_budget_tokens
+                    },
                 ) as stream:
                     async for text in stream.text_stream:
                         yield {"type": "content", "text": text}
@@ -5935,7 +5938,7 @@ class AIService:
                             usage = final_message.usage
                             await UsageService.track_usage_async(
                                 user_id=user_id,
-                                model_name=self.settings.claude_sonnet_model,
+                                model_name=self.settings.claude_haiku_model,
                                 input_tokens=usage.input_tokens,
                                 output_tokens=usage.output_tokens,
                                 request_type="contract_generation_legacy"
@@ -6668,6 +6671,100 @@ class AIService:
             logger.error(f"Contract analysis error: {e}")
             raise
 
+    async def analyze_contract_stream(
+        self,
+        contract_text: str,
+        user_id: Optional[int] = None
+    ):
+        """
+        Streaming version of analyze_contract.
+        Yields status updates and final result JSON.
+        """
+        logger.info(f"=== ANALYZE CONTRACT STREAM ===")
+        
+        # Step 1: Detect contract type
+        yield {"type": "status", "text": "🔍 Определение типа договора..."}
+        contract_info = await self._detect_contract_type(contract_text, user_id=user_id)
+        
+        # Step 2: Agentic RAG
+        specific_checks = contract_info.get('specific_checks', [])
+        checks_text = ', '.join(specific_checks) if specific_checks else 'стандартные проверки'
+        task_description = f"""Найди все нормы законодательства Узбекистана для проверки договора типа "{contract_info.get('contract_type', 'договор')}".
+Темы: {', '.join(contract_info.get('key_topics', []))}.
+Области права: {', '.join(contract_info.get('legal_areas', []))}.
+Специфические проверки: {checks_text}."""
+        
+        legal_context = "Правовой контекст недоступен."
+        sources = []
+        
+        async for event in self._agentic_rag_search(
+            task_description=task_description,
+            document_text=contract_text,
+            user_id=user_id
+        ):
+            if event["type"] == "status":
+                yield event
+            elif event["type"] == "result":
+                legal_context = event["context"]
+                sources = event["sources"]
+        
+        # Step 3: Audit with Claude Thinking
+        yield {"type": "status", "text": "⚖️ Глубокий правовой аудит (Claude Thinking)..."}
+        
+        enhanced_prompt = f"""═══════════════════════════════════════════════════════════════
+🔎 ПРЕДВАРИТЕЛЬНЫЙ АНАЛИЗ ДОГОВОРА (используй при аудите):
+═══════════════════════════════════════════════════════════════
+
+Тип договора: {contract_info.get('contract_type', 'не определен')}
+Ключевые темы: {', '.join(contract_info.get('key_topics', []))}
+Проверяемые области права: {', '.join(contract_info.get('legal_areas', []))}
+Специфические проверки, на которые обратить ОСОБОЕ внимание:
+{'\n'.join(f'- {check}' for check in specific_checks) if specific_checks else '- Стандартные проверки по ГК РУз'}
+
+═══════════════════════════════════════════════════════════════
+
+{CONTRACT_AUDIT_PROMPT}"""
+
+        audit_prompt = enhanced_prompt.format(
+            context=legal_context,
+            contract_text=contract_text
+        )
+
+        async with self.client.messages.stream(
+            model=self.settings.claude_haiku_model,
+            max_tokens=MAX_OUTPUT_TOKENS,
+            system=VALIDATOR_PROMPT,
+            thinking={
+                "type": "enabled",
+                "budget_tokens": self.settings.thinking_budget_tokens
+            },
+            messages=[{"role": "user", "content": audit_prompt}]
+        ) as stream:
+            raw_text = ""
+            async for text in stream.text_stream:
+                raw_text += text
+            
+            final_msg = await stream.get_final_message()
+            if hasattr(final_msg, 'usage') and user_id:
+                await UsageService.track_usage_async(
+                    user_id=user_id,
+                    model_name=self.settings.claude_haiku_model,
+                    input_tokens=final_msg.usage.input_tokens,
+                    output_tokens=final_msg.usage.output_tokens,
+                    request_type="contract_validation_stream"
+                )
+
+        # Parse and yield result
+        raw_text = raw_text.strip()
+        audit = self._parse_contract_audit_response(raw_text)
+        
+        yield {
+            "type": "result",
+            "audit": audit,
+            "sources": sources,
+            "raw_response": raw_text
+        }
+
     async def fix_contract_with_ai(
         self,
         original_text: str,
@@ -6807,3 +6904,144 @@ class AIService:
         except Exception as e:
             logger.error(f"Analyze document fatal error: {e}")
             raise
+
+    async def analyze_document_stream(
+        self,
+        document_text: str,
+        document_type: str,
+        user_id: Optional[int] = None
+    ):
+        """
+        Streaming version of analyze_document.
+        Yields status updates and final result JSON.
+        """
+        logger.info(f"=== ANALYZE DOCUMENT STREAM ===")
+        
+        # 1. Agentic RAG
+        type_label = document_type if document_type else "юридический документ"
+        yield {"type": "status", "text": f"📚 Поиск норм для: {type_label}..."}
+        
+        task_description = f"""Найди нормы законодательства Узбекистана для проверки документа типа "{type_label}".
+Ищи: требования к форме документа, обязательные реквизиты, сроки действия, порядок удостоверения/регистрации, недействительность, исковая давность, права и обязанности сторон."""
+
+        legal_context = "Правовой контекст недоступен."
+        sources = []
+        
+        async for event in self._agentic_rag_search(
+            task_description=task_description,
+            document_text=document_text,
+            user_id=user_id
+        ):
+            if event["type"] == "status":
+                yield event
+            elif event["type"] == "result":
+                legal_context = event["context"]
+                sources = event["sources"]
+        
+        # 2. Analyze with AI
+        yield {"type": "status", "text": "⚖️ Комплексный анализ документа (Claude Thinking)..."}
+        
+        type_hint = f"Тип документа: {document_type}" if document_type else "Тип документа: не указан"
+        audit_prompt = DOCUMENT_AUDIT_PROMPT.format(
+            context=legal_context,
+            document_text=document_text[:30000],
+            document_type=type_hint
+        )
+
+        async with self.client.messages.stream(
+            model=self.settings.claude_haiku_model,
+            max_tokens=MAX_OUTPUT_TOKENS,
+            system=DOCUMENT_VALIDATOR_PROMPT,
+            thinking={
+                "type": "enabled",
+                "budget_tokens": self.settings.thinking_budget_tokens
+            },
+            messages=[{"role": "user", "content": audit_prompt}]
+        ) as stream:
+            raw_text = ""
+            async for text in stream.text_stream:
+                raw_text += text
+            
+            final_msg = await stream.get_final_message()
+            if hasattr(final_msg, 'usage') and user_id:
+                await UsageService.track_usage_async(
+                    user_id=user_id,
+                    model_name=self.settings.claude_haiku_model,
+                    input_tokens=final_msg.usage.input_tokens,
+                    output_tokens=final_msg.usage.output_tokens,
+                    request_type="document_analysis_stream"
+                )
+
+        raw_text = raw_text.strip()
+        audit = self._parse_document_audit_response(raw_text)
+        
+        yield {
+            "type": "result",
+            "audit": audit,
+            "sources": sources,
+            "raw_response": raw_text
+        }
+
+    def _parse_contract_audit_response(self, raw_text: str) -> Dict[str, Any]:
+        """Helper to extract and parse JSON from contract audit response."""
+        json_text = raw_text
+        if "```" in json_text:
+            parts = json_text.split("```")
+            for part in parts:
+                stripped = part.strip()
+                if stripped.startswith("json"):
+                    stripped = stripped[4:].strip()
+                if stripped.startswith("{"):
+                    json_text = stripped
+                    break
+
+        try:
+            audit = json.loads(json_text)
+        except json.JSONDecodeError:
+            logger.warning("JSON parse failed, attempting truncated JSON recovery...")
+            repaired = json_text
+            last_complete = max(repaired.rfind('},'), repaired.rfind('"],'), repaired.rfind('"]'))
+            if last_complete > 0:
+                repaired = repaired[:last_complete + 1]
+            open_brackets = repaired.count('[') - repaired.count(']')
+            open_braces = repaired.count('{') - repaired.count('}')
+            repaired += ']' * max(0, open_brackets)
+            repaired += '}' * max(0, open_braces)
+            try:
+                audit = json.loads(repaired)
+            except:
+                audit = {}
+
+        # Validate audit structure (ensure it doesn't crash routers)
+        required_fields = ['validity_score', 'critical_errors', 'warnings', 'missing_clauses', 'summary', 'hidden_risks', 'ambiguities']
+        for field in required_fields:
+            if field not in audit:
+                if field == 'validity_score': audit[field] = 0
+                elif field in ['critical_errors', 'warnings', 'missing_clauses', 'hidden_risks', 'ambiguities']: audit[field] = []
+                else: audit[field] = "Не указано"
+        
+        return audit
+
+    def _parse_document_audit_response(self, raw_text: str) -> Dict[str, Any]:
+        """Helper to extract and parse JSON from document audit response."""
+        json_text = raw_text
+        if "```" in json_text:
+            parts = json_text.split("```")
+            for part in parts:
+                stripped = part.strip()
+                if stripped.startswith("json"):
+                    stripped = stripped[4:].strip()
+                if stripped.startswith("{"):
+                    json_text = stripped
+                    break
+
+        try:
+            audit = json.loads(json_text)
+        except:
+            audit = {}
+
+        # Standard document validator fields
+        if 'overall_score' not in audit: audit['overall_score'] = 0
+        if 'formal_validity' not in audit: audit['formal_validity'] = {"score": 0, "explanation": "Ошибка парсинга"}
+        
+        return audit

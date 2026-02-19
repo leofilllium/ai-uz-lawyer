@@ -5,7 +5,10 @@ Validates legal documents for formal validity, legal validity, up-to-dateness,
 compliance, risks, and provides improvement suggestions.
 """
 
+import json
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -275,13 +278,13 @@ def format_audit_as_markdown(audit: dict) -> str:
     return "\n".join(lines)
 
 
-@router.post("/analyze", response_model=ValidateDocumentResponse)
+@router.post("/analyze")
 async def analyze_document(
     request: ValidateDocumentRequest,
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_current_user)
 ):
-    """Analyze document for comprehensive validation."""
+    """Analyze document for comprehensive validation (SSE Streaming)."""
     document_text = request.document.strip()
     document_type = request.document_type
     user_id = current_user.id if current_user else None
@@ -292,80 +295,119 @@ async def analyze_document(
             detail="Document text is too short for meaningful analysis"
         )
     
-    try:
-        # Analyze document
-        ai_service = AIService(mode='document-validator')
-        result = await ai_service.analyze_document(document_text, document_type, top_k=50, user_id=user_id)
-        
-        audit = result.get('audit', {})
-        
-        # Save analysis to DocumentAnalysis table
-        analysis = DocumentAnalysis(
-            user_id=user_id,
-            document_text=document_text,
-            document_type=audit.get('document_type_detected', document_type),
-            overall_score=audit.get('overall_score', 0),
-            formal_validity=audit.get('formal_validity', {}),
-            legal_validity=audit.get('legal_validity', {}),
-            up_to_dateness=audit.get('up_to_dateness', {}),
-            compliance_check=audit.get('compliance_check', {}),
-            risk_analysis=audit.get('risk_analysis', {}),
-            consistency_check=audit.get('consistency_check', {}),
-            jurisdiction_intelligence=audit.get('jurisdiction_intelligence', {}),
-            litigation_readiness=audit.get('litigation_readiness', {}),
-            ethical_guardrails=audit.get('ethical_guardrails', {}),
-            improvements=audit.get('improvements', []),
-            summary=audit.get('summary', ''),
-            explainability=audit.get('explainability', ''),
-            sources=result.get('sources', []),
-            raw_response=result.get('raw_response', '')
-        )
-        db.add(analysis)
-        db.flush()
-        
-        # Also save to ChatSession for unified history view
-        session_title = f"Проверка документа: {audit.get('document_type_detected', 'Документ')} (Оценка: {audit.get('overall_score', 0)}/100)"
-        chat_session = ChatSession(
-            user_id=user_id,
-            session_type='document-validator',
-            title=session_title
-        )
-        db.add(chat_session)
-        db.flush()
-        
-        # Save user message (document text preview)
-        doc_preview = document_text[:500] + "..." if len(document_text) > 500 else document_text
-        user_msg = ChatMessage(
-            session_id=chat_session.id,
-            role='user',
-            content=f"**Документ для проверки:**\n\n```\n{doc_preview}\n```"
-        )
-        db.add(user_msg)
-        
-        # Save assistant response (formatted audit result)
-        formatted_response = format_audit_as_markdown(audit)
-        assistant_msg = ChatMessage(
-            session_id=chat_session.id,
-            role='assistant',
-            content=formatted_response,
-            sources=result.get('sources', [])
-        )
-        db.add(assistant_msg)
-        
-        db.commit()
-        
-        return ValidateDocumentResponse(
-            success=True,
-            analysis_id=analysis.id,
-            session_id=chat_session.id,
-            audit=DocumentAudit(**audit),
-            sources=result.get('sources', [])
-        )
-        
-    except Exception as e:
-        import traceback
-        print(f"Document validator error: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=str(e))
+    async def generate_stream():
+        try:
+            ai_service = AIService(mode='document-validator')
+            
+            # Start analysis in background task
+            analysis_task = asyncio.create_task(
+                ai_service.analyze_document_stream(document_text, document_type, user_id=user_id)
+            )
+            
+            # Streaming loop with robust keep-alive
+            analysis_iter = (await analysis_task).__aiter__()
+            next_event_task = None
+            
+            while True:
+                if next_event_task is None:
+                    next_event_task = asyncio.create_task(analysis_iter.__anext__())
+                
+                # Wait for next event without cancelling
+                done, _ = await asyncio.wait(
+                    [next_event_task],
+                    timeout=8.0,
+                    return_when=asyncio.FIRST_COMPLETED
+                )
+                
+                if next_event_task in done:
+                    try:
+                        event = await next_event_task
+                        next_event_task = None
+                    except StopAsyncIteration:
+                        break
+                    except Exception as e:
+                        raise e
+                    
+                    if event["type"] == "status":
+                        yield f"data: {json.dumps({'status': event['text']})}\n\n"
+                    elif event["type"] == "result":
+                        audit = event["audit"]
+                        sources = event["sources"]
+                        raw_response = event["raw_response"]
+                        
+                        # Save result to DB (same logic as before)
+                        analysis = DocumentAnalysis(
+                            user_id=user_id,
+                            document_text=document_text,
+                            document_type=audit.get('document_type_detected', document_type),
+                            overall_score=audit.get('overall_score', 0),
+                            formal_validity=audit.get('formal_validity', {}),
+                            legal_validity=audit.get('legal_validity', {}),
+                            up_to_dateness=audit.get('up_to_dateness', {}),
+                            compliance_check=audit.get('compliance_check', {}),
+                            risk_analysis=audit.get('risk_analysis', {}),
+                            consistency_check=audit.get('consistency_check', {}),
+                            jurisdiction_intelligence=audit.get('jurisdiction_intelligence', {}),
+                            litigation_readiness=audit.get('litigation_readiness', {}),
+                            ethical_guardrails=audit.get('ethical_guardrails', {}),
+                            improvements=audit.get('improvements', []),
+                            summary=audit.get('summary', ''),
+                            explainability=audit.get('explainability', ''),
+                            sources=sources,
+                            raw_response=raw_response
+                        )
+                        db.add(analysis)
+                        db.flush()
+                        
+                        session_title = f"Проверка документа: {audit.get('document_type_detected', 'Документ')} (Оценка: {audit.get('overall_score', 0)}/100)"
+                        chat_session = ChatSession(
+                            user_id=user_id,
+                            session_type='document-validator',
+                            title=session_title
+                        )
+                        db.add(chat_session)
+                        db.flush()
+                        
+                        doc_preview = document_text[:500] + "..." if len(document_text) > 500 else document_text
+                        user_msg = ChatMessage(
+                            session_id=chat_session.id,
+                            role='user',
+                            content=f"**Документ для проверки:**\n\n```\n{doc_preview}\n```"
+                        )
+                        db.add(user_msg)
+                        
+                        formatted_response = format_audit_as_markdown(audit)
+                        assistant_msg = ChatMessage(
+                            session_id=chat_session.id,
+                            role='assistant',
+                            content=formatted_response,
+                            sources=sources
+                        )
+                        db.add(assistant_msg)
+                        db.commit()
+                        
+                        # Yield final done event
+                        yield f"data: {json.dumps({
+                            'done': True,
+                            'analysis_id': analysis.id,
+                            'session_id': chat_session.id,
+                            'audit': audit,
+                            'sources': sources
+                        })}\n\n"
+                else:
+                    # Timeout, send keep-alive
+                    yield ": keep-alive\n\n"
+                    
+        except Exception as e:
+            import traceback
+            import logging
+            logging.getLogger(__name__).error(f"Doc validator stream error: {traceback.format_exc()}")
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        finally:
+            if 'next_event_task' in locals() and next_event_task and not next_event_task.done():
+                next_event_task.cancel()
+
+    return StreamingResponse(generate_stream(), media_type="text/event-stream")
 
 
 @router.get("/history", response_model=list[DocumentAnalysisResponse])

@@ -87,6 +87,7 @@ function DocumentValidator() {
   const [documentText, setDocumentText] = useState('');
   const [documentType, setDocumentType] = useState('');
   const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [result, setResult] = useState<{ audit: DocumentAudit; sources: Source[] } | null>(null);
 
@@ -135,14 +136,18 @@ function DocumentValidator() {
     setError('');
     setLoading(true);
     setResult(null);
+    setStatus('Инициализация...');
 
     try {
-      const data = await analyzeDocument(documentText, documentType || undefined);
+      const data = await analyzeDocument(documentText, documentType || undefined, (msg) => {
+        setStatus(msg);
+      });
       setResult({ audit: data.audit, sources: data.sources });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка анализа');
     } finally {
       setLoading(false);
+      setStatus('');
     }
   }
 
@@ -195,7 +200,7 @@ function DocumentValidator() {
             {loading ? (
               <>
                 <span className="spinner"></span>
-                Анализ документа...
+                {status || 'Анализ документа...'}
               </>
             ) : (
               '🔍 Проверить документ'

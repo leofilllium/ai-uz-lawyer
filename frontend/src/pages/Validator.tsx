@@ -14,6 +14,7 @@ export default function Validator() {
   const [loading, setLoading] = useState(false);
   const [fixing, setFixing] = useState(false);
   const [fixedContract, setFixedContract] = useState<string | null>(null);
+  const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -61,9 +62,12 @@ export default function Validator() {
     setError('');
     setLoading(true);
     setResult(null);
+    setStatus('Инициализация...');
 
     try {
-      const data = await analyzeContract(contractText);
+      const data = await analyzeContract(contractText, (msg) => {
+        setStatus(msg);
+      });
       setResult(data);
       // Mark this ID so the useEffect doesn't re-fetch it
       if (data.id) {
@@ -74,6 +78,7 @@ export default function Validator() {
       setError(err instanceof Error ? err.message : 'Ошибка анализа');
     } finally {
       setLoading(false);
+      setStatus('');
     }
   };
 
@@ -142,6 +147,12 @@ export default function Validator() {
             <button type="submit" className="btn-primary" disabled={loading || contractText.length < 50}>
               {loading ? 'Анализ...' : 'Проверить договор'}
             </button>
+            {loading && status && (
+              <div className="streaming-status">
+                <span className="spinner-small"></span>
+                {status}
+              </div>
+            )}
           </div>
         </form>
 
