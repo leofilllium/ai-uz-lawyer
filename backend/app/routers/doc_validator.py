@@ -387,13 +387,14 @@ async def analyze_document(
                         db.commit()
                         
                         # Yield final done event
-                        yield f"data: {json.dumps({
+                        done_payload = json.dumps({
                             'done': True,
                             'analysis_id': analysis.id,
                             'session_id': chat_session.id,
                             'audit': audit,
                             'sources': sources
-                        })}\n\n"
+                        })
+                        yield f"data: {done_payload}\n\n"
                 else:
                     # Timeout, send keep-alive
                     yield ": keep-alive\n\n"
