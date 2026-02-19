@@ -4247,58 +4247,58 @@ CONTRACT_AUDIT_PROMPT = """Выполните 3-этапный аудит юри
 
 ФОРМАТ ВЫВОДА (СТРОГО JSON):
 
-{{
+{
   "validity_score": <0-100>,
   "score_explanation": "<1 предложение>",
   "critical_errors": [
-    {{
+    {
       "error": "<1 предложение: суть проблемы>",
       "article": "<Статья X ГК РУз>",
       "fix": "<готовый текст, 1-3 предложения>"
-    }}
+    }
   ],
   "warnings": [
-    {{
+    {
       "risk": "<1 предложение>",
       "explanation": "<1 предложение>",
       "suggestion": "<1 предложение>"
-    }}
+    }
   ],
   "missing_clauses": [
-    {{
+    {
       "clause_name": "<название>",
       "article_reference": "<статья>",
       "drafted_text": "<готовый текст, 1-3 предложения>"
-    }}
+    }
   ],
   "hidden_risks": [
-    {{
+    {
       "risk": "<1 предложение>",
       "location": "<где в договоре>",
       "severity": "high/medium/low",
       "mitigation": "<1 предложение>"
-    }}
+    }
   ],
   "ambiguities": [
-    {{
+    {
       "phrase": "<цитата>",
       "risk": "<1 предложение>",
       "suggestion": "<точная замена>"
-    }}
+    }
   ],
   "strengths": [
     "<сильная сторона договора — 1 предложение>"
   ],
   "improvement_suggestions": [
-    {{
+    {
       "suggestion": "<что улучшить — 1 предложение>",
       "reason": "<почему важно — 1 предложение>",
       "drafted_text": "<готовый текст для вставки, 1-3 предложения>"
-    }}
+    }
   ],
   "summary": "<2-3 предложения>",
   "negotiation_strategy": "<2-3 совета>"
-}}
+}
 
 ПРАВОВОЙ КОНТЕКСТ ИЗ ЗАКОНОДАТЕЛЬСТВА УЗБЕКИСТАНА:
 {context}
@@ -6137,10 +6137,7 @@ class AIService:
                 # 2.4: Contract audit (same as analyze_contract)
                 yield {"type": "status", "text": "📜 **Аудит черновика по законодательству...**"}
 
-                audit_prompt = CONTRACT_AUDIT_PROMPT.format(
-                    context=validation_legal_context,
-                    contract_text=draft_text
-                )
+                audit_prompt = CONTRACT_AUDIT_PROMPT.replace('{context}', validation_legal_context).replace('{contract_text}', draft_text)
 
                 raw_audit_text = ""
                 chunk_count = 0
@@ -6576,10 +6573,7 @@ class AIService:
 
 {CONTRACT_AUDIT_PROMPT}"""
 
-        audit_prompt = enhanced_prompt.format(
-            context=legal_context,
-            contract_text=contract_text
-        )
+        audit_prompt = enhanced_prompt.replace('{context}', legal_context).replace('{contract_text}', contract_text)
 
         # Step 5: Perform validation with Claude (using thinking for high quality)
         try:
@@ -6770,10 +6764,7 @@ class AIService:
 
 {CONTRACT_AUDIT_PROMPT}"""
 
-        audit_prompt = enhanced_prompt.format(
-            context=legal_context,
-            contract_text=contract_text
-        )
+        audit_prompt = enhanced_prompt.replace('{context}', legal_context).replace('{contract_text}', contract_text)
 
         async with self.client.messages.stream(
             model=self.settings.claude_haiku_model,
@@ -7073,6 +7064,7 @@ class AIService:
 
     def _parse_contract_audit_response(self, raw_text: str) -> Dict[str, Any]:
         """Helper to extract and parse JSON from contract audit response."""
+        logger.info(f"Parsing contract audit response ({len(raw_text)} chars). First 300: {raw_text[:300]}")
         json_text = raw_text
         if "```" in json_text:
             parts = json_text.split("```")
@@ -7086,8 +7078,8 @@ class AIService:
 
         try:
             audit = json.loads(json_text)
-        except json.JSONDecodeError:
-            logger.warning("JSON parse failed, attempting truncated JSON recovery...")
+        except json.JSONDecodeError as parse_err:
+            logger.warning(f"JSON parse failed: {parse_err}. First 500 of json_text: {json_text[:500]}")
             repaired = json_text
             last_complete = max(repaired.rfind('},'), repaired.rfind('"],'), repaired.rfind('"]'))
             if last_complete > 0:
@@ -7098,7 +7090,9 @@ class AIService:
             repaired += '}' * max(0, open_braces)
             try:
                 audit = json.loads(repaired)
-            except:
+                logger.info("Truncated JSON recovery successful")
+            except Exception as repair_err:
+                logger.error(f"JSON recovery also failed: {repair_err}. Full raw_text ({len(raw_text)} chars): {raw_text[:1000]}")
                 audit = {}
 
         # Validate audit structure (ensure it doesn't crash routers)
