@@ -3681,8 +3681,8 @@ OUTPUT FORMAT:
 # ⚙️ SYSTEM CONFIGURATION & CONSTANTS
 # ═══════════════════════════════════════════════════════════════
 
-DEFAULT_TOP_K = 50
-PRE_SEARCH_TOP_K = 100
+DEFAULT_TOP_K = 40
+PRE_SEARCH_TOP_K = 75
 MIN_RELEVANCE_SCORE = 0.35  # Minimum similarity score for RAG results
 MAX_AGENTIC_ROUNDS = 2 # Max rounds for agentic search
 MAX_OUTPUT_TOKENS = 16000  # Claude Haiku 4.5 max output tokens
@@ -5011,7 +5011,7 @@ class AIService:
             detect_result = await self._auto_detect_mode(question, extra_context)
             chat_mode = detect_result["detected_mode"]
             auto_detect_plan = detect_result.get("response_plan", "")
-            logger.info(f"Auto-detected mode: '{chat_mode}', plan: '{auto_detect_plan[:100]}...'")
+            logger.info(f"Auto-detected mode: '{chat_mode}', plan: '{auto_detect_plan[:65]}...'")
         
         # Select appropriate system prompt
         system_prompt = self._get_system_prompt(chat_mode)
@@ -5171,7 +5171,7 @@ class AIService:
         
         # ── Step 2: Run hybrid search for each variant ──
         all_results = []
-        per_variant_k = max(top_k, 100)
+        per_variant_k = max(top_k, 65)
         
         for variant in query_variants:
             try:
@@ -5409,7 +5409,7 @@ class AIService:
 
         # Sort by similarity and take top 50
         unique_results.sort(key=lambda x: x.get("similarity", 0), reverse=True)
-        final_results = unique_results[:100]
+        final_results = unique_results[:65]
 
         context = self._format_enhanced_context(final_results)
         sources = self._format_sources_with_quality(final_results)
@@ -5779,7 +5779,7 @@ class AIService:
         
         # Add requirements-based query
         if len(requirements) > 10:
-            queries.append(requirements[:100])
+            queries.append(requirements[:65])
             
         return queries
 
