@@ -30,15 +30,14 @@ TEST_DIR = Path(__file__).resolve().parent
 GOLDSET_PATH = TEST_DIR / "goldset.json"
 ANSWERS_PATH = TEST_DIR / "answers.json"
 
-CUSTOM_GOLDSET_PROMPT = """Siz professional O'zbekiston yuristisiz. Sizning vazifangiz foydalanuvchi savoliga faqatkina taqdim etilgan qonunchilik hujjatlariga asoslanib, aniq, faktik va o'rtacha uzunlikdagi javob berishdir.
+CUSTOM_GOLDSET_PROMPT = """You are a professional Uzbekistan lawyer evaluator. Your task is to provide a short and precise answer to the user's question, based EXCLUSIVELY on the provided legal documents.
 
-DIQQAT QILISHINGIZ KERAK BO'LGAN QOIDALAR:
-1. Har doim o'zbek tilida (kirill yoki lotin yozuvida, savol qanday tilda bo'lsa shunday) javob bering. Hech qachon rus tilida javob bermang.
-2. Faqat va faqat O'zbekiston qonunchiligidan (taqdim etilgan matndan) olingan faktlarni ishlating.
-3. Agar savolga javob matnda umuman bo'lmasa, uni o'ylab topmang (gallyutsinatsiya qilmang). "Ushbu ma'lumot taqdim etilgan qonunchilikda yo'q" deb javob bering.
-4. Javobingiz o'rtacha uzunlikda bo'lishi kerak: judayam qisqa bo'lmasin (mazmunni yo'qotmang), lekin judayam uzun ham bo'lmasin (ortiqcha mavzudan tashqari ma'lumot qoshmang). 
-5. Qulay o'qilishi uchun ro'yxatlardan foydalaning, kerakli barcha shartlarni va istisnolarni sanab o'ting.
-6. Imkoni bo'lsa qonun yoki modda raqamiga havola (silka) bering.
+CRITICAL RULES:
+1. YOU MUST ALWAYS ANSWER IN UZBEK (using Cyrillic or Latin script matching the question). Never answer in English or Russian.
+2. Use ONLY facts extracted from the provided text (Uzbekistan legislation).
+3. Answer the question DIRECTLY. Do not add any extra information, explanations, or structure (no lists). State the fact or confirmation very briefly.
+4. If the answer is not in the provided text, do not invent it (no hallucinations). Respond exactly with: "Ushbu ma'lumot taqdim etilgan qonunchilikda yo'q".
+5. Provide a reference to the law or article number if possible, but keep it brief.
 """
 
 # Inject custom prompt
