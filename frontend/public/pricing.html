@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Документ</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            line-height: 1.6; 
+            max-width: 900px; 
+            margin: 0 auto; 
+            padding: 40px 20px;
+            color: #333;
+            background-color: #f9f9f9;
+        }
+        .container {
+            background-color: #fff;
+            padding: 40px 50px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1, h2, h3, h4 { color: #2c3e50; }
+        h1 { border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        h2 { color: #2980b9; margin-top: 30px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        h3 { color: #16a085; }
+        a { color: #3498db; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        table { 
+            border-collapse: collapse; 
+            width: 100%; 
+            margin: 20px 0; 
+        }
+        th, td { 
+            border: 1px solid #ddd; 
+            padding: 12px; 
+            text-align: left; 
+        }
+        th { 
+            background-color: #f2f2f2; 
+            font-weight: bold;
+        }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        blockquote {
+            background: #f9f9f9;
+            border-left: 5px solid #3498db;
+            margin: 20px 0;
+            padding: 15px 20px;
+            font-style: italic;
+            color: #555;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-family: Consolas, monospace;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏢 B2B Pricing &amp; Credits System (Organization Model) - Revised</h1>
+<p>This document outlines the <strong>Action-Based Credit System</strong> designed specifically for law firms and legal departments. Individual token counts are hidden from the user; instead, credits are deducted as fixed amounts per action.</p>
+<p>The system is optimized for <strong>Anthropic Claude 3.5 Haiku (claude-haiku-4-5-20251001)</strong> costs:<br />
+* <strong>Input Tokens:</strong> $1.00 per 1M ($0.001 per 1K)<br />
+* <strong>Output Tokens:</strong> $5.00 per 1M ($0.005 per 1K)</p>
+<hr />
+<h2>1. ⚙️ How the B2B Credit System Works</h2>
+<ol>
+<li><strong>Organization Pool:</strong> The firm (Organization) buys a general pool of credits (e.g., 500,000 Credits / month).</li>
+<li><strong>Individual Balances:</strong> Each lawyer linked to the Organization shares this pool.</li>
+<li><strong>Daily Limits:</strong> To prevent abuse or accidental overspending, the Organization sets a <strong>Daily Limit</strong> per user (e.g., maximum 5,000 Credits per lawyer per day).</li>
+<li><strong>Action-Based Deductions:</strong> Credits are charged strictly based on the <strong>type of action</strong> performed, making expenses predictable.</li>
+</ol>
+<hr />
+<h2>2. ⚡ Real World Costs &amp; Fixed Credit Pricing</h2>
+<p>Based on actual production usage logs, the token consumption is significantly higher due to heavy RAG context (up to 150k input tokens for a single chat query) and detailed outputs (up to 10k output tokens for contract validation). </p>
+<p>To abstract this, we establish a new base value:</p>
+<blockquote>
+<p><strong>1 Credit = $0.001</strong> (1/10th of a cent or ~1.25 UZS)<br />
+<strong>100 Credits = $0.10</strong> (~1,250 UZS)</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>Action (Generation)</th>
+<th>Real Avg. Tokens (In/Out)</th>
+<th>Real Avg. Cost (USD)</th>
+<th>Fixed Charge (Credits)</th>
+<th>User Pays (Abstract)</th>
+<th>Margin</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>AI Translation (Bg)</strong></td>
+<td>100 / 50</td>
+<td>~$0.0005</td>
+<td><strong>Internal</strong></td>
+<td>$0.00</td>
+<td>-</td>
+</tr>
+<tr>
+<td><strong>AI Lawyer Chat</strong></td>
+<td>90k / 3.5k</td>
+<td>~$0.11</td>
+<td><strong>250 Credits</strong></td>
+<td>$0.25 (~3,100 UZS)</td>
+<td>~55%</td>
+</tr>
+<tr>
+<td><strong>Contract Gen (Std)</strong></td>
+<td>30k / 4k</td>
+<td>~$0.05</td>
+<td><strong>150 Credits</strong></td>
+<td>$0.15 (~1,850 UZS)</td>
+<td>~66%</td>
+</tr>
+<tr>
+<td><strong>Contract Gen (Ultra)</strong></td>
+<td>120k / 8k</td>
+<td>~$0.16</td>
+<td><strong>350 Credits</strong></td>
+<td>$0.35 (~4,350 UZS)</td>
+<td>~54%</td>
+</tr>
+<tr>
+<td><strong>Contract Validator</strong></td>
+<td>110k / 10k</td>
+<td>~$0.16</td>
+<td><strong>400 Credits</strong></td>
+<td>$0.40 (~5,000 UZS)</td>
+<td>~60%</td>
+</tr>
+<tr>
+<td><strong>Fix Contract with AI</strong></td>
+<td>120k / 5k</td>
+<td>~$0.15</td>
+<td><strong>350 Credits</strong></td>
+<td>$0.35 (~4,350 UZS)</td>
+<td>~57%</td>
+</tr>
+</tbody>
+</table>
+<p><em>(Note: "Real Avg. Cost" is derived from user logs. For instance, <code>chat_rag_quick-answer</code> maxed at 149k/4.2k = $0.17. The 250 Credit charge ($0.25) covers even the heaviest outliers safely).</em></p>
+<hr />
+<h2>3. 📈 Financial Model for an Average Firm (5 Lawyers)</h2>
+<p>Let's calculate the real numbers for an average law firm employing <strong>5 lawyers</strong>, working 22 days a month.</p>
+<h3>📊 Scenario A: "Average Daily Usage"</h3>
+<p>A typical day for <strong>one</strong> lawyer using the platform:<br />
+- 10x AI Lawyer Consultations = 2,500 Credits<br />
+- 2x Standard Generators = 300 Credits<br />
+- 1x Ultra Generator = 350 Credits<br />
+- 2x Contract Validators = 800 Credits<br />
+- <strong>Total per Lawyer / Day:</strong> 3,950 Credits.<br />
+- <strong>Total for Firm (5 Lawyers) / Day:</strong> 19,750 Credits.<br />
+- <strong>Total for Firm / Month (22 days):</strong> <strong>434,500 Credits</strong>.</p>
+<h4>💰 Revenue vs Cost (Average Firm)</h4>
+<ul>
+<li><strong>What you charge the firm:</strong> The firm buys a "500,000 Credits" package for <strong>$499.00 / month</strong> (~6,300,000 UZS).</li>
+<li><strong>Your LLM Cost:</strong> ~434,500 Credits used @ ~58% margin = <strong>~$182.00</strong>.</li>
+<li><strong>Your Net Revenue (Profit):</strong> <strong>$317.00 / month per firm</strong> (Margin ~63%).</li>
+</ul>
+<hr />
+<h3>🔥 Scenario B: "Maximum Usage" (Hitting the Limits)</h3>
+<p>The firm sets a Daily Limit of <strong>5,000 Credits per lawyer</strong>. All 5 lawyers max out their limits every single day of the month.</p>
+<ul>
+<li><strong>Total for Firm (5 Lawyers) / Day:</strong> 25,000 Credits.</li>
+<li><strong>Total for Firm / Month (22 days):</strong> <strong>550,000 Credits</strong>.<br />
+<em>(They will need to buy a 100,000 credit top-up mid-month).</em></li>
+</ul>
+<h4>💰 Revenue vs Cost (Maximum Usage)</h4>
+<ul>
+<li><strong>What you charge the firm:</strong> $499.00 (Base) + $110.00 (Top-up) = <strong>$609.00 / month</strong> (~7,600,000 UZS).</li>
+<li><strong>Your LLM Cost:</strong> 550,000 Credits @ ~58% margin = <strong>~$231.00</strong>.</li>
+<li><strong>Your Net Revenue (Profit):</strong> <strong>$378.00 / month per firm</strong> (Margin 62%).</li>
+</ul>
+<hr />
+<h2>4. 🗂️ Proposed Subscription Plans (B2B SaaS)</h2>
+<p>Because RAG usage is highly token-intensive, the pricing reflects a premium enterprise tool. </p>
+<h3>� "Офис" (Small Firm)</h3>
+<ul>
+<li><strong>Price:</strong> $199.00 / month (~2,500,000 UZS)</li>
+<li><strong>Credits Shared Pool:</strong> 200,000 Credits</li>
+<li><strong>Daily Limit per User:</strong> Configurable</li>
+<li><strong>Best for:</strong> 1-3 users.</li>
+<li><em>LLM Cost to you: ~$84. Profit: $115.</em></li>
+</ul>
+<h3>� "Корпорация" (Standard Firm) 👈 <em>The Sweet Spot</em></h3>
+<ul>
+<li><strong>Price:</strong> $499.00 / month (~6,300,000 UZS)</li>
+<li><strong>Credits Shared Pool:</strong> 500,000 Credits</li>
+<li><strong>Daily Limit per User:</strong> Configurable</li>
+<li><strong>Best for:</strong> 4-10 users (Perfect for the 5-lawyer average).</li>
+<li><em>LLM Cost to you: ~$210. Profit: $289.</em></li>
+</ul>
+<h3>🏆 "Холдинг" (Large Enterprise)</h3>
+<ul>
+<li><strong>Price:</strong> $999.00 / month (~12,600,000 UZS)</li>
+<li><strong>Credits Shared Pool:</strong> 1,200,000 Credits (20% Bonus included)</li>
+<li><strong>Daily Limit per User:</strong> Configurable</li>
+<li><strong>Best for:</strong> 15+ users, heavy API / generation usage.</li>
+<li><em>LLM Cost to you: ~$504. Profit: $495.</em></li>
+</ul>
+<h3>🔋 Top-Ups (Pay-As-You-Go)</h3>
+<ul>
+<li><strong>$55.00</strong> = 50,000 Credits</li>
+<li><strong>$110.00</strong> = 100,000 Credits</li>
+</ul>
+    </div>
+</body>
+</html>
