@@ -12,7 +12,7 @@ import {
   Lock, Globe, Mail, Phone, MapPin, Send,
   ChevronRight, ChevronDown, Play, Rocket, Calendar,
   Clock, TrendingUp, AlertTriangle,
-  Target
+  Target, LayoutDashboard
 } from 'lucide-react';
 import './About.css';
 import { sendContactMessage } from '../api/client';
@@ -102,6 +102,17 @@ export default function About() {
         'Мгновенная помощь 24/7'
       ],
       icon: <MessageSquare className="w-6 h-6" />
+    },
+    {
+      title: 'Таск-менеджер',
+      subtitle: 'Task & Kanban Management',
+      description: 'Управление делами, контроль дедлайнов и распределение задач.',
+      items: [
+        'Интерактивная Kanban-доска',
+        'Привязка задач к документам',
+        'Командная работа без хаоса в чатах'
+      ],
+      icon: <LayoutDashboard className="w-6 h-6" />
     }
   ];
 
@@ -344,15 +355,43 @@ export default function About() {
                     <div className="feature-demo-icon">{feature.icon}</div>
                     <div className="feature-demo-title">{feature.subtitle}</div>
                   </div>
-                  <div className="mockup-document">
-                    <div className="mockup-line title"></div>
-                    <div className="mockup-line text"></div>
-                    <div className="mockup-line text"></div>
-                  </div>
-                  <div className="mockup-highlight">
-                    <Brain className="w-4 h-4 mr-2" />
-                    AI обрабатывает ваш запрос...
-                  </div>
+                  {index === 4 ? (
+                    <div className="mockup-kanban">
+                      <div className="mockup-kanban-board">
+                        <div className="mockup-kanban-col">
+                          <div className="mockup-kanban-col-title">To Do</div>
+                          <div className="mockup-kanban-card">
+                            <div className="mockup-line title" style={{ width: '80%' }}></div>
+                            <div className="mockup-line text" style={{ width: '40%' }}></div>
+                          </div>
+                          <div className="mockup-kanban-card">
+                            <div className="mockup-line title" style={{ width: '60%' }}></div>
+                            <div className="mockup-line text" style={{ width: '30%' }}></div>
+                          </div>
+                        </div>
+                        <div className="mockup-kanban-col">
+                          <div className="mockup-kanban-col-title">In Progress</div>
+                          <div className="mockup-kanban-card active-card">
+                            <div className="mockup-line title" style={{ width: '90%' }}></div>
+                            <div className="mockup-line text" style={{ width: '70%' }}></div>
+                            <div className="mockup-kanban-avatar"></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mockup-document">
+                        <div className="mockup-line title"></div>
+                        <div className="mockup-line text"></div>
+                        <div className="mockup-line text"></div>
+                      </div>
+                      <div className="mockup-highlight">
+                        <Brain className="w-4 h-4 mr-2" />
+                        AI обрабатывает ваш запрос...
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             ))}
@@ -442,7 +481,7 @@ export default function About() {
                 <li><Check className="pricing-check" /> Анализ договоров</li>
                 <li><Check className="pricing-check" /> Генерация договоров</li>
                 <li><Check className="pricing-check" /> AI-консультации</li>
-                <li><Check className="pricing-check" /> Email-поддержка</li>
+                <li><Check className="pricing-check" /> Базовый таск-менеджер</li>
                 <li><Check className="pricing-check" /> До 5 пользователей</li>
               </ul>
               <button className="pricing-cta">Начать</button>
@@ -458,7 +497,7 @@ export default function About() {
               </div>
               <ul className="pricing-features">
                 <li><Check className="pricing-check" /> Всё из Starter</li>
-                <li><Check className="pricing-check" /> Приоритетная поддержка</li>
+                <li><Check className="pricing-check" /> Продвинутая Kanban-доска</li>
                 <li><Check className="pricing-check" /> До 15 пользователей</li>
                 <li><Check className="pricing-check" /> Кастомные шаблоны</li>
                 <li><Check className="pricing-check" /> Доступ к API</li>
