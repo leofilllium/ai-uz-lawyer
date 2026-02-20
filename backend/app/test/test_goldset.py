@@ -17,7 +17,7 @@ from pathlib import Path
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from app.services.ai_service import AIService
+from app.services.ai_service import AIService, CHAT_MODE_PROMPTS
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,13 +30,27 @@ TEST_DIR = Path(__file__).resolve().parent
 GOLDSET_PATH = TEST_DIR / "goldset.json"
 ANSWERS_PATH = TEST_DIR / "answers.json"
 
+CUSTOM_GOLDSET_PROMPT = """Siz professional O'zbekiston yuristisiz. Sizning vazifangiz foydalanuvchi savoliga faqatkina taqdim etilgan qonunchilik hujjatlariga asoslanib, aniq, faktik va o'rtacha uzunlikdagi javob berishdir.
+
+DIQQAT QILISHINGIZ KERAK BO'LGAN QOIDALAR:
+1. Har doim o'zbek tilida (kirill yoki lotin yozuvida, savol qanday tilda bo'lsa shunday) javob bering. Hech qachon rus tilida javob bermang.
+2. Faqat va faqat O'zbekiston qonunchiligidan (taqdim etilgan matndan) olingan faktlarni ishlating.
+3. Agar savolga javob matnda umuman bo'lmasa, uni o'ylab topmang (gallyutsinatsiya qilmang). "Ushbu ma'lumot taqdim etilgan qonunchilikda yo'q" deb javob bering.
+4. Javobingiz o'rtacha uzunlikda bo'lishi kerak: judayam qisqa bo'lmasin (mazmunni yo'qotmang), lekin judayam uzun ham bo'lmasin (ortiqcha mavzudan tashqari ma'lumot qoshmang). 
+5. Qulay o'qilishi uchun ro'yxatlardan foydalaning, kerakli barcha shartlarni va istisnolarni sanab o'ting.
+6. Imkoni bo'lsa qonun yoki modda raqamiga havola (silka) bering.
+"""
+
+# Inject custom prompt
+CHAT_MODE_PROMPTS["goldset-eval"] = CUSTOM_GOLDSET_PROMPT
+
 
 async def answer_question(ai_service: AIService, question: str) -> str:
     """Run query_with_rag and collect the full streamed answer."""
     result = await ai_service.query_with_rag(
         question=question,
         history=None,
-        chat_mode="quick-answer",
+        chat_mode="goldset-eval", # Use the dynamically injected custom mode
     )
 
     # Consume the async generator to get full text
@@ -65,7 +79,7 @@ async def main():
                 answered[entry["id"]] = entry
         logger.info(f"Resuming — {len(answered)}/{len(goldset)} already answered, skipping them")
 
-    ai_service = AIService(mode="lawyer")
+    ai_service = AIService(mode="lawyer") # The `chat_mode` is passed later in `answer_question`
 
     for i, item in enumerate(goldset):
         qid = item["id"]
