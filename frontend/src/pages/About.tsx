@@ -161,7 +161,7 @@ export default function About() {
           <div className="nav-links">
             <button onClick={() => scrollToSection('product')}>Продукт</button>
             <button onClick={() => scrollToSection('features')}>Возможности</button>
-            <button onClick={() => scrollToSection('pricing')}>Тарифы</button>
+            {/* <button onClick={() => scrollToSection('pricing')}>Тарифы</button> */}
             <button onClick={() => scrollToSection('contact')}>Контакты</button>
           </div>
           {/* <div className="nav-actions">
@@ -461,7 +461,7 @@ export default function About() {
       {/* ═══════════════════════════════════════════════════
           SECTION 6: PRICING
           ═══════════════════════════════════════════════════ */}
-      <section className="landing-section pricing-section" id="pricing">
+      {/* <section className="landing-section pricing-section" id="pricing">
         <div className="landing-container">
           <h2 className="landing-section-title">Тарифные планы</h2>
           <p className="landing-section-subtitle">
@@ -469,7 +469,6 @@ export default function About() {
           </p>
           
           <div className="pricing-grid">
-            {/* Starter */}
             <div className="pricing-card">
               <div className="pricing-header">
                 <h3 className="pricing-name">STARTER</h3>
@@ -487,7 +486,6 @@ export default function About() {
               <button className="pricing-cta">Начать</button>
             </div>
             
-            {/* Professional */}
             <div className="pricing-card featured">
               <div className="pricing-popular">Популярный</div>
               <div className="pricing-header">
@@ -506,7 +504,6 @@ export default function About() {
               <button className="pricing-cta">Выбрать</button>
             </div>
             
-            {/* Enterprise */}
             <div className="pricing-card">
               <div className="pricing-header">
                 <h3 className="pricing-name">ENTERPRISE</h3>
@@ -529,7 +526,7 @@ export default function About() {
             Кредиты не сгорают и переносятся на следующий месяц.
           </p>
         </div>
-      </section>
+      </section> */}
 
       {/* ═══════════════════════════════════════════════════
           SECTION 7: INDUSTRIES
@@ -852,7 +849,7 @@ export default function About() {
               <h4>Продукт</h4>
               <ul>
                 <li><button onClick={() => scrollToSection('features')}>Возможности</button></li>
-                <li><button onClick={() => scrollToSection('pricing')}>Тарифы</button></li>
+                {/* <li><button onClick={() => scrollToSection('pricing')}>Тарифы</button></li> */}
               </ul>
             </div>
           </div>
