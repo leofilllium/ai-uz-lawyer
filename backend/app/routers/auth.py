@@ -3,7 +3,7 @@ Authentication Router
 User registration, login, and profile endpoints.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
@@ -16,6 +16,7 @@ from app.schemas.auth import (
     UserResponse,
     TokenResponse
 )
+from app.core.security import limiter, validate_password_strength
 
 
 router = APIRouter()
@@ -55,8 +56,17 @@ async def require_auth(
 
 
 @router.post("/register", response_model=TokenResponse)
-async def register(request: UserRegisterRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+async def register(req: Request, request: UserRegisterRequest, db: Session = Depends(get_db)):
     """Register a new user."""
+    # Validate password strength
+    password_error = validate_password_strength(request.password)
+    if password_error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=password_error
+        )
+    
     # Check if user exists
     existing = db.query(User).filter(User.email == request.email.lower()).first()
     if existing:
@@ -99,7 +109,8 @@ async def register(request: UserRegisterRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(request: UserLoginRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+async def login(req: Request, request: UserLoginRequest, db: Session = Depends(get_db)):
     """Login with email and password."""
     # Find user
     user = db.query(User).filter(User.email == request.email.lower()).first()

@@ -43,6 +43,9 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
       - ALLOWED_ORIGINS=["https://lawyerai.uz","https://api.lawyerai.uz","http://lawyerai.uz","http://api.lawyerai.uz","http://localhost:3000"]
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-change-me-in-production}
+      - RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED:-true}
     volumes:
       - chroma_data:/app/data/chroma_db
       - ./codes:/app/codes:ro

@@ -228,21 +228,35 @@ async function fetchWithAuth(
     headers,
   };
 
+  let response: Response;
+
   if (timeoutMs) {
     const controller = new AbortController();
     fetchOptions.signal = controller.signal;
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, fetchOptions);
+      response = await fetch(`${API_BASE_URL}${endpoint}`, fetchOptions);
       clearTimeout(timeoutId);
-      return response;
     } catch (e) {
       clearTimeout(timeoutId);
       throw e;
     }
+  } else {
+    response = await fetch(`${API_BASE_URL}${endpoint}`, fetchOptions);
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, fetchOptions);
+  // Handle rate limiting
+  if (response.status === 429) {
+    throw new Error('Слишком много запросов. Пожалуйста, подождите немного и попробуйте снова.');
+  }
+
+  // Handle expired/invalid token
+  if (response.status === 401 && token) {
+    removeToken();
+    window.location.href = '/login';
+    throw new Error('Сессия истекла. Пожалуйста, войдите снова.');
+  }
+
   return response;
 }
 

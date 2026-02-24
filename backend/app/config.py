@@ -16,7 +16,15 @@ class Settings(BaseSettings):
     # Security
     secret_key: str = "super-secret-key-change-in-production"
     jwt_algorithm: str = "HS256"
-    jwt_expiry_days: int = 365
+    jwt_expiry_days: int = 30
+    min_password_length: int = 8
+    
+    # Admin
+    admin_username: str = "admin"
+    admin_password: str = "change-me-in-production"
+    
+    # Rate Limiting
+    rate_limit_enabled: bool = True
     
     # Anthropic Claude AI
     anthropic_api_key: str = ""
@@ -39,7 +47,7 @@ class Settings(BaseSettings):
     
     # Application
     debug: bool = False
-    allowed_origins: str = "*"  # Comma-separated or "*" for all
+    allowed_origins: str = "https://lawyerai.uz,https://api.lawyerai.uz,http://localhost:3000"
     
     @property
     def cors_origins(self) -> list[str]:

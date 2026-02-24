@@ -42,6 +42,10 @@ email-validator>=2.0.0
 python-multipart>=0.0.6
 httpx>=0.27.0
 
+# Security
+slowapi>=0.1.9
+bleach>=6.0.0
+
 # Document Embedding Extras
 pypdfium2>=4.24.0
 rapidfuzz>=3.5.2

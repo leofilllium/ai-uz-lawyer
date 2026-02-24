@@ -1,6 +1,6 @@
 """
 FastAPI Application - AI Lawyer Backend
-Main application entry point with CORS and router configuration.
+Main application entry point with CORS, security middleware, and router configuration.
 """
 
 import os
@@ -8,9 +8,13 @@ import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.config import get_settings
+from app.core.security import limiter, SecurityHeadersMiddleware
 from app.database import create_tables, check_and_migrate_db
 from app.routers import (
     auth, 
@@ -62,20 +66,45 @@ app = FastAPI(
     title="AI Lawyer API",
     description="Backend API for AI-powered legal assistant with RAG",
     version="2.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    docs_url="/docs" if settings.debug else None,
+    redoc_url="/redoc" if settings.debug else None,
 )
 
-# CORS Configuration
-origins = [
-    "*"  # Allow all for development
-]
+# ---------------------------------------------------------------------------
+# Security: Rate Limiter
+# ---------------------------------------------------------------------------
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# ---------------------------------------------------------------------------
+# Security: Headers Middleware
+# ---------------------------------------------------------------------------
+app.add_middleware(SecurityHeadersMiddleware)
+
+# ---------------------------------------------------------------------------
+# Security: Trusted Hosts
+# ---------------------------------------------------------------------------
+if not settings.debug:
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=[
+            "lawyerai.uz",
+            "api.lawyerai.uz",
+            "*.lawyerai.uz",
+            "localhost",
+        ],
+    )
+
+# ---------------------------------------------------------------------------
+# CORS Configuration (tightened)
+# ---------------------------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
 )
 
 # Include routers
@@ -110,6 +139,4 @@ async def root():
     return {
         "name": "AI Lawyer API",
         "version": "2.0.0",
-        "docs": "/docs",
-        "health": "/health"
     }

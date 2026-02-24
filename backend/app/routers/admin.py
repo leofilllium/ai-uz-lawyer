@@ -15,6 +15,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
+from app.config import get_settings
 from app.database import get_db
 from app.models.legal_document import LegalDocument
 from app.core.vector_store import VectorStore
@@ -24,15 +25,17 @@ from app.core.flexible_processor import FlexibleDocumentProcessor
 router = APIRouter()
 security = HTTPBasic()
 
-# Static admin credentials
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "S2h0E0r4????"
+settings = get_settings()
 
 
 def verify_admin(credentials: HTTPBasicCredentials = Depends(security)) -> bool:
     """Verify admin credentials using HTTP Basic Auth."""
-    correct_username = secrets.compare_digest(credentials.username, ADMIN_USERNAME)
-    correct_password = secrets.compare_digest(credentials.password, ADMIN_PASSWORD)
+    correct_username = secrets.compare_digest(
+        credentials.username, settings.admin_username
+    )
+    correct_password = secrets.compare_digest(
+        credentials.password, settings.admin_password
+    )
     
     if not (correct_username and correct_password):
         raise HTTPException(
@@ -178,7 +181,6 @@ async def upload_document(
     vector_store = get_vector_store()
     processor = get_processor()
     
-    # Check if already indexed
     # Check if already indexed (Check SQL first is faster)
     source_name = file.filename
     existing_doc = db.query(LegalDocument).filter(LegalDocument.source_name == source_name).first()
