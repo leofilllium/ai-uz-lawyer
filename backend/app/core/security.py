@@ -18,10 +18,15 @@ settings = get_settings()
 # ---------------------------------------------------------------------------
 # Rate Limiter (slowapi)
 # ---------------------------------------------------------------------------
+def _limiter_exempt_options(request: Request) -> bool:
+    """Do not rate-limit CORS preflight OPTIONS requests."""
+    return request.method == "OPTIONS"
+
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["30/minute"],
     enabled=settings.rate_limit_enabled,
+    exempt_when=_limiter_exempt_options,
 )
 
 # ---------------------------------------------------------------------------
