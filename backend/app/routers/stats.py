@@ -14,13 +14,14 @@ from app.models.user import User
 from app.models.usage import ModelUsage
 from app.routers.auth import get_current_user
 from app.routers.admin import verify_admin, security as admin_security
-from app.routers.admin import ADMIN_USERNAME, ADMIN_PASSWORD
 from fastapi.security import HTTPBasicCredentials
 import secrets
 from pydantic import BaseModel
+from app.config import get_settings
 
 
 router = APIRouter()
+settings = get_settings()
 
 # Map raw request_type to feature category
 # Exact matches checked first, then prefix matching via _classify_feature()
@@ -47,8 +48,8 @@ FEATURE_PREFIX_MAP = {
 # Helper for Optional Basic Auth
 def get_admin_user_optional(credentials: HTTPBasicCredentials = Depends(admin_security)):
     try:
-        correct_username = secrets.compare_digest(credentials.username, ADMIN_USERNAME)
-        correct_password = secrets.compare_digest(credentials.password, ADMIN_PASSWORD)
+        correct_username = secrets.compare_digest(credentials.username, settings.admin_username)
+        correct_password = secrets.compare_digest(credentials.password, settings.admin_password)
         if correct_username and correct_password:
             return True
     except:
