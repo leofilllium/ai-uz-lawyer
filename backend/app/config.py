@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     contracts_path: str = "contracts"
     chroma_db_path: str = "data/chroma_db"
     
+    # Telegram
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
+    
     # Application
     debug: bool = False
     allowed_origins: str = "https://lawyerai.uz,https://api.lawyerai.uz,http://localhost:3000"
