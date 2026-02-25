@@ -1,5 +1,8 @@
+import logging
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, EmailStr, Field
+
+logger = logging.getLogger(__name__)
 from typing import Optional
 from app.services.telegram_service import telegram_service
 from app.core.security import limiter, sanitize_html
@@ -36,4 +39,5 @@ async def send_contact_message(request: Request, form: ContactForm):
         await telegram_service.send_message(text)
         return {"status": "success", "message": "Message sent successfully"}
     except Exception as e:
+        logger.exception("Contact form error: %s", e)
         raise HTTPException(status_code=500, detail="Failed to send message")
