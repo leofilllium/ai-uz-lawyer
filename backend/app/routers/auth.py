@@ -57,10 +57,10 @@ async def require_auth(
 
 @router.post("/register", response_model=TokenResponse)
 @limiter.limit("5/minute")
-async def register(req: Request, request: UserRegisterRequest, db: Session = Depends(get_db)):
+async def register(request: Request, body: UserRegisterRequest, db: Session = Depends(get_db)):
     """Register a new user."""
     # Validate password strength
-    password_error = validate_password_strength(request.password)
+    password_error = validate_password_strength(body.password)
     if password_error:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -68,7 +68,7 @@ async def register(req: Request, request: UserRegisterRequest, db: Session = Dep
         )
     
     # Check if user exists
-    existing = db.query(User).filter(User.email == request.email.lower()).first()
+    existing = db.query(User).filter(User.email == body.email.lower()).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -78,8 +78,8 @@ async def register(req: Request, request: UserRegisterRequest, db: Session = Dep
     # Check if organization exists
     from app.models.organization import Organization
     
-    if request.organization_id:
-        org = db.query(Organization).filter(Organization.id == request.organization_id).first()
+    if body.organization_id:
+        org = db.query(Organization).filter(Organization.id == body.organization_id).first()
         if not org:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -88,12 +88,12 @@ async def register(req: Request, request: UserRegisterRequest, db: Session = Dep
 
     # Create user
     user = User(
-        name=request.name, 
-        email=request.email.lower(),
-        organization_id=request.organization_id,
+        name=body.name, 
+        email=body.email.lower(),
+        organization_id=body.organization_id,
         is_approved=False
     )
-    user.set_password(request.password)
+    user.set_password(body.password)
     
     db.add(user)
     db.commit()
@@ -110,12 +110,12 @@ async def register(req: Request, request: UserRegisterRequest, db: Session = Dep
 
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("5/minute")
-async def login(req: Request, request: UserLoginRequest, db: Session = Depends(get_db)):
+async def login(request: Request, body: UserLoginRequest, db: Session = Depends(get_db)):
     """Login with email and password."""
     # Find user
-    user = db.query(User).filter(User.email == request.email.lower()).first()
+    user = db.query(User).filter(User.email == body.email.lower()).first()
     
-    if not user or not user.check_password(request.password):
+    if not user or not user.check_password(body.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неверный email или пароль"
