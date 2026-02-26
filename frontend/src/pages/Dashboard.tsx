@@ -7,7 +7,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { getHistory, deleteHistoryItem, type HistoryItem } from '../api/client';
+import { getHistory, deleteHistoryItem, getCreditBalance, type HistoryItem, type CreditBalance } from '../api/client';
 
 /* ── SVG Icon Components ─────────────────────────── */
 const Icons = {
@@ -254,21 +254,6 @@ const CARD_META = [
     sparkData: [2, 4, 3, 5, 7, 6, 8, 9, 11, 10],
     half: true,
   },
-  {
-    key: 'credits',
-    to: '/credits',
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-      </svg>
-    ),
-    title: 'Кредиты',
-    desc: 'Баланс, стоимости и лимиты использования',
-    stat: 0,
-    statLabel: 'кредитов',
-    sparkData: [10, 9, 8, 7, 6, 5, 4, 5, 6, 5],
-    half: true,
-  },
 ];
 
 const ACCENT_COLORS: Record<string, string> = {
@@ -279,7 +264,6 @@ const ACCENT_COLORS: Record<string, string> = {
   'doc-validator': '#6366f1',
   calendar: '#0ea5e9',
   history: '#f59e0b',
-  credits: '#10b981',
 };
 
 /* ── Dashboard Component ─────────────────────────── */
@@ -293,6 +277,7 @@ export default function Dashboard() {
   const headerRef = useRef<HTMLElement>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [fabRipple, setFabRipple] = useState(false);
+  const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
 
   // Clock
   useEffect(() => {
@@ -303,6 +288,7 @@ export default function Dashboard() {
   // History
   useEffect(() => {
     loadHistory();
+    getCreditBalance().then(setCreditBalance).catch(() => {});
   }, []);
 
   const loadHistory = async () => {
@@ -438,6 +424,12 @@ export default function Dashboard() {
               <span>Команда</span>
             </Link>
           )}
+          <Link to="/credits" className="btn-team" title="Кредиты">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+            </svg>
+            <span>{creditBalance ? creditBalance.organization.credits_remaining.toLocaleString() : '—'}</span>
+          </Link>
           <button
             onClick={toggleTheme}
             className="btn-icon"

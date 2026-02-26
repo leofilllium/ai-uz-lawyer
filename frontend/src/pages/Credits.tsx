@@ -1,11 +1,13 @@
 /**
  * Credits Page
  * Displays organization credit balance, per-action costs, daily limits, and transaction history.
+ * Premium design matching the Dashboard aesthetic with proper light/dark mode support.
  */
 
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import {
   getCreditBalance,
   getCreditCosts,
@@ -16,17 +18,19 @@ import {
   type CreditTransaction,
 } from '../api/client';
 
-const ACTION_ICONS: Record<string, string> = {
-  chat: '💬',
-  contract_gen_std: '📄',
-  contract_gen_ultra: '🔥',
-  contract_validator: '✅',
-  fix_contract: '🔧',
-  document_validator: '📋',
+const ACTION_LABELS: Record<string, { icon: string; name: string }> = {
+  chat: { icon: '💬', name: 'AI Юрист (чат)' },
+  contract_gen_std: { icon: '📄', name: 'Генерация (стандарт)' },
+  contract_gen_ultra: { icon: '🔥', name: 'Генерация (ультра)' },
+  contract_validator: { icon: '✅', name: 'Проверка договора' },
+  fix_contract: { icon: '🔧', name: 'Исправление договора' },
+  document_validator: { icon: '📋', name: 'Проверка документа' },
 };
 
 export default function Credits() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
+  const navigate = useNavigate();
   const [balance, setBalance] = useState<CreditBalance | null>(null);
   const [costs, setCosts] = useState<CreditCost[]>([]);
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
@@ -92,10 +96,10 @@ export default function Credits() {
 
   if (error) {
     return (
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <h2>Ошибка</h2>
-        <p style={{ color: 'var(--color-error)' }}>{error}</p>
-        <Link to="/dashboard" style={{ color: 'var(--color-accent)' }}>← Вернуться</Link>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1rem', background: 'var(--color-bg)' }}>
+        <h2 style={{ color: 'var(--color-text-primary)' }}>❌ Ошибка</h2>
+        <p style={{ color: 'var(--color-text-secondary)' }}>{error}</p>
+        <Link to="/dashboard" className="btn-team">← Вернуться</Link>
       </div>
     );
   }
@@ -109,310 +113,435 @@ export default function Credits() {
     ? Math.round((usr.daily_usage / usr.daily_limit) * 100)
     : 0;
 
+  const tabs = [
+    { key: 'overview' as const, label: '📊 Баланс' },
+    { key: 'costs' as const, label: '💰 Стоимости' },
+    { key: 'history' as const, label: '📜 История' },
+    ...(user?.role === 'HEAD' ? [{ key: 'settings' as const, label: '⚙️ Лимиты' }] : []),
+  ];
+
+  const userInitial = user?.name?.charAt(0)?.toUpperCase() || 'U';
+
   return (
-    <div className="dashboard-layout">
-      {/* Sidebar */}
-      <aside className="sidebar">
-        <div className="sidebar-header">
-          <Link to="/dashboard" className="sidebar-logo">⚖️ AI Юрист</Link>
+    <div className="credits-page" style={{ minHeight: '100vh', background: 'var(--color-bg)' }}>
+      {/* Header */}
+      <header className="credits-header" style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '16px 24px',
+        background: 'var(--glass-bg)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        borderBottom: '1px solid var(--glass-border)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 50,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="team-back-btn"
+          >
+            ← Назад
+          </button>
+          <h1 style={{
+            fontSize: '18px',
+            fontWeight: 700,
+            color: 'var(--color-text-primary)',
+            fontFamily: 'var(--font-display)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            margin: 0,
+          }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--color-text-tertiary)', opacity: 0.7 }}>
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+            </svg>
+            Кредиты
+          </h1>
         </div>
-        <nav className="sidebar-nav">
-          <Link to="/dashboard" className="sidebar-link">📊 Дашборд</Link>
-          <Link to="/lawyer" className="sidebar-link">💬 AI Юрист</Link>
-          <Link to="/validator" className="sidebar-link">✅ Проверка договора</Link>
-          <Link to="/document-validator" className="sidebar-link">📋 Проверка документа</Link>
-          <Link to="/generator" className="sidebar-link">📝 Генератор</Link>
-          <Link to="/credits" className="sidebar-link active">⚡ Кредиты</Link>
-          <Link to="/history" className="sidebar-link">📁 История</Link>
-          <Link to="/project-board" className="sidebar-link">📋 Задачи</Link>
-          <Link to="/calendar" className="sidebar-link">📅 Календарь</Link>
-          {user?.role === 'HEAD' && <Link to="/team" className="sidebar-link">👥 Команда</Link>}
-        </nav>
-      </aside>
 
-      {/* Main Content */}
-      <main className="main-content" style={{ padding: '1.5rem' }}>
-        <div style={{ maxWidth: 960, margin: '0 auto' }}>
-          <h1 style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>⚡ Кредиты</h1>
-          <p style={{ color: 'var(--color-text-muted)', marginBottom: '1.5rem' }}>
-            Баланс, стоимости и история использования
-          </p>
-
-          {/* Tabs */}
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-            {(['overview', 'costs', 'history', ...(user?.role === 'HEAD' ? ['settings'] : [])] as const).map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab as any)}
-                style={{
-                  padding: '0.5rem 1rem',
-                  borderRadius: '0.5rem',
-                  border: activeTab === tab ? '2px solid var(--color-accent)' : '1px solid var(--color-border)',
-                  background: activeTab === tab ? 'var(--color-accent)' : 'var(--color-surface)',
-                  color: activeTab === tab ? '#fff' : 'var(--color-text)',
-                  cursor: 'pointer',
-                  fontWeight: activeTab === tab ? 600 : 400,
-                  fontSize: '0.9rem'
-                }}
-              >
-                {{overview: '📊 Баланс', costs: '💰 Стоимости', history: '📜 История', settings: '⚙️ Лимиты'}[tab]}
-              </button>
-            ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {user?.role === 'HEAD' && (
+            <Link to="/team" className="btn-team">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              <span>Команда</span>
+            </Link>
+          )}
+          <button onClick={toggleTheme} className="btn-icon" title={isDark ? 'Светлая тема' : 'Тёмная тема'}>
+            {isDark ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" /></svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>
+            )}
+          </button>
+          <div className="user-badge" title={user?.name || ''}>
+            <span className="user-initial">{userInitial}</span>
           </div>
+          <button onClick={logout} className="btn-logout-premium">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
+            <span>Выход</span>
+          </button>
+        </div>
+      </header>
 
-          {/* Overview Tab */}
-          {activeTab === 'overview' && (
-            <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
-              {/* Org Balance Card */}
+      {/* Content */}
+      <main style={{ maxWidth: 960, margin: '0 auto', padding: '24px 20px' }}>
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', borderBottom: '1px solid var(--color-border)', paddingBottom: 0 }}>
+          {tabs.map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              style={{
+                padding: '10px 18px',
+                border: 'none',
+                borderBottom: activeTab === tab.key ? '2px solid var(--color-primary)' : '2px solid transparent',
+                background: 'transparent',
+                color: activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: '13px',
+                fontFamily: 'var(--font-body)',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
+          <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
+            {/* Org Balance Card */}
+            <div style={{
+              background: 'var(--glass-bg)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              borderRadius: 'var(--radius-lg, 12px)',
+              padding: '24px',
+              border: '1px solid var(--glass-border)',
+            }}>
+              <div style={{ fontSize: '13px', color: 'var(--color-text-tertiary)', marginBottom: '8px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                Баланс организации
+              </div>
+              <div style={{ fontSize: '2.5rem', fontWeight: 700, color: org.credits_remaining > 0 ? '#3fb950' : '#f85149', lineHeight: 1.1 }}>
+                {org.credits_remaining.toLocaleString()}
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
+                из {org.credits_granted.toLocaleString()} кредитов
+              </div>
+              {/* Progress bar */}
               <div style={{
-                background: 'var(--color-surface)',
-                borderRadius: '1rem',
-                padding: '1.5rem',
-                border: '1px solid var(--color-border)',
+                marginTop: '16px',
+                height: 6,
+                borderRadius: 3,
+                background: 'var(--color-border)',
+                overflow: 'hidden'
               }}>
-                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
-                  Баланс организации
-                </div>
-                <div style={{ fontSize: '2rem', fontWeight: 700, color: org.credits_remaining > 0 ? 'var(--color-success, #22c55e)' : 'var(--color-error, #ef4444)' }}>
-                  {org.credits_remaining.toLocaleString()}
-                </div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
-                  из {org.credits_granted.toLocaleString()} кредитов
-                </div>
-                {/* Progress bar */}
                 <div style={{
-                  marginTop: '0.75rem',
-                  height: 8,
-                  borderRadius: 4,
-                  background: 'var(--color-border)',
-                  overflow: 'hidden'
-                }}>
-                  <div style={{
-                    height: '100%',
-                    width: `${Math.min(usagePercent, 100)}%`,
-                    borderRadius: 4,
-                    background: usagePercent > 80 ? '#ef4444' : usagePercent > 50 ? '#f59e0b' : '#22c55e',
-                    transition: 'width 0.5s ease'
-                  }} />
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
+                  height: '100%',
+                  width: `${Math.min(usagePercent, 100)}%`,
+                  borderRadius: 3,
+                  background: usagePercent > 80 ? '#f85149' : usagePercent > 50 ? '#d29922' : '#3fb950',
+                  transition: 'width 0.5s ease'
+                }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>
                   Использовано {usagePercent}%
-                </div>
+                </span>
                 {org.period_end && (
-                  <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>
-                    Истекает: {new Date(org.period_end).toLocaleDateString('ru-RU')}
-                  </div>
+                  <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>
+                    до {new Date(org.period_end).toLocaleDateString('ru-RU')}
+                  </span>
                 )}
               </div>
+            </div>
 
-              {/* Daily Usage Card */}
-              <div style={{
-                background: 'var(--color-surface)',
-                borderRadius: '1rem',
-                padding: '1.5rem',
-                border: '1px solid var(--color-border)',
-              }}>
-                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
-                  Ваше дневное использование
-                </div>
-                <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--color-accent)' }}>
-                  {usr.daily_usage.toLocaleString()}
-                </div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
-                  {usr.daily_limit ? `из ${usr.daily_limit.toLocaleString()} лимита` : 'без лимита'}
-                </div>
-                {usr.daily_limit && (
-                  <>
+            {/* Daily Usage Card */}
+            <div style={{
+              background: 'var(--glass-bg)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              borderRadius: 'var(--radius-lg, 12px)',
+              padding: '24px',
+              border: '1px solid var(--glass-border)',
+            }}>
+              <div style={{ fontSize: '13px', color: 'var(--color-text-tertiary)', marginBottom: '8px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                Ваше дневное использование
+              </div>
+              <div style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--color-primary)', lineHeight: 1.1 }}>
+                {usr.daily_usage.toLocaleString()}
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
+                {usr.daily_limit ? `из ${usr.daily_limit.toLocaleString()} лимита` : 'без лимита'}
+              </div>
+              {usr.daily_limit && (
+                <>
+                  <div style={{
+                    marginTop: '16px',
+                    height: 6,
+                    borderRadius: 3,
+                    background: 'var(--color-border)',
+                    overflow: 'hidden'
+                  }}>
                     <div style={{
-                      marginTop: '0.75rem',
-                      height: 8,
-                      borderRadius: 4,
-                      background: 'var(--color-border)',
-                      overflow: 'hidden'
+                      height: '100%',
+                      width: `${Math.min(dailyPercent, 100)}%`,
+                      borderRadius: 3,
+                      background: dailyPercent > 80 ? '#f85149' : dailyPercent > 50 ? '#d29922' : '#58a6ff',
+                      transition: 'width 0.5s ease'
+                    }} />
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', marginTop: '6px' }}>
+                    Осталось: {usr.daily_remaining.toLocaleString()} сегодня
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Org Daily Usage Card */}
+            <div style={{
+              background: 'var(--glass-bg)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              borderRadius: 'var(--radius-lg, 12px)',
+              padding: '24px',
+              border: '1px solid var(--glass-border)',
+            }}>
+              <div style={{ fontSize: '13px', color: 'var(--color-text-tertiary)', marginBottom: '8px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                Организация сегодня
+              </div>
+              <div style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--color-text-primary)', lineHeight: 1.1 }}>
+                {org.daily_usage.toLocaleString()}
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
+                {org.daily_limit_total ? `из ${org.daily_limit_total.toLocaleString()} общего лимита` : 'без общего лимита'}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Costs Tab */}
+        {activeTab === 'costs' && (
+          <div style={{
+            background: 'var(--glass-bg)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            borderRadius: 'var(--radius-lg, 12px)',
+            padding: '24px',
+            border: '1px solid var(--glass-border)',
+          }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: '16px', fontFamily: 'var(--font-display)' }}>
+              Стоимость операций
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              {costs.map(cost => {
+                const label = ACTION_LABELS[cost.action_type];
+                return (
+                  <div key={cost.action_type} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '12px 16px',
+                    borderRadius: '8px',
+                    transition: 'background 0.15s ease',
+                    cursor: 'default',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-surface-hover, rgba(128,128,128,0.06))')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '18px' }}>{label?.icon || '⚡'}</span>
+                      <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-text-primary)' }}>
+                        {label?.name || cost.action}
+                      </span>
+                    </div>
+                    <span style={{
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      color: 'var(--color-primary)',
+                      background: 'rgba(196, 30, 58, 0.08)',
+                      border: '1px solid rgba(196, 30, 58, 0.15)',
+                      padding: '4px 12px',
+                      borderRadius: '100px',
                     }}>
-                      <div style={{
-                        height: '100%',
-                        width: `${Math.min(dailyPercent, 100)}%`,
-                        borderRadius: 4,
-                        background: dailyPercent > 80 ? '#ef4444' : dailyPercent > 50 ? '#f59e0b' : '#3b82f6',
-                        transition: 'width 0.5s ease'
-                      }} />
-                    </div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
-                      Осталось: {usr.daily_remaining.toLocaleString()} кредитов сегодня
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Org Daily Usage Card */}
-              <div style={{
-                background: 'var(--color-surface)',
-                borderRadius: '1rem',
-                padding: '1.5rem',
-                border: '1px solid var(--color-border)',
-              }}>
-                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
-                  Организация сегодня
-                </div>
-                <div style={{ fontSize: '2rem', fontWeight: 700 }}>
-                  {org.daily_usage.toLocaleString()}
-                </div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
-                  {org.daily_limit_total ? `из ${org.daily_limit_total.toLocaleString()} общего лимита` : 'без общего лимита'}
-                </div>
-              </div>
+                      {cost.credits.toLocaleString()}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
-          )}
+            <p style={{ marginTop: '16px', fontSize: '12px', color: 'var(--color-text-tertiary)', borderTop: '1px solid var(--color-border)', paddingTop: '12px' }}>
+              Кредиты списываются только после успешного выполнения операции. При ошибке кредиты не расходуются.
+            </p>
+          </div>
+        )}
 
-          {/* Costs Tab */}
-          {activeTab === 'costs' && (
-            <div style={{
-              background: 'var(--color-surface)',
-              borderRadius: '1rem',
-              padding: '1.5rem',
-              border: '1px solid var(--color-border)',
-            }}>
-              <h3 style={{ marginBottom: '1rem' }}>💰 Стоимость операций</h3>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
-                    <th style={{ textAlign: 'left', padding: '0.75rem' }}>Операция</th>
-                    <th style={{ textAlign: 'right', padding: '0.75rem' }}>Кредиты</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {costs.map(cost => (
-                    <tr key={cost.action_type} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                      <td style={{ padding: '0.75rem' }}>
-                        <span style={{ marginRight: '0.5rem' }}>{ACTION_ICONS[cost.action_type] || '⚡'}</span>
-                        {cost.action}
-                      </td>
-                      <td style={{ textAlign: 'right', padding: '0.75rem', fontWeight: 600, color: 'var(--color-accent)' }}>
-                        {cost.credits.toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <p style={{ marginTop: '1rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                1 кредит = $0.001. Кредиты списываются после успешного выполнения.
-              </p>
-            </div>
-          )}
-
-          {/* History Tab */}
-          {activeTab === 'history' && (
-            <div style={{
-              background: 'var(--color-surface)',
-              borderRadius: '1rem',
-              padding: '1.5rem',
-              border: '1px solid var(--color-border)',
-            }}>
-              <h3 style={{ marginBottom: '1rem' }}>📜 История транзакций</h3>
-              {transactions.length === 0 ? (
-                <p style={{ color: 'var(--color-text-muted)', textAlign: 'center', padding: '2rem' }}>
-                  Пока нет транзакций
-                </p>
-              ) : (
-                <div style={{ maxHeight: 400, overflowY: 'auto' }}>
-                  {transactions.map(tx => (
+        {/* History Tab */}
+        {activeTab === 'history' && (
+          <div style={{
+            background: 'var(--glass-bg)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            borderRadius: 'var(--radius-lg, 12px)',
+            padding: '24px',
+            border: '1px solid var(--glass-border)',
+          }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: '16px', fontFamily: 'var(--font-display)' }}>
+              История транзакций
+            </h3>
+            {transactions.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--color-text-tertiary)' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '8px', opacity: 0.5 }}>📭</div>
+                <p style={{ fontSize: '14px' }}>Транзакций пока нет</p>
+              </div>
+            ) : (
+              <div style={{ maxHeight: 420, overflowY: 'auto' }}>
+                {transactions.map((tx, i) => {
+                  const label = ACTION_LABELS[tx.action_type];
+                  return (
                     <div key={tx.id} style={{
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
-                      padding: '0.75rem 0',
-                      borderBottom: '1px solid var(--color-border)',
+                      padding: '12px 0',
+                      borderBottom: i < transactions.length - 1 ? '1px solid var(--color-border)' : 'none',
                     }}>
-                      <div>
-                        <span style={{ marginRight: '0.5rem' }}>{ACTION_ICONS[tx.action_type] || '⚡'}</span>
-                        <span>{tx.description}</span>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
-                          {new Date(tx.created_at).toLocaleString('ru-RU')}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                        <span style={{ fontSize: '16px', flexShrink: 0 }}>{label?.icon || '⚡'}</span>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {tx.description}
+                          </div>
+                          <div style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', marginTop: '2px' }}>
+                            {new Date(tx.created_at).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </div>
                         </div>
                       </div>
-                      <div style={{ fontWeight: 600, color: '#ef4444', whiteSpace: 'nowrap' }}>
-                        -{tx.credits_used}
-                      </div>
+                      <span style={{
+                        fontWeight: 700,
+                        fontSize: '13px',
+                        color: '#f85149',
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                        marginLeft: '12px',
+                      }}>
+                        −{tx.credits_used}
+                      </span>
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Settings Tab (HEAD only) */}
+        {activeTab === 'settings' && user?.role === 'HEAD' && (
+          <div style={{
+            background: 'var(--glass-bg)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            borderRadius: 'var(--radius-lg, 12px)',
+            padding: '24px',
+            border: '1px solid var(--glass-border)',
+            maxWidth: 460,
+          }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: '20px', fontFamily: 'var(--font-display)' }}>
+              Настройка дневных лимитов
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--color-text-secondary)' }}>
+                  Лимит на пользователя (в день)
+                </label>
+                <input
+                  type="number"
+                  value={dailyLimitPerUser}
+                  onChange={e => setDailyLimitPerUser(e.target.value)}
+                  placeholder="5000"
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: 'var(--radius-md, 8px)',
+                    border: '1.5px solid var(--color-border)',
+                    background: 'var(--color-background, var(--color-bg))',
+                    color: 'var(--color-text-primary)',
+                    fontSize: '14px',
+                    fontFamily: 'var(--font-body)',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    transition: 'border-color 0.2s ease',
+                  }}
+                  onFocus={e => (e.target.style.borderColor = 'var(--color-primary)')}
+                  onBlur={e => (e.target.style.borderColor = 'var(--color-border)')}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--color-text-secondary)' }}>
+                  Общий лимит организации (в день)
+                </label>
+                <input
+                  type="number"
+                  value={dailyLimitTotal}
+                  onChange={e => setDailyLimitTotal(e.target.value)}
+                  placeholder="Без ограничений"
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: 'var(--radius-md, 8px)',
+                    border: '1.5px solid var(--color-border)',
+                    background: 'var(--color-background, var(--color-bg))',
+                    color: 'var(--color-text-primary)',
+                    fontSize: '14px',
+                    fontFamily: 'var(--font-body)',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    transition: 'border-color 0.2s ease',
+                  }}
+                  onFocus={e => (e.target.style.borderColor = 'var(--color-primary)')}
+                  onBlur={e => (e.target.style.borderColor = 'var(--color-border)')}
+                />
+              </div>
+              <button
+                onClick={handleSaveLimits}
+                disabled={savingLimits}
+                className="btn-primary"
+                style={{
+                  marginTop: '4px',
+                  padding: '10px 20px',
+                  borderRadius: 'var(--radius-md, 8px)',
+                  border: 'none',
+                  background: 'var(--gradient-primary, var(--color-primary))',
+                  color: '#fff',
+                  cursor: savingLimits ? 'not-allowed' : 'pointer',
+                  fontWeight: 600,
+                  fontSize: '14px',
+                  fontFamily: 'var(--font-body)',
+                  opacity: savingLimits ? 0.6 : 1,
+                  transition: 'opacity 0.2s',
+                  width: '100%',
+                }}
+              >
+                {savingLimits ? 'Сохранение...' : 'Сохранить лимиты'}
+              </button>
+              {limitMsg && (
+                <p style={{ fontSize: '13px', color: limitMsg.startsWith('✅') ? '#3fb950' : '#f85149', margin: 0 }}>
+                  {limitMsg}
+                </p>
               )}
             </div>
-          )}
-
-          {/* Settings Tab (HEAD only) */}
-          {activeTab === 'settings' && user?.role === 'HEAD' && (
-            <div style={{
-              background: 'var(--color-surface)',
-              borderRadius: '1rem',
-              padding: '1.5rem',
-              border: '1px solid var(--color-border)',
-            }}>
-              <h3 style={{ marginBottom: '1rem' }}>⚙️ Настройка лимитов</h3>
-              <div style={{ display: 'grid', gap: '1rem', maxWidth: 400 }}>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.85rem', fontWeight: 500 }}>
-                    Дневной лимит на пользователя
-                  </label>
-                  <input
-                    type="number"
-                    value={dailyLimitPerUser}
-                    onChange={e => setDailyLimitPerUser(e.target.value)}
-                    placeholder="5000"
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem 0.75rem',
-                      borderRadius: '0.5rem',
-                      border: '1px solid var(--color-border)',
-                      background: 'var(--color-bg)',
-                      color: 'var(--color-text)',
-                      fontSize: '0.95rem',
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.85rem', fontWeight: 500 }}>
-                    Общий дневной лимит организации
-                  </label>
-                  <input
-                    type="number"
-                    value={dailyLimitTotal}
-                    onChange={e => setDailyLimitTotal(e.target.value)}
-                    placeholder="Без лимита"
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem 0.75rem',
-                      borderRadius: '0.5rem',
-                      border: '1px solid var(--color-border)',
-                      background: 'var(--color-bg)',
-                      color: 'var(--color-text)',
-                      fontSize: '0.95rem',
-                    }}
-                  />
-                </div>
-                <button
-                  onClick={handleSaveLimits}
-                  disabled={savingLimits}
-                  style={{
-                    padding: '0.6rem 1.5rem',
-                    borderRadius: '0.5rem',
-                    border: 'none',
-                    background: 'var(--color-accent)',
-                    color: '#fff',
-                    cursor: 'pointer',
-                    fontWeight: 600,
-                    fontSize: '0.95rem',
-                    opacity: savingLimits ? 0.6 : 1,
-                  }}
-                >
-                  {savingLimits ? 'Сохранение...' : 'Сохранить лимиты'}
-                </button>
-                {limitMsg && <p style={{ fontSize: '0.85rem' }}>{limitMsg}</p>}
-              </div>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </main>
     </div>
   );
