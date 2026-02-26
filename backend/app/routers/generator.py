@@ -62,6 +62,16 @@ async def generate_contract(
             status_code=400,
             detail="Требования слишком короткие. Укажите больше деталей."
         )
+
+    # --- Credit Check ---
+    credit_action_type = None
+    if current_user and current_user.organization_id:
+        from app.services.credit_service import CreditService
+        from app.models.credit import ActionType
+        credit_action_type = ActionType.CONTRACT_GEN_ULTRA if request.ultra_mode else ActionType.CONTRACT_GEN_STD
+        credit_check = CreditService.check_can_use(db, current_user.id, current_user.organization_id, credit_action_type)
+        if not credit_check["allowed"]:
+            raise HTTPException(status_code=402, detail=credit_check["reason"])
     
     # Load templates for the category (fast, no AI calls)
     contract_service = ContractService()
@@ -209,6 +219,16 @@ async def generate_contract(
                 save_db.add(assistant_msg)
 
                 save_db.commit()
+
+                # --- Credit Deduction ---
+                if user_id and current_user and current_user.organization_id and credit_action_type:
+                    try:
+                        from app.services.credit_service import CreditService
+                        desc = "Генерация договора (ультра)" if request.ultra_mode else "Генерация договора (стандарт)"
+                        CreditService.deduct_credits(save_db, user_id, current_user.organization_id, credit_action_type, desc)
+                    except Exception as ce:
+                        import traceback
+                        print(f"Credit deduction failed: {ce}")
 
                 yield f"data: {json.dumps({'done': True, 'sources': sources, 'contract_id': generated.id})}\n\n"
 

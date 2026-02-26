@@ -46,6 +46,14 @@ async def chat(
     if not user_message:
         logger.warning("Empty message received")
         raise HTTPException(status_code=400, detail="Message is required")
+
+    # --- Credit Check ---
+    if current_user and current_user.organization_id:
+        from app.services.credit_service import CreditService
+        from app.models.credit import ActionType
+        credit_check = CreditService.check_can_use(db, current_user.id, current_user.organization_id, ActionType.CHAT)
+        if not credit_check["allowed"]:
+            raise HTTPException(status_code=402, detail=credit_check["reason"])
     
     # Get or create session
     session = db.query(ChatSession).filter(ChatSession.id == session_id).first() if session_id else None
@@ -221,6 +229,20 @@ async def chat(
                 save_db.commit()
             logger.info(f"Assistant message saved successfully")
             
+            # --- Credit Deduction ---
+            if user_id and current_user and current_user.organization_id:
+                try:
+                    from app.services.credit_service import CreditService
+                    from app.models.credit import ActionType
+                    from app.database import SessionLocal
+                    credit_db = SessionLocal()
+                    try:
+                        CreditService.deduct_credits(credit_db, user_id, current_user.organization_id, ActionType.CHAT, "AI юрист (чат)")
+                    finally:
+                        credit_db.close()
+                except Exception as ce:
+                    logger.error(f"Credit deduction failed: {ce}")
+
             yield f"data: {json.dumps({'done': True, 'session_id': current_session_id, 'sources': sources, 'quality_metrics': quality_metrics, 'search_rounds': search_rounds})}\n\n"
             logger.info(f"=== CHAT COMPLETE ===")
             

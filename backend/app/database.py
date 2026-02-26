@@ -77,5 +77,24 @@ def check_and_migrate_db():
                     conn.commit()
                     print("Contract analysis migration complete.")
 
+        # Check organizations table for credit fields
+        if inspector.has_table("organizations"):
+            columns = [c["name"] for c in inspector.get_columns("organizations")]
+            with engine.connect() as conn:
+                migrated = False
+                if "daily_credit_limit_per_user" not in columns:
+                    print("Running migration: Adding daily_credit_limit_per_user to organizations...")
+                    conn.execute(text("ALTER TABLE organizations ADD COLUMN daily_credit_limit_per_user INTEGER DEFAULT 5000"))
+                    migrated = True
+
+                if "daily_credit_limit_total" not in columns:
+                    print("Running migration: Adding daily_credit_limit_total to organizations...")
+                    conn.execute(text("ALTER TABLE organizations ADD COLUMN daily_credit_limit_total INTEGER"))
+                    migrated = True
+
+                if migrated:
+                    conn.commit()
+                    print("Organizations credit migration complete.")
+
     except Exception as e:
         print(f"Migration failed (safe to ignore if running fresh): {e}")

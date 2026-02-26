@@ -294,6 +294,14 @@ async def analyze_document(
             status_code=400,
             detail="Document text is too short for meaningful analysis"
         )
+
+    # --- Credit Check ---
+    if current_user and current_user.organization_id:
+        from app.services.credit_service import CreditService
+        from app.models.credit import ActionType
+        credit_check = CreditService.check_can_use(db, current_user.id, current_user.organization_id, ActionType.DOCUMENT_VALIDATOR)
+        if not credit_check["allowed"]:
+            raise HTTPException(status_code=402, detail=credit_check["reason"])
     
     async def generate_stream():
         try:
@@ -380,6 +388,16 @@ async def analyze_document(
                         )
                         db.add(assistant_msg)
                         db.commit()
+
+                        # --- Credit Deduction ---
+                        if user_id and current_user and current_user.organization_id:
+                            try:
+                                from app.services.credit_service import CreditService
+                                from app.models.credit import ActionType
+                                CreditService.deduct_credits(db, user_id, current_user.organization_id, ActionType.DOCUMENT_VALIDATOR, "Проверка документа")
+                            except Exception as ce:
+                                import logging
+                                logging.getLogger(__name__).error(f"Credit deduction failed: {ce}")
                         
                         # Yield final done event
                         done_payload = json.dumps({

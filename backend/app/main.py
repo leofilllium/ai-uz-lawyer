@@ -29,7 +29,8 @@ from app.routers import (
     contact,
     contact,
     calendar,
-    stats
+    stats,
+    credits
 )
 
 # Configure logging
@@ -120,6 +121,7 @@ app.include_router(contact.router, prefix="/api/contact", tags=["Contact"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(calendar.router, prefix="/api/calendar", tags=["Calendar"])
 app.include_router(stats.router, prefix="/api/stats", tags=["Usage Stats"])
+app.include_router(credits.router, prefix="/api/credits", tags=["Credits"])
 
 # Static files for uploads
 uploads_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")

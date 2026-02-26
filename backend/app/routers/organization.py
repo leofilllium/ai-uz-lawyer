@@ -5,6 +5,7 @@ API endpoints for managing organizations and their members.
 
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -100,3 +101,52 @@ def update_user_role(
     target_user.role = role_data.role
     db.commit()
     return {"message": "User role updated successfully"}
+
+
+class CreditLimitUpdate(BaseModel):
+    daily_limit_per_user: int | None = None
+    daily_limit_total: int | None = None
+
+
+@router.put("/credit-limits")
+def update_credit_limits(
+    limits: CreditLimitUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update organization credit limits (HEAD only)."""
+    if current_user.role != UserRole.HEAD:
+        raise HTTPException(status_code=403, detail="Only Organization Head can manage credit limits")
+
+    if not current_user.organization_id:
+        raise HTTPException(status_code=400, detail="User is not in an organization")
+
+    org = db.query(Organization).filter(Organization.id == current_user.organization_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    if limits.daily_limit_per_user is not None:
+        org.daily_credit_limit_per_user = limits.daily_limit_per_user
+    if limits.daily_limit_total is not None:
+        org.daily_credit_limit_total = limits.daily_limit_total
+
+    db.commit()
+    return {
+        "message": "Лимиты обновлены",
+        "daily_limit_per_user": org.daily_credit_limit_per_user,
+        "daily_limit_total": org.daily_credit_limit_total
+    }
+
+
+@router.get("/credit-balance")
+def get_org_credit_balance(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get credit balance for the current user's organization."""
+    if not current_user.organization_id:
+        raise HTTPException(status_code=400, detail="User is not in an organization")
+
+    from app.services.credit_service import CreditService
+    balance = CreditService.get_org_balance(db, current_user.organization_id)
+    return balance

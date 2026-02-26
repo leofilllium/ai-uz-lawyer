@@ -1061,3 +1061,122 @@ export async function deleteCalendarEvent(eventId: number): Promise<void> {
   const response = await fetchWithAuth(`/api/calendar/${eventId}`, { method: 'DELETE' });
   if (!response.ok) throw new Error('Failed to delete event');
 }
+
+// ================================
+// Credits API
+// ================================
+
+export interface CreditBalance {
+  organization: {
+    credits_remaining: number;
+    credits_granted: number;
+    period_start: string | null;
+    period_end: string | null;
+    is_active: boolean;
+    daily_usage: number;
+    daily_limit_total: number | null;
+  };
+  user: {
+    daily_usage: number;
+    daily_limit: number | null;
+    daily_remaining: number;
+  };
+}
+
+export interface CreditCost {
+  action: string;
+  action_type: string;
+  credits: number;
+}
+
+export interface CreditTransaction {
+  id: number;
+  user_id: number;
+  action_type: string;
+  credits_used: number;
+  description: string;
+  created_at: string;
+}
+
+export interface OrgCreditInfo {
+  id: number;
+  name: string;
+  credits_remaining: number;
+  credits_granted: number;
+  period_end: string | null;
+  is_active: boolean;
+  daily_limit_per_user: number | null;
+  daily_limit_total: number | null;
+}
+
+export async function getCreditBalance(): Promise<CreditBalance> {
+  const response = await fetchWithAuth('/api/credits/balance');
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to fetch credit balance');
+  }
+  return response.json();
+}
+
+export async function getCreditCosts(): Promise<CreditCost[]> {
+  const response = await fetchWithAuth('/api/credits/costs');
+  if (!response.ok) throw new Error('Failed to fetch credit costs');
+  return response.json();
+}
+
+export async function getCreditTransactions(limit: number = 50): Promise<CreditTransaction[]> {
+  const response = await fetchWithAuth(`/api/credits/transactions?limit=${limit}`);
+  if (!response.ok) throw new Error('Failed to fetch transactions');
+  return response.json();
+}
+
+export async function updateCreditLimits(dailyLimitPerUser: number | null, dailyLimitTotal: number | null): Promise<any> {
+  const response = await fetchWithAuth('/api/organization/credit-limits', {
+    method: 'PUT',
+    body: JSON.stringify({
+      daily_limit_per_user: dailyLimitPerUser,
+      daily_limit_total: dailyLimitTotal,
+    }),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to update limits');
+  }
+  return response.json();
+}
+
+export async function adminGetOrgCredits(username: string, password: string): Promise<OrgCreditInfo[]> {
+  const authHeader = 'Basic ' + btoa(`${username}:${password}`);
+  const response = await fetch(`${API_BASE_URL}/api/admin/credits/organizations`, {
+    headers: { 'Authorization': authHeader },
+  });
+  if (!response.ok) throw new Error('Failed to fetch org credits');
+  return response.json();
+}
+
+export async function adminAllocateCredits(
+  username: string,
+  password: string,
+  organizationId: number,
+  amount: number,
+  periodDays: number = 30
+): Promise<any> {
+  const authHeader = 'Basic ' + btoa(`${username}:${password}`);
+  const response = await fetch(`${API_BASE_URL}/api/admin/credits/allocate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': authHeader,
+    },
+    body: JSON.stringify({
+      organization_id: organizationId,
+      amount,
+      period_days: periodDays,
+    }),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to allocate credits');
+  }
+  return response.json();
+}

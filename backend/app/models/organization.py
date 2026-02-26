@@ -18,9 +18,14 @@ class Organization(Base):
     name = Column(String(100), nullable=False, unique=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    # Credit system limits
+    daily_credit_limit_per_user = Column(Integer, default=5000, nullable=True)
+    daily_credit_limit_total = Column(Integer, nullable=True)  # Org-wide daily cap
+
     # Relationships
     users = relationship('User', back_populates='organization')
-    tasks = relationship('Task', back_populates='organization') # Tasks belong to an org
+    tasks = relationship('Task', back_populates='organization')
+    credit_allocations = relationship('CreditAllocation', back_populates='organization', lazy='dynamic')
 
     def __repr__(self):
         return f'<Organization {self.name}>'

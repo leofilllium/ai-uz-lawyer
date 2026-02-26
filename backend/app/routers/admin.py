@@ -331,3 +331,70 @@ async def admin_create_organization(
         "organization": {"id": org.id, "name": org.name},
         "head_user": {"id": head_user.id, "email": head_user.email}
     }
+
+
+# --- Credit Management ---
+
+class AllocateCreditsRequest(BaseModel):
+    organization_id: int
+    amount: int
+    period_days: int = 30
+
+
+@router.post("/credits/allocate", status_code=201)
+async def admin_allocate_credits(
+    request: AllocateCreditsRequest,
+    admin: bool = Depends(verify_admin),
+    db: Session = Depends(get_db)
+):
+    """Allocate (gift) credits to an organization (Admin only)."""
+    from app.models.organization import Organization
+    from app.services.credit_service import CreditService
+
+    # Verify org exists
+    org = db.query(Organization).filter(Organization.id == request.organization_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    if request.amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be positive")
+
+    allocation = CreditService.allocate_credits(
+        db, request.organization_id, request.amount, request.period_days
+    )
+
+    return {
+        "allocation_id": allocation.id,
+        "organization_id": allocation.organization_id,
+        "organization_name": org.name,
+        "credits_granted": allocation.credits_granted,
+        "period_start": allocation.period_start.isoformat(),
+        "period_end": allocation.period_end.isoformat(),
+    }
+
+
+@router.get("/credits/organizations")
+async def admin_list_org_credits(
+    admin: bool = Depends(verify_admin),
+    db: Session = Depends(get_db)
+):
+    """List all organizations with their credit balances (Admin only)."""
+    from app.models.organization import Organization
+    from app.services.credit_service import CreditService
+
+    orgs = db.query(Organization).all()
+    result = []
+    for org in orgs:
+        balance = CreditService.get_org_balance(db, org.id)
+        result.append({
+            "id": org.id,
+            "name": org.name,
+            "credits_remaining": balance["credits_remaining"],
+            "credits_granted": balance["credits_granted"],
+            "period_end": balance["period_end"],
+            "is_active": balance["is_active"],
+            "daily_limit_per_user": org.daily_credit_limit_per_user,
+            "daily_limit_total": org.daily_credit_limit_total,
+        })
+
+    return result
