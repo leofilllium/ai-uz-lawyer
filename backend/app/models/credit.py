@@ -24,8 +24,8 @@ class ActionType(str, enum.Enum):
 # Canonical credit cost mapping
 ACTION_CREDIT_COSTS = {
     ActionType.CHAT: 250,
-    ActionType.CONTRACT_GEN_STD: 150,
-    ActionType.CONTRACT_GEN_ULTRA: 350,
+    ActionType.CONTRACT_GEN_STD: 300,
+    ActionType.CONTRACT_GEN_ULTRA: 500,
     ActionType.CONTRACT_VALIDATOR: 400,
     ActionType.FIX_CONTRACT: 350,
     ActionType.DOCUMENT_VALIDATOR: 400,
