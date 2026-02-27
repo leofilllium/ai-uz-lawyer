@@ -195,8 +195,8 @@ class CreditService:
         """Return the action → credits cost mapping for display."""
         return [
             {"action": "AI юрист (чат)", "action_type": ActionType.CHAT.value, "credits": 250},
-            {"action": "Генерация договора (стандарт)", "action_type": ActionType.CONTRACT_GEN_STD.value, "credits": 150},
-            {"action": "Генерация договора (ультра)", "action_type": ActionType.CONTRACT_GEN_ULTRA.value, "credits": 350},
+            {"action": "Генерация договора (стандарт)", "action_type": ActionType.CONTRACT_GEN_STD.value, "credits": 300},
+            {"action": "Генерация договора (ультра)", "action_type": ActionType.CONTRACT_GEN_ULTRA.value, "credits": 500},
             {"action": "Проверка договора", "action_type": ActionType.CONTRACT_VALIDATOR.value, "credits": 400},
             {"action": "Исправление договора AI", "action_type": ActionType.FIX_CONTRACT.value, "credits": 350},
             {"action": "Проверка документа", "action_type": ActionType.DOCUMENT_VALIDATOR.value, "credits": 400},
