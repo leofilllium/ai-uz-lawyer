@@ -8,6 +8,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, BorderStyle } from 'docx';
 import { saveAs } from 'file-saver';
+import { Loader2, Clock, Sparkles } from 'lucide-react';
 import { getCategories, generateContract, getGeneratedContractById, type ContractCategory, type Source } from '../api/client';
 
 export default function Generator() {
@@ -373,17 +374,69 @@ export default function Generator() {
           </button>
         </form>
 
-        {loading && statusMessage && (
-          <div className="generation-status" style={{ 
-            marginTop: '20px', 
-            padding: '15px', 
-            background: 'var(--color-surface)', 
-            borderRadius: '8px',
-            borderLeft: '4px solid var(--color-primary)',
-            animation: 'fadeIn 0.5s ease-in'
+        {loading && (
+          <div className="generation-status-wrapper" style={{
+            marginTop: '30px',
+            padding: '25px',
+            background: 'linear-gradient(145deg, var(--color-surface), rgba(196, 30, 58, 0.05))',
+            borderRadius: '12px',
+            border: '1px solid rgba(196, 30, 58, 0.2)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+            animation: 'fadeIn 0.5s ease-out'
           }}>
-            <strong style={{ display: 'block', marginBottom: '5px', color: 'var(--color-primary)' }}>🤖 AI-Юрист работает:</strong>
-            <ReactMarkdown>{statusMessage}</ReactMarkdown>
+            <style>
+              {`
+                @keyframes spin-loader { 100% { transform: rotate(360deg); } }
+                @keyframes shimmer-bar {
+                  0% { transform: translateX(-100%); }
+                  100% { transform: translateX(200%); }
+                }
+              `}
+            </style>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
+              <Loader2 size={32} color="var(--color-primary)" style={{ animation: 'spin-loader 2s linear infinite' }} />
+              <div>
+                <h3 style={{ margin: 0, color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.2rem' }}>
+                  <Sparkles size={20} /> AI-Юрист генерирует документ...
+                </h3>
+                <p style={{ margin: '5px 0 0 0', display: 'flex', alignItems: 'center', gap: '6px', color: '#B8860B', fontWeight: 600 }}>
+                  <Clock size={16} /> Пожалуйста, подождите 2-3 минуты. Не обновляйте и не покидайте страницу.
+                </p>
+              </div>
+            </div>
+            
+            <div style={{
+              width: '100%',
+              height: '6px',
+              background: 'rgba(196, 30, 58, 0.1)',
+              borderRadius: '3px',
+              overflow: 'hidden',
+              marginBottom: statusMessage ? '20px' : '0',
+              position: 'relative'
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '50%',
+                height: '100%',
+                background: 'linear-gradient(90deg, transparent, var(--color-primary), transparent)',
+                animation: 'shimmer-bar 1.5s infinite'
+              }} />
+            </div>
+
+            {statusMessage && (
+              <div style={{ 
+                padding: '15px', 
+                background: 'rgba(0, 0, 0, 0.02)', 
+                borderRadius: '8px',
+                borderLeft: '3px solid var(--color-primary)',
+                fontSize: '0.95rem',
+                lineHeight: '1.5'
+              }}>
+                <ReactMarkdown>{statusMessage}</ReactMarkdown>
+              </div>
+            )}
           </div>
         )}
 
