@@ -154,7 +154,7 @@ export default function Admin() {
   // Upload file
   const handleUpload = async (file: File) => {
     if (!file.name.endsWith('.docx')) {
-      setUploadMessage('❌ Only .docx files are supported');
+      setUploadMessage('Only .docx files are supported');
       return;
     }
     
@@ -174,13 +174,13 @@ export default function Admin() {
       const data = await response.json();
       
       if (response.ok) {
-        setUploadMessage(`✅ ${data.message}`);
+        setUploadMessage(`${data.message}`);
         loadStats(currentPage, searchTerm);
       } else {
-        setUploadMessage(`❌ ${data.detail || 'Upload failed'}`);
+        setUploadMessage(`${data.detail || 'Upload failed'}`);
       }
     } catch (err) {
-      setUploadMessage('❌ Upload failed. Please try again.');
+      setUploadMessage('Upload failed. Please try again.');
     } finally {
       setUploading(false);
     }
@@ -200,14 +200,14 @@ export default function Admin() {
       );
       
       if (response.ok) {
-        setUploadMessage(`✅ Deleted: ${sourceName}`);
+        setUploadMessage(`Deleted: ${sourceName}`);
         loadStats(currentPage, searchTerm);
       } else {
         const data = await response.json();
-        setUploadMessage(`❌ ${data.detail || 'Delete failed'}`);
+        setUploadMessage(`${data.detail || 'Delete failed'}`);
       }
     } catch (err) {
-      setUploadMessage('❌ Delete failed. Please try again.');
+      setUploadMessage('Delete failed. Please try again.');
     }
   };
 
@@ -237,16 +237,16 @@ export default function Admin() {
       const data = await response.json();
       
       if (response.ok) {
-        setOrgMessage(`✅ Created organization: ${data.organization.name} with Head: ${data.head_user.email}`);
+        setOrgMessage(`Created organization: ${data.organization.name} with Head: ${data.head_user.email}`);
         setNewOrgName('');
         setHeadName('');
         setHeadEmail('');
         setHeadPassword('');
       } else {
-        setOrgMessage(`❌ ${data.detail || 'Creation failed'}`);
+        setOrgMessage(`${data.detail || 'Creation failed'}`);
       }
     } catch (err) {
-      setOrgMessage('❌ Creation failed. Please try again.');
+      setOrgMessage('Creation failed. Please try again.');
     } finally {
       setCreatingOrg(false);
     }
@@ -301,11 +301,11 @@ export default function Admin() {
         parseInt(allocAmount),
         parseInt(allocDays) || 30
       );
-      setAllocMsg(`✅ Allocated ${result.credits_granted.toLocaleString()} credits to ${result.organization_name}`);
+      setAllocMsg(`Allocated ${result.credits_granted.toLocaleString()} credits to ${result.organization_name}`);
       setAllocAmount('');
       loadOrgCredits();
     } catch (err: any) {
-      setAllocMsg(`❌ ${err.message || 'Allocation failed'}`);
+      setAllocMsg(`${err.message || 'Allocation failed'}`);
     } finally {
       setAllocating(false);
     }
@@ -317,7 +317,7 @@ export default function Admin() {
       <div className="admin-page">
         <div className="admin-login">
           <Link to="/" className="back-link">← Back to Dashboard</Link>
-          <h1>🔐 Admin Login</h1>
+          <h1>Admin Login</h1>
           <p className="login-subtitle">Document Management System</p>
           
           <form onSubmit={handleLogin} className="login-form">
@@ -355,7 +355,7 @@ export default function Admin() {
       <header className="admin-header">
         <div className="header-left">
           <Link to="/" className="back-link">← Dashboard</Link>
-          <h1>⚙️ Admin Panel</h1>
+          <h1>Admin Panel</h1>
           
           <nav className="admin-nav" style={{ display: 'flex', gap: '20px', marginLeft: '30px' }}>
             <button 
@@ -420,7 +420,7 @@ export default function Admin() {
                 fontSize: '15px'
               }}
             >
-              ⚡ Credits
+              Credits
             </button>
           </nav>
         </div>
@@ -437,12 +437,12 @@ export default function Admin() {
             {/* Stats Cards */}
             <section className="stats-grid">
               <div className="stat-card">
-                <div className="stat-icon">📄</div>
+                <div className="stat-icon"></div>
                 <div className="stat-value">{stats?.total_documents || 0}</div>
                 <div className="stat-label">Documents</div>
               </div>
               <div className="stat-card">
-                <div className="stat-icon">📦</div>
+                <div className="stat-icon"></div>
                 <div className="stat-value">{stats?.total_chunks || 0}</div>
                 <div className="stat-label">Total Chunks</div>
               </div>
@@ -450,7 +450,7 @@ export default function Admin() {
 
             {/* Upload Section */}
             <section className="upload-section">
-              <h2>📤 Upload Document</h2>
+              <h2>Upload Document</h2>
               <div
                 className={`upload-zone ${dragOver ? 'drag-over' : ''} ${uploading ? 'uploading' : ''}`}
                 onDragOver={handleDragOver}
@@ -464,7 +464,7 @@ export default function Admin() {
                   </div>
                 ) : (
                   <>
-                    <div className="upload-icon">📁</div>
+                    <div className="upload-icon"></div>
                     <p>Drag & drop a .docx file here</p>
                     <p className="upload-hint">or</p>
                     <label className="btn-select-file">
@@ -483,7 +483,7 @@ export default function Admin() {
                 )}
               </div>
               {uploadMessage && (
-                <div className={`upload-message ${uploadMessage.startsWith('✅') ? 'success' : 'error'}`}>
+                <div className={`upload-message ${uploadMessage.includes('failed') || uploadMessage.includes('error') || uploadMessage.includes('Only') ? 'error' : 'success'}`}>
                   {uploadMessage}
                 </div>
               )}
@@ -492,7 +492,7 @@ export default function Admin() {
             {/* Documents List */}
             <section className="documents-section">
               <div className="section-header">
-                <h2>📚 Indexed Documents ({stats?.total_documents || 0})</h2>
+                <h2>Indexed Documents ({stats?.total_documents || 0})</h2>
                 <input
                   type="text"
                   placeholder="Search documents..."
@@ -516,7 +516,7 @@ export default function Admin() {
                         <span className="doc-icon">
                           {doc.doc_type === 'russian_code' ? '🇷🇺' : 
                            doc.doc_type === 'uzbek_code' ? '🇺🇿' : 
-                           doc.doc_type === 'decree' ? '📜' : '📄'}
+                           doc.doc_type === 'decree' ? 'DC' : ''}
                         </span>
                         <div className="doc-details">
                           <span className="doc-name">{doc.source_name}</span>
@@ -530,7 +530,7 @@ export default function Admin() {
                         onClick={() => handleDelete(doc.source_name)}
                         title="Delete document"
                       >
-                        🗑️
+                        Del
                       </button>
                     </div>
                   ))}
@@ -567,7 +567,7 @@ export default function Admin() {
           <section className="org-section" style={{ display: 'flex', justifyContent: 'center', paddingTop: '40px' }}>
             <div className="auth-card" style={{ maxWidth: '600px', width: '100%', padding: '40px' }}>
               <div className="auth-header" style={{ marginBottom: '30px' }}>
-                <h2 style={{ fontSize: '24px', fontWeight: 700 }}>🏢 Create Organization</h2>
+                <h2 style={{ fontSize: '24px', fontWeight: 700 }}>Create Organization</h2>
                 <p>Register a new law firm and assign its Head.</p>
               </div>
 
@@ -584,7 +584,7 @@ export default function Admin() {
                 </div>
                 
                 <div style={{ margin: '15px 0', borderTop: '1px solid var(--color-border)' }}></div>
-                <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--color-primary)', marginBottom: '10px' }}>👤 Assign Head User</h3>
+                <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--color-primary)', marginBottom: '10px' }}>Assign Head User</h3>
                 
                 <div className="form-group">
                   <label>Head Name</label>
@@ -631,7 +631,7 @@ export default function Admin() {
               </form>
 
               {orgMessage && (
-                <div className={`upload-message ${orgMessage.startsWith('✅') ? 'success' : 'error'}`} style={{ marginTop: '20px' }}>
+                <div className={`upload-message ${orgMessage.includes('failed') || orgMessage.includes('error') ? 'error' : 'success'}`} style={{ marginTop: '20px' }}>
                   {orgMessage}
                 </div>
               )}
@@ -649,7 +649,7 @@ export default function Admin() {
           <section style={{ paddingTop: '20px' }}>
             {/* Allocate Form */}
             <div style={{ background: 'var(--color-surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--color-border)', marginBottom: '20px', maxWidth: '500px' }}>
-              <h3 style={{ marginBottom: '16px' }}>⚡ Allocate Credits</h3>
+              <h3 style={{ marginBottom: '16px' }}>Allocate Credits</h3>
               <div style={{ display: 'grid', gap: '12px' }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: 500 }}>Organization ID</label>
@@ -694,7 +694,7 @@ export default function Admin() {
 
             {/* Org Credits Table */}
             <div style={{ background: 'var(--color-surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--color-border)' }}>
-              <h3 style={{ marginBottom: '16px' }}>🏢 Organization Credits</h3>
+              <h3 style={{ marginBottom: '16px' }}>Organization Credits</h3>
               {orgCredits.length === 0 ? (
                 <p style={{ color: 'var(--color-text-secondary)' }}>No organizations found.</p>
               ) : (
@@ -718,7 +718,7 @@ export default function Admin() {
                           {org.credits_remaining.toLocaleString()}
                         </td>
                         <td style={{ textAlign: 'right', padding: '8px' }}>{org.credits_granted.toLocaleString()}</td>
-                        <td style={{ textAlign: 'center', padding: '8px' }}>{org.is_active ? '✅' : '❌'}</td>
+                        <td style={{ textAlign: 'center', padding: '8px' }}>{org.is_active ? 'Yes' : 'No'}</td>
                         <td style={{ textAlign: 'right', padding: '8px', fontSize: '12px' }}>
                           {org.period_end ? new Date(org.period_end).toLocaleDateString('ru-RU') : '—'}
                         </td>

@@ -10,23 +10,19 @@ export default function PendingApproval() {
     <div className="auth-container">
       <div className="auth-card" style={{ textAlign: 'center' }}>
         <div className="auth-header">
-          <h1>⚖️ Юридическая платформа</h1>
-          <p className="text-xl font-semibold mt-4">Ожидание подтверждения</p>
+          <h1>Юридическая платформа</h1>
+          <p style={{ fontSize: '15px', fontWeight: 600, marginTop: '16px', color: 'var(--color-text-primary)' }}>Ожидание подтверждения</p>
         </div>
 
-        <div className="py-6">
-          <div className="mb-6 flex justify-center">
-            <span style={{ fontSize: '4rem' }}>⏳</span>
-          </div>
-          
-          <p className="text-gray-600 mb-2">
+        <div style={{ padding: '24px 0' }}>
+          <p style={{ color: 'var(--color-text-secondary)', marginBottom: '8px' }}>
             Уважаемый <strong>{user?.name}</strong>,
           </p>
-          <p className="text-gray-600 mb-6">
+          <p style={{ color: 'var(--color-text-secondary)', marginBottom: '24px', lineHeight: 1.6 }}>
             Ваша учетная запись была успешно создана, но требует подтверждения администратора вашей организации для доступа к системе.
           </p>
-          
-          <p className="text-sm text-gray-500 mb-8">
+
+          <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '32px' }}>
             Пожалуйста, свяжитесь с руководителем вашей юридической фирмы для ускорения процесса.
           </p>
         </div>

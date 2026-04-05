@@ -19,12 +19,12 @@ import {
 } from '../api/client';
 
 const ACTION_LABELS: Record<string, { icon: string; name: string }> = {
-  chat: { icon: '💬', name: 'AI Юрист (чат)' },
-  contract_gen_std: { icon: '📄', name: 'Генерация (стандарт)' },
-  contract_gen_ultra: { icon: '🔥', name: 'Генерация (ультра)' },
-  contract_validator: { icon: '✅', name: 'Проверка договора' },
-  fix_contract: { icon: '🔧', name: 'Исправление договора' },
-  document_validator: { icon: '📋', name: 'Проверка документа' },
+  chat: { icon: 'CH', name: 'AI Юрист (чат)' },
+  contract_gen_std: { icon: 'GS', name: 'Генерация (стандарт)' },
+  contract_gen_ultra: { icon: 'GU', name: 'Генерация (ультра)' },
+  contract_validator: { icon: 'CV', name: 'Проверка договора' },
+  fix_contract: { icon: 'FX', name: 'Исправление договора' },
+  document_validator: { icon: 'DV', name: 'Проверка документа' },
 };
 
 export default function Credits() {
@@ -79,7 +79,7 @@ export default function Credits() {
       setLimitMsg('✅ Лимиты обновлены');
       loadData();
     } catch (err: any) {
-      setLimitMsg('❌ ' + (err.message || 'Ошибка'));
+      setLimitMsg('Ошибка: ' + (err.message || 'Неизвестная ошибка'));
     } finally {
       setSavingLimits(false);
     }
@@ -88,7 +88,7 @@ export default function Credits() {
   if (loading) {
     return (
       <div className="loading-screen">
-        <div className="spinner">⚡</div>
+        <div className="spinner"></div>
         <p>Загрузка кредитов...</p>
       </div>
     );
@@ -96,9 +96,9 @@ export default function Credits() {
 
   if (error) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1rem', background: 'var(--color-bg)' }}>
-        <h2 style={{ color: 'var(--color-text-primary)' }}>❌ Ошибка</h2>
-        <p style={{ color: 'var(--color-text-secondary)' }}>{error}</p>
+      <div className="error-screen">
+        <h2>Ошибка</h2>
+        <p>{error}</p>
         <Link to="/dashboard" className="btn-team">← Вернуться</Link>
       </div>
     );
@@ -114,103 +114,46 @@ export default function Credits() {
     : 0;
 
   const tabs = [
-    { key: 'overview' as const, label: '📊 Баланс' },
-    { key: 'costs' as const, label: '💰 Стоимости' },
-    { key: 'history' as const, label: '📜 История' },
-    ...(user?.role === 'HEAD' ? [{ key: 'settings' as const, label: '⚙️ Лимиты' }] : []),
+    { key: 'overview' as const, label: 'Баланс' },
+    { key: 'costs' as const, label: 'Стоимости' },
+    { key: 'history' as const, label: 'История' },
+    ...(user?.role === 'HEAD' ? [{ key: 'settings' as const, label: 'Лимиты' }] : []),
   ];
 
   const userInitial = user?.name?.charAt(0)?.toUpperCase() || 'U';
 
   return (
-    <div className="credits-page" style={{ minHeight: '100vh', background: 'var(--color-bg)' }}>
+    <div className="credits-page">
       {/* Header */}
-      <header className="credits-header" style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '16px 24px',
-        background: 'var(--glass-bg)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        borderBottom: '1px solid var(--glass-border)',
-        position: 'sticky',
-        top: 0,
-        zIndex: 50,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="team-back-btn"
-          >
-            ← Назад
-          </button>
-          <h1 style={{
-            fontSize: '18px',
-            fontWeight: 700,
-            color: 'var(--color-text-primary)',
-            fontFamily: 'var(--font-display)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            margin: 0,
-          }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--color-text-tertiary)', opacity: 0.7 }}>
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-            </svg>
-            Кредиты
-          </h1>
+      <header className="inner-topbar">
+        <div className="inner-topbar__left">
+          <span className="inner-topbar__brand" onClick={() => navigate('/dashboard')}>LawyerAI</span>
+          <span className="inner-topbar__sep" />
+          <span className="inner-topbar__page">Кредиты</span>
         </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div className="inner-topbar__right">
           {user?.role === 'HEAD' && (
-            <Link to="/team" className="btn-team">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-              <span>Команда</span>
-            </Link>
+            <Link to="/team" className="inner-topbar__btn">Команда</Link>
           )}
-          <button onClick={toggleTheme} className="btn-icon" title={isDark ? 'Светлая тема' : 'Тёмная тема'}>
-            {isDark ? (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" /></svg>
-            ) : (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>
-            )}
+          <button onClick={toggleTheme} className="inner-topbar__btn">
+            {isDark ? 'Light' : 'Dark'}
           </button>
-          <div className="user-badge" title={user?.name || ''}>
-            <span className="user-initial">{userInitial}</span>
+          <div className="inner-topbar__user" title={user?.name || ''}>
+            <span className="inner-topbar__avatar">{userInitial}</span>
           </div>
-          <button onClick={logout} className="btn-logout-premium">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
-            <span>Выход</span>
-          </button>
+          <button onClick={logout} className="inner-topbar__btn">Выход</button>
         </div>
       </header>
 
       {/* Content */}
-      <main style={{ maxWidth: 960, margin: '0 auto', padding: '24px 20px' }}>
+      <main className="credits-content">
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', borderBottom: '1px solid var(--color-border)', paddingBottom: 0 }}>
+        <div className="credits-tabs">
           {tabs.map(tab => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              style={{
-                padding: '10px 18px',
-                border: 'none',
-                borderBottom: activeTab === tab.key ? '2px solid var(--color-primary)' : '2px solid transparent',
-                background: 'transparent',
-                color: activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-                cursor: 'pointer',
-                fontWeight: 600,
-                fontSize: '13px',
-                fontFamily: 'var(--font-body)',
-                transition: 'all 0.2s ease',
-              }}
+              className={`credits-tab ${activeTab === tab.key ? 'credits-tab--active' : ''}`}
             >
               {tab.label}
             </button>

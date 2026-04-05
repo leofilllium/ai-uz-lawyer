@@ -1,6 +1,5 @@
 /**
- * History Page
- * Unified view of all user activities.
+ * History Page — Editorial flat list
  */
 
 import { useState, useEffect } from 'react';
@@ -8,6 +7,21 @@ import { useNavigate } from 'react-router-dom';
 import { getHistory, deleteHistoryItem, type HistoryItem } from '../api/client';
 
 type FilterType = 'all' | 'chat' | 'validation' | 'generation' | 'document_validation';
+
+const TYPE_LABELS: Record<string, string> = {
+  chat: 'Консультация',
+  validation: 'Проверка договора',
+  document_validation: 'Проверка документа',
+  generation: 'Договор',
+};
+
+const FILTERS: { key: FilterType; label: string }[] = [
+  { key: 'all', label: 'Все' },
+  { key: 'chat', label: 'Чаты' },
+  { key: 'validation', label: 'Договоры' },
+  { key: 'document_validation', label: 'Документы' },
+  { key: 'generation', label: 'Генерация' },
+];
 
 export default function History() {
   const [items, setItems] = useState<HistoryItem[]>([]);
@@ -24,13 +38,10 @@ export default function History() {
 
   const loadHistory = async (reset = true) => {
     if (reset) setLoading(true);
-    
     try {
       const filterParam = filter === 'all' ? undefined : filter;
       const currentOffset = reset ? 0 : offset;
-      
       const data = await getHistory(filterParam, currentOffset, LIMIT);
-      
       if (reset) {
         setItems(data);
         setOffset(LIMIT);
@@ -38,7 +49,6 @@ export default function History() {
         setItems((prev) => [...prev, ...data]);
         setOffset((prev) => prev + LIMIT);
       }
-      
       setHasMore(data.length === LIMIT);
     } catch (err) {
       console.error('Failed to load history:', err);
@@ -47,32 +57,18 @@ export default function History() {
     }
   };
 
-  const handleLoadMore = () => {
-    loadHistory(false);
-  };
-
   const handleItemClick = (item: HistoryItem) => {
     switch (item.type) {
-      case 'chat':
-        navigate(`/lawyer?session=${item.id}`);
-        break;
-      case 'validation':
-        navigate(`/validator?id=${item.id}`);
-        break;
-      case 'document_validation':
-        navigate(`/document-validator/${item.id}`);
-        break;
-      case 'generation':
-        navigate(`/generator?id=${item.id}`);
-        break;
+      case 'chat': navigate(`/lawyer?session=${item.id}`); break;
+      case 'validation': navigate(`/validator?id=${item.id}`); break;
+      case 'document_validation': navigate(`/document-validator/${item.id}`); break;
+      case 'generation': navigate(`/generator?id=${item.id}`); break;
     }
   };
 
   const handleDelete = async (e: React.MouseEvent, item: HistoryItem) => {
-    e.stopPropagation(); // Prevent navigation
-    
+    e.stopPropagation();
     if (!confirm('Удалить эту запись?')) return;
-    
     try {
       await deleteHistoryItem(item.type, item.id);
       setItems((prev) => prev.filter((i) => !(i.type === item.type && i.id === item.id)));
@@ -86,41 +82,20 @@ export default function History() {
     <div className="history-page">
       <header className="page-header">
         <button onClick={() => navigate('/dashboard')} className="btn-back">← Назад</button>
-        <h1>📚 История</h1>
+        <h1>История</h1>
       </header>
 
       <main className="history-page-content">
         <div className="filter-tabs">
-          <button 
-            className={filter === 'all' ? 'active' : ''} 
-            onClick={() => setFilter('all')}
-          >
-            Все
-          </button>
-          <button 
-            className={filter === 'chat' ? 'active' : ''} 
-            onClick={() => setFilter('chat')}
-          >
-            💬 Чаты
-          </button>
-          <button 
-            className={filter === 'validation' ? 'active' : ''} 
-            onClick={() => setFilter('validation')}
-          >
-            ✅ Договоры
-          </button>
-          <button 
-            className={filter === 'document_validation' ? 'active' : ''} 
-            onClick={() => setFilter('document_validation')}
-          >
-            📄 Документы
-          </button>
-          <button 
-            className={filter === 'generation' ? 'active' : ''} 
-            onClick={() => setFilter('generation')}
-          >
-            📝 Генерация
-          </button>
+          {FILTERS.map((f) => (
+            <button
+              key={f.key}
+              className={filter === f.key ? 'active' : ''}
+              onClick={() => setFilter(f.key)}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
 
         {loading ? (
@@ -128,63 +103,49 @@ export default function History() {
         ) : items.length === 0 ? (
           <div className="empty-state">
             <p>История пуста</p>
-            <p>Начните использовать AI Юрист, и ваши консультации, проверки и документы появятся здесь</p>
+            <p>Начните использовать AI Юрист, и ваши записи появятся здесь</p>
           </div>
         ) : (
-          <div className="history-grid">
-            {items.map((item) => (
-              <div 
-                key={`${item.type}-${item.id}`} 
-                className="history-card"
-                onClick={() => handleItemClick(item)}
-              >
-                <div className="card-header">
-                  <span className="card-icon">{item.icon}</span>
-                  <span className="card-type">
-                    {item.type === 'chat' ? 'Консультация' : 
-                     item.type === 'validation' ? 'Проверка договора' : 
-                     item.type === 'document_validation' ? 'Проверка документа' : 'Договор'}
-                  </span>
-                </div>
-                <h3 className="card-title">{item.title}</h3>
-                <p className="card-preview">{item.preview}</p>
-                <div className="card-footer">
-                  <span className="card-date">
-                    {item.created_at ? new Date(item.created_at).toLocaleDateString('ru-RU') : ''}
-                  </span>
-                  <div className="card-actions">
-                    {item.metadata.validity_score !== undefined && (
-                      <span className={`card-score score-${
-                        item.metadata.validity_score >= 80 ? 'green' : 
-                        item.metadata.validity_score >= 50 ? 'yellow' : 'red'
-                      }`}>
-                        {item.metadata.validity_score}/100
-                      </span>
-                    )}
-                    <button 
-                      className="btn-delete" 
-                      onClick={(e) => handleDelete(e, item)}
-                      title="Удалить"
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-            
-            {hasMore && !loading && items.length > 0 && (
-              <div style={{ gridColumn: '1 / -1', textAlign: 'center', marginTop: '20px' }}>
-                <button 
-                  onClick={handleLoadMore}
-                  className="btn-primary"
-                  style={{ minWidth: '200px' }}
+          <>
+            <div className="history-list">
+              {items.map((item) => (
+                <div
+                  key={`${item.type}-${item.id}`}
+                  className="history-row"
+                  onClick={() => handleItemClick(item)}
                 >
+                  <span className="history-row__type">{TYPE_LABELS[item.type] || item.type}</span>
+                  <span className="history-row__title">{item.title}</span>
+                  {item.metadata.validity_score !== undefined && (
+                    <span className={`history-row__score history-row__score--${
+                      item.metadata.validity_score >= 80 ? 'good' :
+                      item.metadata.validity_score >= 50 ? 'warn' : 'bad'
+                    }`}>
+                      {item.metadata.validity_score}
+                    </span>
+                  )}
+                  <span className="history-row__date">
+                    {item.created_at ? new Date(item.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) : ''}
+                  </span>
+                  <button
+                    className="history-row__del"
+                    onClick={(e) => handleDelete(e, item)}
+                    title="Удалить"
+                  >
+                    &times;
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {hasMore && !loading && items.length > 0 && (
+              <div className="history-load-more">
+                <button onClick={() => loadHistory(false)} className="btn-primary">
                   Загрузить еще
                 </button>
               </div>
             )}
-          </div>
+          </>
         )}
       </main>
     </div>

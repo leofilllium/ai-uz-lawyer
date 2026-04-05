@@ -8,7 +8,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, BorderStyle } from 'docx';
 import { saveAs } from 'file-saver';
-import { Loader2, Clock, Sparkles } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { getCategories, generateContract, getGeneratedContractById, type ContractCategory, type Source } from '../api/client';
 
 export default function Generator() {
@@ -278,7 +278,7 @@ export default function Generator() {
     <div className="generator-page">
       <header className="page-header">
         <button onClick={() => navigate('/dashboard')} className="btn-back">← Назад</button>
-        <h1>📝 Генератор договоров</h1>
+        <h1>Генератор договоров</h1>
       </header>
 
       <main className="generator-content">
@@ -357,7 +357,7 @@ export default function Generator() {
                 style={{ width: '20px', height: '20px' }}
               />
               <div>
-                <strong>🚀 Ultra Mode (Двойная проверка)</strong>
+                <strong>Ultra Mode (Двойная проверка)</strong>
                 <p style={{ margin: 0, fontSize: '0.9em', color: '#666' }}>
                   Генерация займет больше времени, но договор будет проверен и исправлен ИИ-юристом автоматически.
                 </p>
@@ -375,65 +375,17 @@ export default function Generator() {
         </form>
 
         {loading && (
-          <div className="generation-status-wrapper" style={{
-            marginTop: '30px',
-            padding: '25px',
-            background: 'linear-gradient(145deg, var(--color-surface), rgba(196, 30, 58, 0.05))',
-            borderRadius: '12px',
-            border: '1px solid rgba(196, 30, 58, 0.2)',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
-            animation: 'fadeIn 0.5s ease-out'
-          }}>
-            <style>
-              {`
-                @keyframes spin-loader { 100% { transform: rotate(360deg); } }
-                @keyframes shimmer-bar {
-                  0% { transform: translateX(-100%); }
-                  100% { transform: translateX(200%); }
-                }
-              `}
-            </style>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
-              <Loader2 size={32} color="var(--color-primary)" style={{ animation: 'spin-loader 2s linear infinite' }} />
+          <div className="gen-loading">
+            <div className="gen-loading__bar" />
+            <div className="gen-loading__header">
+              <Loader2 size={20} className="gen-loading__spinner" />
               <div>
-                <h3 style={{ margin: 0, color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.2rem' }}>
-                  <Sparkles size={20} /> AI-Юрист генерирует документ...
-                </h3>
-                <p style={{ margin: '5px 0 0 0', display: 'flex', alignItems: 'center', gap: '6px', color: '#B8860B', fontWeight: 600 }}>
-                  <Clock size={16} /> Пожалуйста, подождите 2-3 минуты. Не обновляйте и не покидайте страницу.
-                </p>
+                <h3 className="gen-loading__title">Генерация документа</h3>
+                <p className="gen-loading__hint">Пожалуйста, подождите 2-3 минуты</p>
               </div>
             </div>
-            
-            <div style={{
-              width: '100%',
-              height: '6px',
-              background: 'rgba(196, 30, 58, 0.1)',
-              borderRadius: '3px',
-              overflow: 'hidden',
-              marginBottom: statusMessage ? '20px' : '0',
-              position: 'relative'
-            }}>
-              <div style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '50%',
-                height: '100%',
-                background: 'linear-gradient(90deg, transparent, var(--color-primary), transparent)',
-                animation: 'shimmer-bar 1.5s infinite'
-              }} />
-            </div>
-
             {statusMessage && (
-              <div style={{ 
-                padding: '15px', 
-                background: 'rgba(0, 0, 0, 0.02)', 
-                borderRadius: '8px',
-                borderLeft: '3px solid var(--color-primary)',
-                fontSize: '0.95rem',
-                lineHeight: '1.5'
-              }}>
+              <div className="gen-loading__status">
                 <ReactMarkdown>{statusMessage}</ReactMarkdown>
               </div>
             )}
@@ -448,10 +400,10 @@ export default function Generator() {
               <h2>📄 Сгенерированный договор</h2>
               <div className="result-actions">
                 <button onClick={copyToClipboard} className="btn-action">
-                  📋 Копировать
+                  Копировать
                 </button>
                 <button onClick={downloadAsDocx} className="btn-action btn-docx">
-                  📥 Скачать DOCX
+                  Скачать DOCX
                 </button>
               </div>
             </div>
@@ -462,7 +414,7 @@ export default function Generator() {
 
             {sources.length > 0 && (
               <details className="sources-expander">
-                <summary>📚 Правовая основа ({sources.length})</summary>
+                <summary>Правовая основа ({sources.length})</summary>
                 <ul className="sources-list">
                   {sources.map((source, i) => (
                     <li key={i} id={`generator-source-${i}`} className="source-item-entry">

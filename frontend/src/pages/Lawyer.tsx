@@ -23,11 +23,11 @@ interface Message {
 }
 
 const THINKING_STEPS = [
-  { icon: '🔍', text: 'Анализирую ваш вопрос...' },
-  { icon: '📚', text: 'Ищу в базе законодательства...' },
-  { icon: '⚖️', text: 'Сопоставляю нормы права...' },
-  { icon: '🧠', text: 'Формирую юридический анализ...' },
-  { icon: '📝', text: 'Подготавливаю ответ...' },
+  { icon: '01', text: 'Анализирую ваш вопрос...' },
+  { icon: '02', text: 'Ищу в базе законодательства...' },
+  { icon: '03', text: 'Сопоставляю нормы права...' },
+  { icon: '04', text: 'Формирую юридический анализ...' },
+  { icon: '05', text: 'Подготавливаю ответ...' },
 ];
 
 function ThinkingLoader() {
@@ -427,102 +427,102 @@ export default function Lawyer() {
               onChange={(e) => setChatMode(e.target.value as typeof chatMode)}
               className="mode-dropdown"
             >
-              <optgroup label="🔮 Авто">
-                <option value="auto-detect">🔮 Авто-определение</option>
-              </optgroup>
-              
-              <optgroup label="📚 Базовые режимы">
-                <option value="consultant">📚 Юрист-консультант</option>
-                <option value="risk-manager">🛡️ Риск-менеджер</option>
-                <option value="memorandum">⚖️ ЮРИДИЧЕСКОЕ ЗАКЛЮЧЕНИЕ (МЕМОРАНДУМ)</option>
-                <option value="quick-answer">⚡ Быстрый ответ</option>
-                <option value="smalltalk">💬 Просто пообщаться</option>
-              </optgroup>
-              
-              <optgroup label="⚖️ Уголовное право">
-                <option value="criminal-defense">️ Адвокат (Защита)</option>
-                <option value="criminal-prosecution">⚔️ Прокурор (Обвинение)</option>
+              <optgroup label="Авто">
+                <option value="auto-detect">Авто-определение</option>
               </optgroup>
 
-              <optgroup label="🏛️ Административное право">
-                <option value="admin-defense">🛡️ Адм. защита (Штрафы)</option>
-                <option value="admin-procedure">📋 Адм. процедуры</option>
+              <optgroup label="Базовые режимы">
+                <option value="consultant">Юрист-консультант</option>
+                <option value="risk-manager">Риск-менеджер</option>
+                <option value="memorandum">Юридическое заключение (Меморандум)</option>
+                <option value="quick-answer">Быстрый ответ</option>
+                <option value="smalltalk">Просто пообщаться</option>
               </optgroup>
 
-              <optgroup label="💼 Бизнес и Корпоратив">
-                <option value="corporate">🏢 Корпоративный юрист</option>
-                <option value="commercial">📜 Коммерческий юрист</option>
-                <option value="startup">� Юрист для стартапов</option>
-                <option value="merger-acquisition">🤝 Слияния (M&A)</option>
-                <option value="antitrust">� Антимонопольный юрист</option>
-                <option value="bankruptcy">🏚️ Банкротство</option>
-                <option value="procurement">🏛️ Госзакупки</option>
-                <option value="licensing">📋 Лицензирование</option>
-                <option value="regulatory">🌐 Регуляторный комплаенс</option>
+              <optgroup label="Уголовное право">
+                <option value="criminal-defense">Адвокат (Защита)</option>
+                <option value="criminal-prosecution">Прокурор (Обвинение)</option>
               </optgroup>
 
-              <optgroup label="� Финансы и Налоги">
-                <option value="tax">🧾 Налоговый юрист</option>
-                <option value="banking">🏦 Банковский юрист</option>
-                <option value="securities">📈 Ценные бумаги и IPO</option>
-                <option value="insurance">🛡️ Страховой юрист</option>
-                <option value="debt-collection">💸 Взыскание долгов</option>
-                <option value="investor-protection">� Защита инвесторов</option>
-                <option value="cross-border">🌍 Трансграничные сделки</option>
-                <option value="customs">🚢 Таможенный юрист</option>
+              <optgroup label="Административное право">
+                <option value="admin-defense">Адм. защита (Штрафы)</option>
+                <option value="admin-procedure">Адм. процедуры</option>
               </optgroup>
 
-              <optgroup label="🏠 Недвижимость и Быт">
-                <option value="real-estate">🏠 Недвижимость</option>
-                <option value="housing">🏘️ Жилищное право (ЖКХ)</option>
-                <option value="land-disputes">🌾 Земельные споры</option>
-                <option value="family">�‍👩‍👧 Семейный юрист</option>
-                <option value="consumer-protection">🛒 Защита прав потребителей</option>
-                <option value="notary">📜 Нотариус</option>
+              <optgroup label="Бизнес и Корпоратив">
+                <option value="corporate">Корпоративный юрист</option>
+                <option value="commercial">Коммерческий юрист</option>
+                <option value="startup">Юрист для стартапов</option>
+                <option value="merger-acquisition">Слияния (M&A)</option>
+                <option value="antitrust">Антимонопольный юрист</option>
+                <option value="bankruptcy">Банкротство</option>
+                <option value="procurement">Госзакупки</option>
+                <option value="licensing">Лицензирование</option>
+                <option value="regulatory">Регуляторный комплаенс</option>
               </optgroup>
 
-              <optgroup label="� Трудовое право">
-                <option value="hr">� HR-юрист</option>
-                <option value="worker-protection">👷 Защита прав работника</option>
-                <option value="compliance-hr">👥 HR-комплаенс</option>
+              <optgroup label="Финансы и Налоги">
+                <option value="tax">Налоговый юрист</option>
+                <option value="banking">Банковский юрист</option>
+                <option value="securities">Ценные бумаги и IPO</option>
+                <option value="insurance">Страховой юрист</option>
+                <option value="debt-collection">Взыскание долгов</option>
+                <option value="investor-protection">Защита инвесторов</option>
+                <option value="cross-border">Трансграничные сделки</option>
+                <option value="customs">Таможенный юрист</option>
               </optgroup>
 
-              <optgroup label="⚖️ Суды и Споры">
-                <option value="litigator">🏛️ Судебный юрист</option>
-                <option value="procedural">📝 Процессуалист</option>
-                <option value="arbitration">🤝 Арбитраж</option>
-                <option value="mediation">🕊️ Медиация</option>
-                <option value="enforcement">� Исполнение решений</option>
-                <option value="deadlines">⏳ Сроки и давность</option>
-                <option value="forensic-legal">� Судебная экспертиза</option>
-                <option value="constitutional">🏛️ Конституционное право</option>
+              <optgroup label="Недвижимость и Быт">
+                <option value="real-estate">Недвижимость</option>
+                <option value="housing">Жилищное право (ЖКХ)</option>
+                <option value="land-disputes">Земельные споры</option>
+                <option value="family">Семейный юрист</option>
+                <option value="consumer-protection">Защита прав потребителей</option>
+                <option value="notary">Нотариус</option>
               </optgroup>
 
-              <optgroup label="� IT и Интеллектуальная собственность">
-                <option value="ip">💡 IP-юрист (Авторское право)</option>
-                <option value="digital-law">💻 Цифровое право (IT)</option>
+              <optgroup label="Трудовое право">
+                <option value="hr">HR-юрист</option>
+                <option value="worker-protection">Защита прав работника</option>
+                <option value="compliance-hr">HR-комплаенс</option>
               </optgroup>
 
-              <optgroup label="🧯 Риски и Проверки">
-                <option value="legal-audit">🚨 Юридический аудит</option>
-                <option value="compliance">🛡️ Общий комплаенс</option>
-                <option value="environmental">� Экологическое право</option>
-                <option value="doc-review">📄 Проверка документа</option>
-              </optgroup>
-              
-              <optgroup label="🛠️ Инструменты">
-                <option value="legal-letter">✉️ Написать претензию</option>
-                <option value="negotiator">🤝 Переговорщик</option>
-                <option value="interview-practice">🎤 Интервьюер</option>
+              <optgroup label="Суды и Споры">
+                <option value="litigator">Судебный юрист</option>
+                <option value="procedural">Процессуалист</option>
+                <option value="arbitration">Арбитраж</option>
+                <option value="mediation">Медиация</option>
+                <option value="enforcement">Исполнение решений</option>
+                <option value="deadlines">Сроки и давность</option>
+                <option value="forensic-legal">Судебная экспертиза</option>
+                <option value="constitutional">Конституционное право</option>
               </optgroup>
 
-              <optgroup label="🧠 Аналитика">
-                <option value="analyst">🧩 Аналитик</option>
-                <option value="skeptic">🔍 Скептик</option>
-                <option value="strategist">🤖 Стратег</option>
-                <option value="judge-questions">⚖️ Вопросы судьи</option>
-                <option value="odds">� Шансы на успех</option>
-                <option value="what-if">🧪 Что если...</option>
+              <optgroup label="IT и Интеллектуальная собственность">
+                <option value="ip">IP-юрист (Авторское право)</option>
+                <option value="digital-law">Цифровое право (IT)</option>
+              </optgroup>
+
+              <optgroup label="Риски и Проверки">
+                <option value="legal-audit">Юридический аудит</option>
+                <option value="compliance">Общий комплаенс</option>
+                <option value="environmental">Экологическое право</option>
+                <option value="doc-review">Проверка документа</option>
+              </optgroup>
+
+              <optgroup label="Инструменты">
+                <option value="legal-letter">Написать претензию</option>
+                <option value="negotiator">Переговорщик</option>
+                <option value="interview-practice">Интервьюер</option>
+              </optgroup>
+
+              <optgroup label="Аналитика">
+                <option value="analyst">Аналитик</option>
+                <option value="skeptic">Скептик</option>
+                <option value="strategist">Стратег</option>
+                <option value="judge-questions">Вопросы судьи</option>
+                <option value="odds">Шансы на успех</option>
+                <option value="what-if">Что если...</option>
               </optgroup>
             </select>
           </div>
@@ -531,7 +531,7 @@ export default function Lawyer() {
         <div className="messages-container">
           {messages.length === 0 && (
             <div className={`welcome-message ${chatMode === 'smalltalk' ? 'smalltalk-mode' : chatMode === 'auto-detect' ? 'auto-detect-mode' : ''}`}>
-              <h2>{chatMode === 'smalltalk' ? '👋 Привет! Задай простой вопрос' : chatMode === 'auto-detect' ? '🔮 Авто-определение режима' : '⚖️ Добро пожаловать в AI Юрист'}</h2>
+              <h2>{chatMode === 'smalltalk' ? 'Задай простой вопрос' : chatMode === 'auto-detect' ? 'Авто-определение режима' : 'Добро пожаловать в AI Юрист'}</h2>
               <p>{chatMode === 'smalltalk' ? 'Быстрые ответы на простые юридические вопросы' : chatMode === 'auto-detect' ? 'AI автоматически определит тип вашего вопроса и выберет лучший режим консультации' : 'Детальный анализ рисков по законодательству Узбекистана'}</p>
               <div className="example-questions">
                 {chatMode === 'smalltalk' ? (
@@ -655,7 +655,7 @@ export default function Lawyer() {
 
             return (
               <div key={idx} className={`message ${msg.role}`}>
-                <div className="message-avatar">{msg.role === 'user' ? '👤' : '⚖️'}</div>
+                <div className="message-avatar">{msg.role === 'user' ? 'U' : 'AI'}</div>
                 <div className="message-content">
                   {msg.attachedTask && (
                     <div className="attached-task-badge" style={{
@@ -690,7 +690,7 @@ export default function Lawyer() {
                   </ReactMarkdown>
                   {msg.sources && msg.sources.length > 0 && (
                     <details className="sources-expander">
-                      <summary>📚 Источники ({msg.sources.length})</summary>
+                      <summary>Источники ({msg.sources.length})</summary>
                       <ul className="sources-list">
                         {msg.sources.map((source, i) => (
                           <li key={i} id={`source-${idx}-${i}`} className={`source-item-entry quality-${source.quality_level || 'low'}`}>
@@ -712,7 +712,7 @@ export default function Lawyer() {
                   )}
                   {msg.searchRounds && msg.searchRounds.length > 0 && (
                     <details className="search-details-expander">
-                      <summary>🔍 Процесс поиска ({msg.searchRounds.length} итераций)</summary>
+                      <summary>Процесс поиска ({msg.searchRounds.length} итераций)</summary>
                       <div className="search-rounds-list">
                         {msg.searchRounds.map((round: any, i: number) => (
                           <div key={i} className="search-round-item">
@@ -732,7 +732,7 @@ export default function Lawyer() {
 
           {loading && !(messages.length > 0 && messages[messages.length - 1]?.role === 'assistant') && (
             <div className="message assistant loading">
-              <div className="message-avatar">⚖️</div>
+              <div className="message-avatar">AI</div>
               <div className="message-content">
                 <ThinkingLoader />
               </div>
