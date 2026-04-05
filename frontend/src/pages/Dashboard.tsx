@@ -3,7 +3,7 @@
  * Bespoke design with glassmorphism, bento grid, micro-animations, and depth.
  */
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -273,8 +273,6 @@ export default function Dashboard() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const cursorRef = useRef<HTMLDivElement>(null);
-  const headerRef = useRef<HTMLElement>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [fabRipple, setFabRipple] = useState(false);
   const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
@@ -301,30 +299,6 @@ export default function Dashboard() {
       setLoading(false);
     }
   };
-
-  // Cursor follower
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (cursorRef.current) {
-      cursorRef.current.style.setProperty('--cx', `${e.clientX}px`);
-      cursorRef.current.style.setProperty('--cy', `${e.clientY}px`);
-      cursorRef.current.style.opacity = '1';
-    }
-  }, []);
-
-  const handleMouseLeave = useCallback(() => {
-    if (cursorRef.current) {
-      cursorRef.current.style.opacity = '0';
-    }
-  }, []);
-
-  // Header gradient underline tracking
-  const handleHeaderMouseMove = useCallback((e: React.MouseEvent) => {
-    if (headerRef.current) {
-      const rect = headerRef.current.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width) * 100;
-      headerRef.current.style.setProperty('--underline-x', `${x}%`);
-    }
-  }, []);
 
   const handleItemClick = (item: HistoryItem) => {
     switch (item.type) {
@@ -367,10 +341,7 @@ export default function Dashboard() {
   const dateStr = currentTime.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
-    <div className="dashboard-premium" onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}>
-      {/* Cursor follower */}
-      <div ref={cursorRef} className="cursor-follower" />
-
+    <div className="dashboard-premium">
       {/* Background watermark */}
       <div className="dashboard-watermark" aria-hidden="true" />
 
@@ -378,11 +349,7 @@ export default function Dashboard() {
       <div className="sidebar-accent" aria-hidden="true" />
 
       {/* Header */}
-      <header
-        ref={headerRef}
-        className="dash-header"
-        onMouseMove={handleHeaderMouseMove}
-      >
+      <header className="dash-header">
         <div className="dash-header__left">
           <div className="dash-header__brand">
             <div className="brand-icon">
@@ -447,8 +414,6 @@ export default function Dashboard() {
             <span>Выход</span>
           </button>
         </div>
-        {/* Gradient underline */}
-        <div className="header-underline" aria-hidden="true" />
       </header>
 
       {/* Main content */}

@@ -11,7 +11,7 @@ import {
   Users, Building2, ScrollText, Home, Briefcase, Database, RefreshCw, Check, 
   Lock, Globe, Mail, Phone, MapPin, Send,
   ChevronRight, ChevronDown, Play, Rocket, Calendar,
-  Clock, TrendingUp, AlertTriangle,
+  AlertTriangle,
   Target, LayoutDashboard
 } from 'lucide-react';
 import './About.css';
@@ -277,36 +277,47 @@ export default function About() {
       {/* ═══════════════════════════════════════════════════
           SECTION 3: PROBLEM
           ═══════════════════════════════════════════════════ */}
+      {/* Pull-quote breaker */}
+      <div className="section-breaker">
+        <p className="pull-quote">
+          <strong>500+</strong> документов проанализировано с точностью <strong>99,8%</strong>
+        </p>
+      </div>
+
       <section className="landing-section problem-section">
         <div className="landing-container">
+          <span className="section-label">Проблематика</span>
           <h2 className="landing-section-title">Проблемы юридических фирм сегодня</h2>
           <p className="landing-section-subtitle">
             Юридическая работа становится сложнее, а требования к качеству — выше.
           </p>
-          
-          <div className="problem-grid">
-            <div className="problem-card">
-              <div className="problem-icon"><Clock className="w-10 h-10" /></div>
-              <h3 className="problem-title">Потеря времени</h3>
-              <p className="problem-description">
-                Проверка одного договора вручную занимает 3–5 часов.
-              </p>
+
+          <div className="problem-list">
+            <div className="problem-item">
+              <span className="problem-number">01</span>
+              <div className="problem-body">
+                <h3>Потеря времени</h3>
+                <p>Проверка одного договора вручную занимает 3–5 часов работы юриста.</p>
+              </div>
+              <span className="problem-stat">3–5 ч.</span>
             </div>
-            
-            <div className="problem-card">
-              <div className="problem-icon"><AlertTriangle className="w-10 h-10" /></div>
-              <h3 className="problem-title">Риск ошибок</h3>
-              <p className="problem-description">
-                Даже опытные юристы допускают неточности, которые приводят к спорам и убыткам.
-              </p>
+
+            <div className="problem-item">
+              <span className="problem-number">02</span>
+              <div className="problem-body">
+                <h3>Риск ошибок</h3>
+                <p>Даже опытные юристы допускают неточности, которые приводят к спорам и убыткам.</p>
+              </div>
+              <span className="problem-stat">~12%</span>
             </div>
-            
-            <div className="problem-card">
-              <div className="problem-icon"><TrendingUp className="w-10 h-10" /></div>
-              <h3 className="problem-title">Ограниченное масштабирование</h3>
-              <p className="problem-description">
-                Рост количества клиентов требует найма новых специалистов.
-              </p>
+
+            <div className="problem-item">
+              <span className="problem-number">03</span>
+              <div className="problem-body">
+                <h3>Ограниченное масштабирование</h3>
+                <p>Рост количества клиентов требует найма новых специалистов.</p>
+              </div>
+              <span className="problem-stat">×2 штат</span>
             </div>
           </div>
         </div>
@@ -317,6 +328,7 @@ export default function About() {
           ═══════════════════════════════════════════════════ */}
       <section className="landing-section features-section" id="features">
         <div className="landing-container">
+          <span className="section-label">Возможности</span>
           <h2 className="landing-section-title">Решение</h2>
           <p className="landing-section-subtitle">
             LawyerAI.uz — рабочий инструмент для юридической практики. Платформа объединяет анализ законодательства, работу с договорами и консультации в одном интерфейсе.
@@ -404,6 +416,7 @@ export default function About() {
           ═══════════════════════════════════════════════════ */}
       <section className="landing-section how-section">
         <div className="landing-container">
+          <span className="section-label">Процесс</span>
           <h2 className="landing-section-title">Как это работает</h2>
           <p className="landing-section-subtitle">
             Три шага к результату
@@ -652,6 +665,7 @@ export default function About() {
           ═══════════════════════════════════════════════════ */}
       <section className="landing-section faq-section">
         <div className="landing-container">
+          <span className="section-label">FAQ</span>
           <h2 className="landing-section-title">Часто задаваемые вопросы</h2>
           
           <div className="faq-grid">
@@ -706,6 +720,7 @@ export default function About() {
           ═══════════════════════════════════════════════════ */}
       <section className="landing-section contact-section" id="contact">
         <div className="landing-container">
+          <span className="section-label">Контакты</span>
           <h2 className="landing-section-title">Обратная связь</h2>
           <p className="landing-section-subtitle">
             Остались вопросы? Свяжитесь с нами
@@ -831,6 +846,7 @@ export default function About() {
           ═══════════════════════════════════════════════════ */}
       <footer className="footer-section">
         <div className="landing-container">
+          <div className="footer-ghost-brand" aria-hidden="true">LawyerAI</div>
           <div className="footer-grid">
             <div className="footer-brand">
               <div className="landing-logo">

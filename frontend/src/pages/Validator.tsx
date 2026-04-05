@@ -230,7 +230,7 @@ export default function Validator() {
             {/* Strengths */}
             {result.strengths && result.strengths.length > 0 && (
               <section className="analysis-section">
-                <h2>🔥 Сильные стороны ({result.strengths.length})</h2>
+                <h2><span className="section-idx">01</span> Сильные стороны ({result.strengths.length})</h2>
                 <div className="strengths-list">
                   {result.strengths.map((strength, i) => (
                     <div key={i} className="strength-card">
@@ -245,7 +245,7 @@ export default function Validator() {
             {/* Critical Errors */}
             {result.critical_errors && result.critical_errors.length > 0 && (
               <section className="analysis-section">
-                <h2>❌ Критические ошибки ({result.critical_errors.length})</h2>
+                <h2><span className="section-idx">02</span> Критические ошибки ({result.critical_errors.length})</h2>
                 {result.critical_errors.map((err, i) => (
                   <div key={i} className="error-card">
                     <div className="card-title">{err.error}</div>
@@ -262,7 +262,7 @@ export default function Validator() {
             {/* Hidden Risks */}
             {result.hidden_risks && result.hidden_risks.length > 0 && (
               <section className="analysis-section">
-                <h2>🕵️ Скрытые риски ({result.hidden_risks.length})</h2>
+                <h2><span className="section-idx">03</span> Скрытые риски ({result.hidden_risks.length})</h2>
                 {result.hidden_risks.map((risk, i) => (
                   <div key={i} className={`risk-card severity-${risk.severity}`}>
                     <div className="card-title">{risk.risk}</div>
@@ -280,7 +280,7 @@ export default function Validator() {
             {/* Ambiguities */}
             {result.ambiguities && result.ambiguities.length > 0 && (
               <section className="analysis-section">
-                <h2>🌫️ Размытые формулировки ({result.ambiguities.length})</h2>
+                <h2><span className="section-idx">04</span> Размытые формулировки ({result.ambiguities.length})</h2>
                 {result.ambiguities.map((amb, i) => (
                   <div key={i} className="ambiguity-card">
                     <div className="card-title">"{amb.phrase}"</div>
@@ -297,7 +297,7 @@ export default function Validator() {
             {/* Warnings */}
             {result.warnings && result.warnings.length > 0 && (
               <section className="analysis-section">
-                <h2>⚠️ Предупреждения ({result.warnings.length})</h2>
+                <h2><span className="section-idx">05</span> Предупреждения ({result.warnings.length})</h2>
                 {result.warnings.map((warn, i) => (
                   <div key={i} className="warning-card">
                     <div className="card-title">{warn.risk}</div>
@@ -313,7 +313,7 @@ export default function Validator() {
             {/* Missing Clauses */}
             {result.missing_clauses && result.missing_clauses.length > 0 && (
               <section className="analysis-section">
-                <h2>📝 Недостающие пункты ({result.missing_clauses.length})</h2>
+                <h2><span className="section-idx">06</span> Недостающие пункты ({result.missing_clauses.length})</h2>
                 {result.missing_clauses.map((clause, i) => (
                   <div key={i} className="missing-card">
                     <div className="card-title">{clause.clause_name}</div>
@@ -330,7 +330,7 @@ export default function Validator() {
             {/* Improvement Suggestions */}
             {result.improvement_suggestions && result.improvement_suggestions.length > 0 && (
               <section className="analysis-section">
-                <h2>💡 Рекомендации по улучшению ({result.improvement_suggestions.length})</h2>
+                <h2><span className="section-idx">07</span> Рекомендации по улучшению ({result.improvement_suggestions.length})</h2>
                 {result.improvement_suggestions.map((item, i) => (
                   <div key={i} className="improvement-card">
                     <div className="card-title">{item.suggestion}</div>
@@ -347,7 +347,7 @@ export default function Validator() {
             {/* Negotiation Strategy */}
             {result.negotiation_strategy && (
               <section className="analysis-section">
-                <h2>🤝 Стратегия переговоров</h2>
+                <h2><span className="section-idx">08</span> Стратегия переговоров</h2>
                 <div className="negotiation-content">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.negotiation_strategy}</ReactMarkdown>
                 </div>
@@ -357,7 +357,7 @@ export default function Validator() {
             {/* Summary */}
             {result.summary && (
               <section className="analysis-section summary-section">
-                <h2>📌 Заключение</h2>
+                <h2><span className="section-idx">09</span> Заключение</h2>
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.summary}</ReactMarkdown>
               </section>
             )}

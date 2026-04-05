@@ -1,10 +1,11 @@
 /**
- * Login Page
+ * Login Page — Split layout with brand side
  */
 
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { Scale } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -30,49 +31,63 @@ export default function Login() {
   };
 
   return (
-    <div className="auth-container">
-      <div className="auth-card">
-        <div className="auth-header">
-          <h1>⚖️ Юридическая платформа</h1>
-          <p>Вход в систему</p>
+    <div className="auth-split">
+      <div className="auth-brand-side">
+        <div className="auth-brand-content">
+          <Scale size={28} strokeWidth={1.5} />
+          <h2>LawyerAI</h2>
+          <p className="auth-brand-tagline">Правовой помощник<br />Узбекистана</p>
+          <div className="auth-brand-stat">
+            <span className="auth-stat-number">500+</span>
+            <span className="auth-stat-label">документов проанализировано</span>
+          </div>
         </div>
+      </div>
 
-        <form onSubmit={handleSubmit} className="auth-form">
-          {error && <div className="error-message">{error}</div>}
-
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="your@email.com"
-              required
-            />
+      <div className="auth-form-side">
+        <div className="auth-form-wrapper">
+          <div className="auth-header">
+            <span className="auth-label">Авторизация</span>
+            <h1>Вход в систему</h1>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="password">Пароль</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••"
-              required
-            />
+          <form onSubmit={handleSubmit} className="auth-form">
+            {error && <div className="error-message">{error}</div>}
+
+            <div className="form-group">
+              <label htmlFor="email">Email</label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your@email.com"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="password">Пароль</label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••"
+                required
+              />
+            </div>
+
+            <button type="submit" className="btn-primary" style={{ width: '100%' }} disabled={loading}>
+              {loading ? 'Вход...' : 'Войти'}
+            </button>
+          </form>
+
+          <div className="auth-footer">
+            <p>
+              Нет аккаунта? <Link to="/register">Регистрация</Link>
+            </p>
           </div>
-
-          <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? 'Вход...' : 'Войти'}
-          </button>
-        </form>
-
-        <div className="auth-footer">
-          <p>
-            Нет аккаунта? <Link to="/register">Регистрация</Link>
-          </p>
         </div>
       </div>
     </div>

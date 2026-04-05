@@ -48,33 +48,44 @@ function getSeverityEmoji(severity: string): string {
   }
 }
 
-// Collapsible section component
-function Section({ 
-  title, 
-  score, 
-  emoji, 
-  isValid, 
-  children, 
-  defaultOpen = false 
-}: { 
-  title: string; 
-  score: number; 
+// Section counter for auto-indexing
+let sectionCounter = 0;
+
+// Collapsible section component — numbered, not emoji-based
+function Section({
+  title,
+  score,
+  emoji: _emoji,
+  isValid: _isValid,
+  children,
+  defaultOpen = false,
+  index
+}: {
+  title: string;
+  score: number;
   emoji: string;
   isValid?: boolean;
   children: React.ReactNode;
   defaultOpen?: boolean;
+  index?: number;
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
-  const statusEmoji = isValid === undefined ? '' : (isValid ? '✅' : '❌');
-  
+  const idx = index ?? ++sectionCounter;
+  const displayIndex = String(idx).padStart(2, '0');
+
   return (
     <div className={`doc-section ${isOpen ? 'open' : ''}`}>
       <div className="section-header" onClick={() => setIsOpen(!isOpen)}>
-        <span className="section-emoji">{emoji}</span>
+        <span className="section-index">{displayIndex}</span>
         <span className="section-title">{title}</span>
-        <span className="section-status">{statusEmoji}</span>
-        <span className={`section-score ${getScoreColor(score)}`}>{score}/100</span>
-        <span className="section-toggle">{isOpen ? '▼' : '▶'}</span>
+        <div className="section-score-bar">
+          <div
+            className={`section-score-fill ${getScoreColor(score)}`}
+            style={{ width: `${score}%` }}
+          />
+        </div>
+        <span className={`section-score ${getScoreColor(score)}`}>{score}</span>
+        <span className="section-toggle">{isOpen ? '−' : '+'}</span>
       </div>
       {isOpen && <div className="section-content">{children}</div>}
     </div>
