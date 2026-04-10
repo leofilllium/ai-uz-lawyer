@@ -1,56 +1,86 @@
-# Docker & Environment
+# ─── Environment & Secrets ───────────────────────────────────────────────────
 .env
-*.env.local
+.env.local
 .env.*.local
+*.env.local
 
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Virtual environments
-.venv/
-venv/
-ENV/
-env/
-
-# IDEs
+# ─── OS & Editor ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
 .idea/
 .vscode/
 *.swp
 *.swo
-.DS_Store
 
-# Project specific
-data/chroma_db/
-*.log
-*.sqlite
+# ─── Backend (Python / FastAPI) ───────────────────────────────────────────────
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.py[cod]
+backend/*$py.class
+backend/.venv/
+backend/venv/
+backend/env/
+backend/ENV/
+backend/*.egg-info/
+backend/.eggs/
+backend/dist/
+backend/sdist/
+backend/wheels/
+backend/.installed.cfg
+backend/*.egg
+backend/data/chroma_db/
+backend/app/test/chunks/
+backend/*.log
 
-# Docker volumes (local)
+# ─── Frontend (React / Vite) ──────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/*.local
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+
+# ─── Mobile (Flutter / Dart) ─────────────────────────────────────────────────
+# Generated & tool files (complement mobile/.gitignore)
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.dart_tool/
+mobile/.pub-cache/
+mobile/.pub/
+mobile/build/
+mobile/coverage/
+
+# Android signing (never commit keystores)
+mobile/android/key.properties
+mobile/android/**/*.keystore
+mobile/android/**/*.jks
+mobile/android/local.properties
+mobile/android/.gradle/
+mobile/android/captures/
+mobile/android/.cxx/
+
+# iOS build artifacts
+mobile/ios/Pods/
+mobile/ios/DerivedData/
+mobile/ios/.symlinks/
+mobile/ios/Flutter/Flutter.framework
+mobile/ios/Flutter/Flutter.podspec
+mobile/ios/Flutter/Generated.xcconfig
+mobile/ios/Flutter/ephemeral/
+mobile/ios/Flutter/app.flx
+mobile/ios/Flutter/app.zip
+mobile/ios/Flutter/flutter_assets/
+mobile/ios/Flutter/flutter_export_environment.sh
+mobile/ios/ServiceDefinitions.json
+mobile/ios/Runner/GeneratedPluginRegistrant.*
+
+# ─── Infrastructure / Docker ──────────────────────────────────────────────────
 postgres_data/
 chroma_data/
+certbot/conf/
+certbot/www/
 
-# Ignore old Streamlit app (replaced by Flask)
-# Keep the files but document they're deprecated
-
-./frontend/node_modules
-./backend/venv
-data
-backend/app/test/chunks
+# ─── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+*.sqlite

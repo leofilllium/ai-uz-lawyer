@@ -1,0 +1,13 @@
+export 'data/datasources/auth_remote_data_source.dart';
+export 'data/models/user_model.dart';
+export 'data/repositories/auth_repository_impl.dart';
+export 'di/auth_module.dart';
+export 'domain/entities/user.dart';
+export 'domain/repositories/auth_repository.dart';
+export 'domain/usecases/login_user.dart';
+export 'domain/usecases/register_user.dart';
+export 'presentation/bloc/auth_bloc.dart';
+export 'presentation/bloc/auth_event.dart';
+export 'presentation/bloc/auth_state.dart';
+export 'presentation/pages/login_page.dart';
+export 'presentation/pages/register_page.dart';
