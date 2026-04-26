@@ -28,7 +28,7 @@ backend/sdist/
 backend/wheels/
 backend/.installed.cfg
 backend/*.egg
-backend/data/chroma_db/
+backend/data/laws_txt/*
 backend/app/test/chunks/
 backend/*.log
 
