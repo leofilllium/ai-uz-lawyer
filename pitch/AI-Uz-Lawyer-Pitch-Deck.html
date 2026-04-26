@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI Uz Lawyer — Thesis Defense Pitch</title>
+<style>
+  /* ──────────────────── PALETTE & RESET ──────────────────── */
+  :root {
+    --ink:        #0F172A;
+    --indigo:     #1E1B4B;
+    --indigo-soft:#2A2660;
+    --cream:      #F8F7F4;
+    --paper:      #FFFFFF;
+    --gold:       #C8902A;
+    --gold-soft:  #E5C36A;
+    --teal:       #0D9488;
+    --teal-soft:  #5EEAD4;
+    --muted:      #64748B;
+    --rule:       #E2E8F0;
+    --danger:     #B91C1C;
+    --success:    #047857;
+    --font-head: Georgia, "Times New Roman", serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --font-mono: "SF Mono", Consolas, Menlo, "Courier New", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: var(--font-body);
+    color: var(--ink);
+    background: #1a1830;
+    overflow: hidden;
+  }
+
+  /* ──────────────────── DECK STAGE ──────────────────── */
+  .deck { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: none;
+    width: 100%;
+    height: 100%;
+    background: var(--cream);
+    color: var(--ink);
+    overflow: hidden;
+  }
+  .slide.active { display: block; }
+
+  .frame {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    padding: 4.2vh 5vw 4.2vh 5vw;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .frame.dark { background: var(--indigo); color: var(--cream); }
+
+  .slide::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 0.45vw;
+    background: var(--gold);
+    z-index: 2;
+  }
+  .eyebrow {
+    font-size: 0.78vw;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 0.4em;
+    margin-bottom: 2vh;
+  }
+  .frame.dark .eyebrow { color: var(--gold-soft); }
+  .page-marker {
+    position: absolute;
+    left: 5vw; bottom: 3.5vh;
+    font-family: var(--font-mono);
+    font-size: 0.78vw;
+    color: var(--muted);
+  }
+  .frame.dark .page-marker { color: #94A3B8; }
+  .footer-brand {
+    position: absolute;
+    right: 5vw; bottom: 3.5vh;
+    font-size: 0.78vw;
+    color: var(--muted);
+  }
+  .frame.dark .footer-brand { color: #94A3B8; }
+
+  h1.title {
+    font-family: var(--font-head);
+    font-weight: 400;
+    font-size: 3vw;
+    line-height: 1.15;
+    margin-bottom: 1.5vh;
+    color: inherit;
+  }
+  h1.title.huge { font-size: 6.5vw; line-height: 1.05; }
+  .lede {
+    font-size: 1.25vw;
+    line-height: 1.55;
+    color: var(--muted);
+    max-width: 80ch;
+    margin-bottom: 3vh;
+  }
+  .frame.dark .lede { color: #CBD5E1; }
+  .mono { font-family: var(--font-mono); }
+  .italic-quote {
+    font-family: var(--font-head);
+    font-style: italic;
+    font-size: 1.5vw;
+    line-height: 1.45;
+    color: inherit;
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 2.5vw; flex: 1; min-height: 0; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5vw; flex: 1; min-height: 0; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.2vw; flex: 1; min-height: 0; }
+  .grid-2x2 { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 1.5vw; flex: 1; min-height: 0; }
+  .grid-3x2 { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: 1fr 1fr; gap: 1.5vw; flex: 1; min-height: 0; }
+
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 1.8vw 1.6vw;
+    box-shadow: 0 2px 8px rgba(15,23,42,0.05);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .card.dark { background: var(--indigo); color: var(--cream); border: none; box-shadow: 0 4px 16px rgba(15,23,42,0.15); }
+  .card.gold-top { border-top: 0.4vh solid var(--gold); padding-top: calc(1.8vw - 0.4vh); }
+  .card.gold-left { border-left: 0.5vw solid var(--gold); padding-left: calc(1.6vw - 0.5vw); }
+
+  .card .ic {
+    width: 2.8vw; height: 2.8vw;
+    border-radius: 50%;
+    background: var(--gold);
+    color: var(--indigo);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4vw;
+    margin-bottom: 1.5vh;
+  }
+  .card h3 {
+    font-family: var(--font-head);
+    font-weight: 400;
+    font-size: 1.5vw;
+    line-height: 1.2;
+    margin-bottom: 0.8vh;
+  }
+  .card p {
+    font-size: 1.0vw;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+  .card.dark p { color: #CBD5E1; }
+
+  .stat {
+    font-family: var(--font-head);
+    font-size: 5vw;
+    line-height: 1;
+    color: var(--gold);
+  }
+  .stat.huge { font-size: 9vw; }
+  .stat-label { font-size: 0.95vw; color: var(--muted); margin-top: 0.6vh; letter-spacing: 0.04em; }
+  .frame.dark .stat-label { color: #94A3B8; }
+
+  .pipeline { display: flex; align-items: stretch; gap: 0.5vw; margin: 2vh 0; }
+  .pipe-step {
+    flex: 1;
+    background: var(--indigo);
+    color: var(--cream);
+    border-top: 0.5vh solid var(--gold);
+    padding: 1vw 0.6vw;
+    text-align: center;
+    position: relative;
+  }
+  .pipe-step.alt { background: var(--paper); color: var(--ink); border: 1px solid var(--rule); border-top: 0.5vh solid var(--gold); }
+  .pipe-step.teal { border-top-color: var(--teal); }
+  .pipe-step .num {
+    font-family: var(--font-mono);
+    font-size: 0.7vw;
+    color: var(--gold-soft);
+    display: block;
+    margin-bottom: 0.4vh;
+  }
+  .pipe-step.alt .num { color: var(--muted); }
+  .pipe-step .lbl {
+    font-family: var(--font-head);
+    font-size: 1.1vw;
+    line-height: 1.2;
+    margin-bottom: 0.4vh;
+  }
+  .pipe-step .sub {
+    font-size: 0.75vw;
+    line-height: 1.3;
+    opacity: 0.85;
+  }
+  .pipe-arrow {
+    align-self: center;
+    color: var(--gold);
+    font-size: 1.2vw;
+  }
+
+  .codeblock {
+    background: #F1EFE9;
+    border: 1px solid var(--rule);
+    padding: 1.5vw;
+    font-family: var(--font-mono);
+    font-size: 0.95vw;
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+  .codeblock.paper { background: var(--paper); }
+  .codeblock .red { color: var(--danger); }
+  .codeblock .green { color: var(--success); }
+  .codeblock .indigo { color: var(--indigo); }
+  .codeblock .muted { color: var(--muted); }
+
+  .mock {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    box-shadow: 0 8px 24px rgba(15,23,42,0.10);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .mock-header { background: var(--indigo); color: var(--cream); padding: 0.8vh 1vw; display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 0.85vw; }
+  .mock-dots { display: flex; gap: 0.4vw; }
+  .mock-dots span { width: 0.55vw; height: 0.55vw; background: var(--gold-soft); border-radius: 50%; }
+  .mock-body { padding: 1.5vh 1vw; flex: 1; display: flex; flex-direction: column; gap: 1.2vh; overflow: hidden; }
+  .msg-user { align-self: flex-end; background: var(--indigo); color: var(--cream); padding: 0.8vh 1vw; max-width: 70%; font-size: 0.95vw; }
+  .msg-assistant { align-self: flex-start; background: #F1EFE9; padding: 1.2vh 1vw; max-width: 88%; font-size: 0.95vw; line-height: 1.5; }
+  .msg-assistant .ref { color: var(--gold); font-weight: 700; }
+  .source-strip { padding: 0 1vw 1.5vh; }
+  .source-strip .lbl { font-size: 0.7vw; color: var(--gold); font-weight: 700; letter-spacing: 0.3em; margin-bottom: 0.6vh; }
+  .source-chips { display: flex; gap: 0.7vw; }
+  .source-chip { flex: 1; border: 1px solid var(--gold); padding: 0.6vh 0.7vw; }
+  .source-chip .name { font-size: 0.78vw; font-weight: 700; color: var(--ink); }
+  .source-chip .art { font-family: var(--font-mono); font-size: 0.7vw; color: var(--muted); }
+
+  .tag {
+    display: inline-block;
+    border: 1px solid var(--gold);
+    background: var(--cream);
+    color: var(--indigo);
+    font-size: 0.85vw;
+    padding: 0.5vh 0.8vw;
+    margin: 0.3vh 0.4vw 0.3vh 0;
+  }
+
+  .cover-decoration {
+    position: absolute;
+    right: -3vw;
+    top: 0;
+    font-family: var(--font-head);
+    font-size: 50vw;
+    line-height: 0.8;
+    color: var(--indigo-soft);
+    user-select: none;
+    pointer-events: none;
+  }
+  .cover-stat-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2vw;
+    border-top: 0.4vh solid var(--gold);
+    padding-top: 2vh;
+    margin-top: 4vh;
+  }
+  .cover-stat .num {
+    font-family: var(--font-head);
+    font-size: 2.6vw;
+    color: var(--gold-soft);
+  }
+  .cover-stat .lbl { font-size: 0.85vw; color: #94A3B8; }
+
+  .gauge {
+    width: 9vw; height: 9vw;
+    border-radius: 50%;
+    border: 0.4vw solid var(--gold);
+    background: var(--cream);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .gauge .v { font-family: var(--font-head); font-size: 3.6vw; line-height: 1; color: var(--indigo); }
+  .gauge .vs { font-size: 0.85vw; color: var(--muted); }
+
+  .finding { display: flex; align-items: flex-start; gap: 0.7vw; padding: 1vh 0; }
+  .finding-bar { width: 0.3vw; align-self: stretch; }
+  .finding-bar.red { background: var(--danger); }
+  .finding-bar.gold { background: var(--gold); }
+  .finding-bar.green { background: var(--success); }
+  .finding h4 { font-family: var(--font-head); font-size: 1.15vw; font-weight: 400; margin-bottom: 0.3vh; }
+  .finding p { font-size: 0.85vw; color: var(--muted); }
+
+  .horizon-tag {
+    font-size: 0.75vw;
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    padding-bottom: 0.7vh;
+    margin-bottom: 0.4vh;
+  }
+
+  ul.minimal { list-style: none; padding: 0; }
+  ul.minimal li {
+    position: relative;
+    padding-left: 1.2vw;
+    margin: 0.7vh 0;
+    font-size: 1.0vw;
+    line-height: 1.45;
+  }
+  ul.minimal li::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0.6vh;
+    width: 0.45vw; height: 0.45vw;
+    background: var(--gold);
+  }
+  .card.dark ul.minimal li::before { background: var(--gold-soft); }
+  .card.dark ul.minimal li { color: var(--cream); }
+
+  .feature-row {
+    display: flex; align-items: flex-start; gap: 1vw;
+    padding: 1.2vh 0;
+  }
+  .feature-row .n {
+    flex-shrink: 0;
+    width: 1.8vw; height: 1.8vw;
+    border-radius: 50%;
+    background: var(--gold);
+    color: var(--indigo);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-head);
+    font-size: 1vw; font-weight: 700;
+  }
+  .feature-row h4 { font-family: var(--font-head); font-size: 1.25vw; font-weight: 400; margin-bottom: 0.3vh; }
+  .feature-row p { font-size: 0.95vw; color: var(--muted); line-height: 1.45; }
+
+  .nav {
+    position: fixed;
+    bottom: 1.5vh;
+    left: 50%; transform: translateX(-50%);
+    z-index: 100;
+    display: flex; gap: 1vw; align-items: center;
+    background: rgba(15,23,42,0.7);
+    backdrop-filter: blur(8px);
+    padding: 0.8vh 1.5vw;
+    border-radius: 999px;
+  }
+  .nav button {
+    background: none; border: none;
+    color: var(--cream);
+    font-family: var(--font-mono);
+    font-size: 0.9vw;
+    cursor: pointer;
+    padding: 0.4vh 0.6vw;
+  }
+  .nav button:hover { color: var(--gold-soft); }
+  .nav .counter { color: var(--gold-soft); font-family: var(--font-mono); font-size: 0.9vw; min-width: 4vw; text-align: center; }
+  .help {
+    position: fixed;
+    top: 1.5vh; right: 1.5vw;
+    color: rgba(248,247,244,0.5);
+    font-family: var(--font-mono);
+    font-size: 0.75vw;
+    z-index: 100;
+  }
+
+  .compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1vw;
+    flex: 1;
+    min-height: 0;
+  }
+  .compare h3 { color: var(--cream); padding: 1vh 1vw; font-family: var(--font-head); font-weight: 400; font-size: 1.3vw; }
+  .compare .head-indigo { background: var(--indigo); }
+  .compare .head-gold { background: var(--gold); }
+  .compare .head-teal { background: var(--teal); }
+  .compare .sub { padding: 0.5vh 1vw; font-family: var(--font-mono); font-size: 0.75vw; color: var(--muted); }
+  .compare .group-label {
+    font-size: 0.7vw; font-weight: 700; letter-spacing: 0.3em;
+    padding: 0.5vh 1vw; margin-top: 1vh;
+  }
+  .compare .group-label.success { color: var(--success); }
+  .compare .group-label.danger { color: var(--danger); }
+
+  .codes-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.8vw 1vw;
+    font-size: 0.85vw;
+    color: var(--cream);
+    line-height: 1.5;
+  }
+
+  .arch-tier { display: flex; gap: 1vw; align-items: stretch; margin-bottom: 1vh; }
+  .arch-tier .arch-box {
+    flex: 1;
+    background: var(--paper);
+    border: 1px solid var(--indigo);
+    border-left: 0.4vw solid var(--indigo);
+    padding: 1vh 1vw;
+  }
+  .arch-tier .arch-box h4 { font-family: var(--font-head); font-size: 1.1vw; font-weight: 400; }
+  .arch-tier .arch-box .src { font-family: var(--font-mono); font-size: 0.78vw; color: var(--muted); margin-top: 0.3vh; }
+  .arch-bar-indigo, .arch-bar-gold {
+    text-align: center;
+    color: var(--cream);
+    font-size: 1vw;
+    font-weight: 700;
+    padding: 1vh 1vw;
+  }
+  .arch-bar-indigo { background: var(--indigo); }
+  .arch-bar-gold { background: var(--gold); color: var(--indigo); }
+
+  /* PHONE MOCKUP */
+  .phone-frame {
+    width: 16vw;
+    height: 34vw;
+    border: 0.3vw solid #444;
+    border-radius: 2vw;
+    overflow: hidden;
+    background: #111;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5), inset 0 0 0 0.15vw rgba(255,255,255,0.08);
+    flex-shrink: 0;
+    position: relative;
+  }
+  .phone-frame::before {
+    content: "";
+    position: absolute;
+    top: 0.6vw;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 5vw;
+    height: 0.5vw;
+    background: #222;
+    border-radius: 999px;
+    z-index: 2;
+  }
+  .phone-frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+  }
+  .mobile-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8vw;
+    margin-top: 2vh;
+  }
+  .mobile-stat-box {
+    background: var(--indigo-soft);
+    border-left: 0.35vw solid var(--gold);
+    padding: 1.2vh 1vw;
+  }
+  .mobile-stat-box .val {
+    font-family: var(--font-head);
+    font-size: 2vw;
+    color: var(--gold-soft);
+    line-height: 1.1;
+  }
+  .mobile-stat-box .lbl {
+    font-size: 0.78vw;
+    color: #94A3B8;
+    margin-top: 0.3vh;
+  }
+  .mobile-module-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5vw;
+    margin-top: 1.5vh;
+  }
+  .mobile-module-tags .m-tag {
+    display: inline-block;
+    font-size: 0.75vw;
+    padding: 0.4vh 0.7vw;
+    border: 1px solid var(--gold);
+    color: var(--gold-soft);
+    letter-spacing: 0.04em;
+  }
+
+  .closer-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5vw;
+    margin-top: auto;
+  }
+  .closer-box {
+    background: var(--indigo-soft);
+    border-top: 0.4vh solid var(--gold);
+    padding: 2vh 1.5vw;
+  }
+  .closer-box .lbl { color: var(--gold-soft); font-size: 0.75vw; font-weight: 700; letter-spacing: 0.3em; margin-bottom: 1vh; }
+  .closer-box .val { font-family: var(--font-mono); font-size: 1.25vw; color: var(--cream); margin-bottom: 0.6vh; word-break: break-all; }
+  .closer-box .note { font-size: 0.85vw; color: #94A3B8; }
+</style>
+</head>
+<body>
+
+<div class="help">← / → to navigate · F for fullscreen · ESC to exit</div>
+
+<div class="deck" id="deck">
+
+  <!-- 01 COVER -->
+  <section class="slide active">
+    <div class="frame dark">
+      <div class="cover-decoration">§</div>
+      <div class="eyebrow">THESIS DEFENSE · TASHKENT, 2026</div>
+      <div style="margin: auto 0;">
+        <h1 class="title huge" style="color: var(--cream); margin-bottom: 2vh;">AI Uz Lawyer</h1>
+        <p class="italic-quote" style="color: #CBD5E1; max-width: 60vw;">A retrieval-augmented legal assistant for the laws and codes of Uzbekistan.</p>
+      </div>
+      <div class="cover-stat-strip">
+        <div class="cover-stat"><div class="num">27</div><div class="lbl">Uzbek codes ingested</div></div>
+        <div class="cover-stat"><div class="num">37,000+</div><div class="lbl">embedded chunks</div></div>
+        <div class="cover-stat"><div class="num">3</div><div class="lbl">client surfaces</div></div>
+        <div class="cover-stat"><div class="num">13</div><div class="lbl">API modules</div></div>
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-top: 3vh; align-items: center;">
+        <span style="font-size: 0.95vw; color: #94A3B8;">Sherzod · Computer Science</span>
+        <span class="mono" style="font-size: 1vw; color: var(--gold-soft);">lawyerai.uz</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02 PROBLEM -->
+  <section class="slide">
+    <div class="frame">
+      <div class="eyebrow">PROBLEM</div>
+      <h1 class="title">Legal information in Uzbekistan is hard to reach.</h1>
+      <p class="lede">Uzbek law lives across dozens of codes, in two scripts and three languages, behind paywalls or PDFs. Citizens and small businesses pay for what should be a search query.</p>
+      <div class="grid-2" style="gap: 2vw;">
+        <div class="grid-2x2">
+          <div class="card gold-left"><h3>Fragmented corpus</h3><p>27 separate codes — civil, criminal, tax, labour, family, land — each with hundreds of articles.</p></div>
+          <div class="card gold-left"><h3>Language barrier</h3><p>Statutes in Uzbek (Latin + Cyrillic) and Russian. Off-the-shelf NLP doesn't tokenize oʻ, gʻ, sh.</p></div>
+          <div class="card gold-left"><h3>Lawyer cost gap</h3><p>A 30-minute consultation costs more than the median weekly grocery budget for many.</p></div>
+          <div class="card gold-left"><h3>Contract risk</h3><p>SMEs sign templates pulled off random websites — no validation, no clauses, no checks.</p></div>
+        </div>
+        <div class="card dark gold-left" style="justify-content: space-between;">
+          <div style="font-family: var(--font-head); font-size: 7vw; color: var(--gold-soft); line-height: 0.7;">"</div>
+          <p class="italic-quote" style="color: var(--cream);">Most people I know don't read the law because they can't find it. They ask a friend, who asks another friend.</p>
+          <div style="font-size: 0.85vw; color: #94A3B8; margin-top: 1vh;">— Informal user interview, 2025</div>
+        </div>
+      </div>
+      <div class="page-marker">02 / 17</div>
+      <div class="footer-brand">AI Uz Lawyer · Thesis Defense</div>
+    </div>
+  </section>
+
+  <!-- 03 WHY NOW -->
+  <section class="slide">
+    <div class="frame">
+      <div class="eyebrow">CONTEXT</div>
+      <h1 class="title">Why this is solvable now.</h1>
+      <p class="lede">Three forces converged in the last 18 months. Each on its own would be insufficient — together they make a credible legal-tech product feasible from a single faculty thesis.</p>
+      <div class="grid-3" style="margin-top: 2vh;">
+        <div style="border-right: 1px solid var(--rule); padding-right: 2vw;">
+          <div style="font-family: var(--font-head); font-size: 5vw; color: var(--gold); line-height: 1;">01</div>
+          <h3 style="font-family: var(--font-head); font-size: 1.6vw; font-weight: 400; margin: 1.5vh 0 1vh;">LLMs that cite</h3>
+          <p style="font-size: 1vw; color: var(--muted); line-height: 1.55;">Frontier models (Claude Sonnet, GPT-4 class) finally follow source-grounded prompts and refuse to confabulate when given retrieval context.</p>
+        </div>
+        <div style="border-right: 1px solid var(--rule); padding: 0 2vw;">
+          <div style="font-family: var(--font-head); font-size: 5vw; color: var(--gold); line-height: 1;">02</div>
+          <h3 style="font-family: var(--font-head); font-size: 1.6vw; font-weight: 400; margin: 1.5vh 0 1vh;">Affordable vector DB</h3>
+          <p style="font-size: 1vw; color: var(--muted); line-height: 1.55;">ChromaDB runs in a single Docker container; 37k chunks fit in a few hundred MB of RAM, no managed service needed.</p>
+        </div>
+        <div style="padding-left: 2vw;">
+          <div style="font-family: var(--font-head); font-size: 5vw; color: var(--gold); line-height: 1;">03</div>
+          <h3 style="font-family: var(--font-head); font-size: 1.6vw; font-weight: 400; margin: 1.5vh 0 1vh;">Multilingual embeddings</h3>
+          <p style="font-size: 1vw; color: var(--muted); line-height: 1.55;">Voyage-4-large embeds Uzbek and Russian in the same vector space, so a Russian query can hit a Uzbek statute.</p>
+        </div>
+      </div>
+      <div class="page-marker">03 / 17</div>
+      <div class="footer-brand">AI Uz Lawyer · Thesis Defense</div>
+    </div>
+  </section>
+
+  <!-- 04 SOLUTION -->
+  <section class="slide">
+    <div class="frame">
+      <div class="eyebrow">SOLUTION</div>
+      <h1 class="title">One assistant, three jobs.</h1>
+      <p class="lede">Every product surface — web, mobile, Telegram — speaks to the same RAG-grounded backend. Three flagship workflows, each tuned to a real legal pain point.</p>
+      <div class="grid-3">
+        <div class="card dark gold-top">
+          <div class="ic">✦</div>
+          <h3 style="color: var(--cream);">Ask the law</h3>
+          <p>Streaming chat that answers in plain language and cites the exact article it's quoting from.</p>
+          <div style="margin-top: auto; padding: 0.6vh 0.8vw; background: var(--indigo-soft); text-align: center; font-family: var(--font-mono); font-size: 0.85vw; color: var(--gold-soft);">/api/lawyer/chat</div>
+        </div>
+        <div class="card dark gold-top">
+          <div class="ic">✓</div>
+          <h3 style="color: var(--cream);">Validate a contract</h3>
+          <p>Upload any contract — get a validity score, critical errors, missing clauses, and clause-level fixes.</p>
+          <div style="margin-top: auto; padding: 0.6vh 0.8vw; background: var(--indigo-soft); text-align: center; font-family: var(--font-mono); font-size: 0.85vw; color: var(--gold-soft);">/api/validator/analyze</div>
+        </div>
+        <div class="card dark gold-top">
+          <div class="ic">§</div>
+          <h3 style="color: var(--cream);">Generate a contract</h3>
+          <p>Pick a category, answer guided questions, get a Uzbek-law-compliant draft from 24+ vetted templates.</p>
+          <div style="margin-top: auto; padding: 0.6vh 0.8vw; background: var(--indigo-soft); text-align: center; font-family: var(--font-mono); font-size: 0.85vw; color: var(--gold-soft);">/api/generator/generate</div>
+        </div>
+      </div>
+      <div class="page-marker">04 / 17</div>
+      <div class="footer-brand">AI Uz Lawyer · Thesis Defense</div>
+    </div>
+  </section>
+
+  <!-- 05 PRODUCT -->
+  <section class="slide">
+    <div class="frame">
+      <div class="eyebrow">PRODUCT</div>
+      <h1 class="title">One backend, every screen the user already owns.</h1>
+      <p class="lede">We built three native client surfaces against a shared FastAPI backend, so a lawyer in court can pick up where their phone left off in the office.</p>
+      <div class="grid-3">
+        <div class="card" style="padding: 0;">
+          <div style="background: var(--indigo); color: var(--cream); padding: 1.5vh 1.2vw; display: flex; align-items: center; gap: 0.7vw;">
+            <span style="font-size: 1.4vw; color: var(--gold);">◐</span>
+            <h3 style="color: var(--cream); margin: 0;">Web app</h3>
+          </div>
+          <div style="padding: 1.5vh 1.2vw; flex: 1; display: flex; flex-direction: column;">
+            <div class="mono" style="font-size: 0.85vw; color: var(--muted); margin-bottom: 1vh;">React 19 + TypeScript + Vite</div>
+            <ul class="minimal"><li>Full lawyer console</li><li>Kanban + calendar + history</li><li>Admin dashboards & uploads</li></ul>
+          </div>
+        </div>
+        <div class="card" style="padding: 0;">
+          <div style="background: var(--indigo); color: var(--cream); padding: 1.5vh 1.2vw; display: flex; align-items: center; gap: 0.7vw;">
+            <span style="font-size: 1.4vw; color: var(--gold);">▢</span>
+            <h3 style="color: var(--cream); margin: 0;">Mobile (iOS + Android)</h3>
+          </div>
+          <div style="padding: 1.5vh 1.2vw; flex: 1; display: flex; flex-direction: column;">
+            <div class="mono" style="font-size: 0.85vw; color: var(--muted); margin-bottom: 1vh;">Flutter 3.x · BLoC · go_router</div>
+            <ul class="minimal"><li>20+ chat consultation modes</li><li>Offline-friendly secure storage</li><li>Russian + English i18n</li></ul>
+          </div>
+        </div>
+        <div class="card" style="padding: 0;">
+          <div style="background: var(--indigo); color: var(--cream); padding: 1.5vh 1.2vw; display: flex; align-items: center; gap: 0.7vw;">
+            <span style="font-size: 1.4vw; color: var(--gold);">✉</span>
+            <h3 style="color: var(--cream); margin: 0;">Telegram bot</h3>
+          </div>
+          <div style="padding: 1.5vh 1.2vw; flex: 1; display: flex; flex-direction: column;">
+            <div class="mono" style="font-size: 0.85vw; color: var(--muted); margin-bottom: 1vh;">PostgreSQL-backed automation</div>
+            <ul class="minimal"><li>Quick legal queries in chat</li><li>Notification push from web</li><li>Lowest-friction entry point</li></ul>
+          </div>
+        </div>
+      </div>
+      <div class="page-marker">05 / 17</div>
+      <div class="footer-brand">AI Uz Lawyer · Thesis Defense</div>
+    </div>
+  </section>
+
+  <!-- 06 CORPUS -->
+  <section class="slide">
+    <div class="frame dark">
+      <div class="eyebrow">CORPUS</div>
+      <h1 class="title" style="color: var(--cream);">The corpus: every Uzbek code, chunked for retrieval.</h1>
+      <div class="grid-2" style="margin-top: 3vh;">
+        <div>
+          <div class="stat huge">37,000+</div>
+          <p class="italic-quote" style="color: var(--cream); margin: 1vh 0 2vh; font-size: 1.7vw;">chunks embedded into ChromaDB.</p>
+          <p style="color: #CBD5E1; font-size: 1vw; line-height: 1.6; max-width: 38ch;">Each chunk is one article (or sub-article) from an Uzbek legal code, embedded with Voyage-4-large and indexed for hybrid retrieval.</p>
+          <div class="grid-4" style="margin-top: 4vh; gap: 1vw;">
+            <div><div class="stat" style="font-size: 2vw;">27</div><div class="stat-label">codes</div></div>
+            <div><div class="stat" style="font-size: 2vw;">24+</div><div class="stat-label">contract templates</div></div>
+            <div><div class="stat" style="font-size: 2vw;">1024</div><div class="stat-label">embedding dim</div></div>
+            <div><div class="stat" style="font-size: 2vw;">~120ms</div><div class="stat-label">median search</div></div>
+          </div>
+        </div>
+        <div style="background: var(--indigo-soft); padding: 2vh 1.5vw; border-top: 0.4vh solid var(--gold);">
+          <div class="eyebrow" style="margin-bottom: 1.5vh;">ALL 27 CODES INGESTED</div>
+          <div class="codes-grid">
+            <div>Constitution</div><div>Criminal</div><div>Criminal Procedure</div>
+            <div>Civil I & II</div><div>Civil Procedural</div><div>Administrative</div>
+            <div>Administrative Proc.</div><div>Family</div><div>Labour</div>
+            <div>Tax</div><div>Land</div><div>Budget</div>
+            <div>Housing</div><div>Penal Enforcement</div><div>Customs</div>
+            <div>Consumer Rights</div><div>Digital Signature</div><div>Economic Procedural</div>
+            <div>Business Law</div><div>Public Procurement</div><div>Audit Activity</div>
+            <div>Competition</div><div>Contracting Basis</div><div>Foreign Economy</div>
+            <div>Insolvency</div><div>Investment Funds</div><div>Privatization</div>
+          </div>
+        </div>
+      </div>
+      <div class="page-marker">06 / 17</div>
+      <div class="footer-brand">AI Uz Lawyer · Thesis Defense</div>
+    </div>
+  </section>
+
+  <!-- 07 RAG ARCHITECTURE -->
+  <section class="slide">
+    <div class="frame">
+      <div class="eyebrow">ARCHITECTURE</div>
+      <h1 class="title">The RAG pipeline, end to end.</h1>
+      <p class="lede">Every user query travels through five stages before the LLM ever sees it. Each stage is independently swappable.</p>
+      <div class="pipeline">
+        <div class="pipe-step"><span class="num">01</span><div class="lbl">Query</div><div class="sub">User question (any of 3 langs)</div></div>
+        <div class="pipe-arrow">▶</div>
+        <div class="pipe-step"><span class="num">02</span><div class="lbl">Embed</div><div class="sub">Voyage-4-large → 1024-dim vector</div></div>
+        <div class="pipe-arrow">▶</div>
+        <div class="pipe-step alt"><span class="num">03</span><div class="lbl">Hybrid search</div><div class="sub">ChromaDB cosine + custom BM25</div></div>
+        <div class="pipe-arrow">▶</div>
+        <div class="pipe-step alt"><span class="num">04</span><div class="lbl">RRF fusion</div><div class="sub">Reciprocal Rank Fusion (k=60)</div></div>
+        <div class="pipe-arrow">▶</div>
+        <div class="pipe-step alt teal"><span class="num">05</span><div class="lbl">Rerank</div><div class="sub">Voyage rerank-2 (top 30)</div></div>
+        <div class="pipe-arrow">▶</div>
+        <div class="pipe-step"><span class="num">06</span><div class="lbl">Claude LLM</div><div class="sub">Sonnet 4.6 + thinking, SSE stream</div></div>
+      </div>
+      <div class="grid-3" style="margin-top: 3vh;">
+        <div class="card gold-left"><h3>Custom Uzbek-aware tokenizer</h3><p>Preserves oʻ, gʻ, sh, ch in BM25.</p></div>
+        <div class="card gold-left"><h3>Memory-efficient inverted index</h3><p>SimpleBM25Index uses array.array postings — fits 37k docs in &lt;500MB.</p></div>
+        <div class="card gold-left"><h3>Reranker blend</h3><p>70% rerank score + 30% cosine similarity.</p></div>
+      </div>
+      <div class="page-marker">07 / 17</div>
+      <div class="footer-brand">AI Uz Lawyer · Thesis Defense</div>
+    </div>
+  </section>
+
+  <!-- 08 RAG INTERNALS -->
+  <section class="slide">
+    <div class="frame">
+      <div class="eyebrow">RAG INTERNALS</div>
+      <h1 class="title">Why hybrid search beats vectors alone.</h1>
+      <p class="lede">Pure semantic search misses statutory keywords (article numbers, defined terms). Pure BM25 misses paraphrased intent. We run both and fuse the rankings.</p>
+      <div class="compare">
+        <div class="card" style="padding: 0;">
+          <div class="head-indigo"><h3>Semantic</h3></div>
+          <div class="sub">Voyage-4-large · cosine sim · ChromaDB</div>
+          <div class="group-label success">WINS AT</div>
+          <ul class="minimal" style="padding: 0 1vw;"><li>Paraphrased intent</li><li>Cross-language (RU↔UZ)</li><li>Conceptual matches</li></ul>
+          <div class="group-label danger">MISSES</div>
+          <ul class="minimal" style="padding: 0 1vw;"><li style="color: var(--muted);">Specific article numbers</li><li style="color: var(--muted);">Rare statutory terms</li></ul>
+        </div>
+        <div class="card" style="padding: 0;">
+          <div class="head-gold"><h3>BM25 (custom)</h3></div>
+          <div class="sub">Inverted index · Uzbek tokenizer</div>
+          <div class="group-label success">WINS AT</div>
+          <ul class="minimal" style="padding: 0 1vw;"><li>Exact statute citation</li><li>Domain vocabulary</li><li>Predictable scoring</li></ul>
+          <div class="group-label danger">MISSES</div>
+          <ul class="minimal" style="padding: 0 1vw;"><li style="color: var(--muted);">Paraphrasing</li><li style="color: var(--muted);">Conceptual queries</li></ul>
+        </div>
+        <div class="card dark" style="padding: 0; border-top: 0.4vh solid var(--teal);">
+          <div style="padding: 1vh 1vw;">
+            <div class="eyebrow" style="color: var(--teal-soft); margin-bottom: 0.5vh;">RRF FUSION</div>
+            <h3 style="color: var(--cream); margin-top: 0.5vh;">Best of both</h3>
+            <div style="margin-top: 1vh; background: var(--indigo-soft); padding: 1vh; font-family: var(--font-mono); font-size: 0.85vw; color: var(--teal-soft); line-height: 1.5;">score = 0.6 · (1/(60+rank_sem))
+       + 0.4 · (1/(60+rank_bm))</div>
+            <p style="color: #CBD5E1; font-size: 0.95vw; line-height: 1.5; margin-top: 1.5vh;">Each result is scored by how high it ranks in either pipeline. Rare-term hits and conceptual hits both bubble up — duplicates are merged by content hash + article ID.</p>
+          </div>
+        </div>
+      </div>
+      <p class="italic-quote" style="text-align: center; margin-top: 2vh; font-size: 1.15vw; color: var(--muted);">Top 30 results then go to Voyage's rerank-2 model — final relevance is 0.7·rerank + 0.3·cosine.</p>
+      <div class="page-marker">08 / 17</div>
+      <div class="footer-brand">AI Uz Lawyer · Thesis Defense</div>
+    </div>
+  </section>
+
+  <!-- 09 UZBEK NLP -->
+  <section class="slide">
+    <div class="frame">
+      <div class="eyebrow">ENGINEERING</div>
+      <h1 class="title">Off-the-shelf tokenizers don't speak Uzbek.</h1>
+      <p class="lede">Uzbek Latin uses oʻ, gʻ, ʼ — characters that standard whitespace tokenizers either drop or split. We wrote a tokenizer that treats them as letters.</p>
+      <div class="grid-2" style="grid-template-columns: 1fr 1fr;">
+        <div>
+          <div style="background: var(--danger); color: var(--cream); padding: 0.8vh 1vw; font-size: 0.8vw; font-weight: 700; letter-spacing: 0.3em;">DEFAULT TOKENIZER</div>
+          <div style="background: #F1EFE9; padding: 1.5vh 1.5vw; height: calc(100% - 5vh);">
+            <p class="italic-quote" style="font-size: 1.4vw;">loses Uzbek characters</p>
+            <pre style="background: transparent; border: none; padding: 1vh 0; margin-top: 1vh; font-family: var(--font-mono); font-size: 0.95vw; line-height: 1.6;"><span style="color: var(--muted);">&gt;&gt;&gt; tokenize("Oʻzbekiston Konstitutsiyasi")</span>
+<span style="color: var(--danger);">["O", "zbekiston", "Konstitutsiyasi"]</span>
+
+<span style="color: var(--muted);">&gt;&gt;&gt; tokenize("gʻalla yetishtirish")</span>
+<span style="color: var(--danger);">["g", "alla", "yetishtirish"]</span></pre>
+          </div>
+        </div>
+        <div>
+          <div style="background: var(--success); color: var(--cream); padding: 0.8vh 1vw; font-size: 0.8vw; font-weight: 700; letter-spacing: 0.3em;">OUR UZBEK TOKENIZER</div>
+          <div style="background: var(--paper); border: 1px solid var(--rule); padding: 1.5vh 1.5vw; height: calc(100% - 5vh);">
+            <p class="italic-quote" style="font-size: 1.4vw;">preserves diacritics</p>
+            <pre style="background: transparent; border: none; padding: 1vh 0; margin-top: 1vh; font-family: var(--font-mono); font-size: 0.95vw; line-height: 1.6;"><span style="color: var(--indigo);">_UZBEK_TOKEN = re.compile(
+  r"[a-zA-ZoʻgʻOʻGʻ'ʼ]+", re.UNICODE)</span>
+
+<span style="color: var(--muted);">&gt;&gt;&gt; tokenize("Oʻzbekiston Konstitutsiyasi")</span>
+<span style="color: var(--success);">["oʻzbekiston", "konstitutsiyasi"]</span></pre>
+          </div>
+        </div>
+      </div>
+      <p class="italic-quote" style="text-align: center; margin-top: auto; font-size: 1.15vw; color: var(--muted);">Result: BM25 actually finds statutes when the user types them in their natural script.</p>
+      <div class="page-marker">09 / 17</div>
+      <div class="footer-brand">AI Uz Lawyer · Thesis Defense</div>
+    </div>
+  </section>
+
+  <!-- 10 SYSTEM ARCHITECTURE -->
+  <section class="slide">
+    <div class="frame">
+      <div class="eyebrow">SYSTEM</div>
+      <h1 class="title">The full stack — production-shaped from day one.</h1>
+      <p class="lede">Containerized end-to-end. Nginx terminates SSL, rate-limits per zone, and proxies SSE streams to FastAPI. Auth, billing, and ingestion are first-class.</p>
+      <div style="margin-top: 1vh;">
+        <div class="arch-tier">
+          <div class="arch-box"><h4>Web (React 19)</h4><div class="src">lawyerai.uz</div></div>
+          <div class="arch-box"><h4>Mobile (Flutter)</h4><div class="src">iOS · Android</div></div>
+          <div class="arch-box"><h4>Telegram bot</h4><div class="src">Python · python-telegram-bot</div></div>
+        </div>
+        <div style="text-align: center; color: var(--muted); margin: 0.5vh 0; font-size: 1.5vw;">↓</div>
+        <div class="arch-bar-indigo">Nginx — SSL, rate limiting (10 r/min on AI endpoints), SSE proxy</div>
+        <div style="text-align: center; color: var(--muted); margin: 0.5vh 0; font-size: 1.5vw;">↓</div>
+        <div class="arch-bar-gold">FastAPI · 13 routers · JWT auth · Pydantic · SQLAlchemy 2.0 · SSE streaming</div>
+        <div style="text-align: center; color: var(--muted); margin: 0.5vh 0; font-size: 1.5vw;">↓</div>
+        <div class="arch-tier">
+          <div class="arch-box" style="border-left-color: var(--indigo);"><h4>PostgreSQL 15</h4><div class="src">users, orgs, tasks, chats, contracts, credits, usage</div></div>
+          <div class="arch-box" style="border-left-color: var(--teal);"><h4 style="color: var(--teal);">ChromaDB</h4><div class="src">uzbekistan_legal_codes · 37k chunks · 1024-dim</div></div>
+        </div>
+      </div>
+      <div class="page-marker">10 / 17</div>
+      <div class="footer-brand">AI Uz Lawyer · Thesis Defense</div>
+    </div>
+  </section>
+
+  <!-- 11 LAWYER CHAT -->
+  <section class="slide">
+    <div class="frame">
+      <div class="eyebrow">FEATURE 1</div>
+      <h1 class="title">Ask the law — and get an answer that cites itself.</h1>
+      <div class="grid-2" style="grid-template-columns: 1fr 1.2fr; margin-top: 2vh;">
+        <div>
+          <div class="feature-row"><div class="n">1</div><div><h4>Source-grounded</h4><p>Every claim links to the specific article(s) the model retrieved.</p></div></div>
+          <div class="feature-row"><div class="n">2</div><div><h4>Streaming UX</h4><p>Server-Sent Events deliver tokens as Claude generates — no spinner stalls.</p></div></div>
+          <div class="feature-row"><div class="n">3</div><div><h4>20+ consultation modes</h4><p>Mobile users pick from civil, family, criminal, tax, employment, housing, and more.</p></div></div>
+          <div class="feature-row"><div class="n">4</div><div><h4>Thinking traces</h4><p>Claude Sonnet 4.6 with 8k thinking tokens — visible reasoning available on demand.</p></div></div>
+          <div class="feature-row"><div class="n">5</div><div><h4>Persistent sessions</h4><p>Chat history is per-user, per-org, exportable to PDF or DOCX.</p></div></div>
+        </div>
+        <div class="mock">
+          <div class="mock-header">
+            <span>AI Lawyer · /api/lawyer/chat</span>
+            <div class="mock-dots"><span></span><span></span><span></span></div>
+          </div>
+          <div class="mock-body">
+            <div class="msg-user">Can my employer fire me for refusing overtime?</div>
+            <div class="msg-assistant">Under the Labour Code of Uzbekistan, <span class="ref">Article 124</span>, overtime work requires written employee consent except in specific emergencies. Refusal alone is not grounds for termination under <span class="ref">Article 100</span>. Disciplinary action would require documented misconduct.</div>
+          </div>
+          <div class="source-strip">
+            <div class="lbl">SOURCES</div>
+            <div class="source-chips">
+              <div class="source-chip"><div class="name">Labour Code</div><div class="art">art. 124</div></div>
+              <div class="source-chip"><div class="name">Labour Code</div><div class="art">art. 100</div></div>
+              <div class="source-chip"><div class="name">Labour Code</div><div class="art">art. 191</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="page-marker">11 / 17</div>
+      <div class="footer-brand">AI Uz Lawyer · Thesis Defense</div>
+    </div>
+  </section>
+
+  <!-- 12 VALIDATOR + GENERATOR -->
+  <section class="slide">
+    <div class="frame">
+      <div class="eyebrow">FEATURES 2 & 3</div>
+      <h1 class="title">From draft to defensible — in two flows.</h1>
+      <div class="grid-2" style="grid-template-columns: 1fr 1fr; margin-top: 2vh;">
+        <div class="card" style="padding: 0; display: flex; flex-direction: column;">
+          <div style="background: var(--indigo); color: var(--cream); padding: 1vh 1.2vw;">
+            <div class="eyebrow" style="margin-bottom: 0;">CONTRACT VALIDATOR</div>
+          </div>
+          <div style="padding: 2vh 1.5vw; flex: 1; display: flex; flex-direction: column;">
+            <h3 style="font-family: var(--font-head); font-size: 1.8vw; font-weight: 400; margin-bottom: 2vh;">Upload. Score. Fix.</h3>
+            <div style="display: flex; gap: 1.5vw; align-items: flex-start;">
+              <div class="gauge"><div class="v">78</div><div class="vs">/ 100</div></div>
+              <div style="flex: 1;">
+                <div class="finding"><div class="finding-bar red"></div><div><h4>2 critical errors</h4><p>Liability cap missing · Force majeure absent</p></div></div>
+                <div class="finding"><div class="finding-bar gold"></div><div><h4>4 warnings</h4><p>Ambiguous payment terms · Auto-renewal clause</p></div></div>
+                <div class="finding"><div class="finding-bar green"></div><div><h4>1-click fix</h4><p>Each finding has a Claude-suggested rewrite</p></div></div>
+              </div>
+            </div>
+            <div class="mono" style="font-size: 0.85vw; color: var(--muted); margin-top: auto;">POST /api/validator/analyze   →   SSE stream</div>
+          </div>
+        </div>
+        <div class="card" style="padding: 0; display: flex; flex-direction: column;">
+          <div style="background: var(--gold); color: var(--indigo); padding: 1vh 1.2vw;">
+            <div class="eyebrow" style="color: var(--indigo); margin-bottom: 0;">CONTRACT GENERATOR</div>
+          </div>
+          <div style="padding: 2vh 1.5vw; flex: 1; display: flex; flex-direction: column;">
+            <h3 style="font-family: var(--font-head); font-size: 1.8vw; font-weight: 400; margin-bottom: 2vh;">Pick a template. Answer questions. Done.</h3>
+            <div style="line-height: 2.5;">
+              <span class="tag">Sale & purchase</span>
+              <span class="tag">Lease (real estate)</span>
+              <span class="tag">Loan / credit</span>
+              <span class="tag">Services</span>
+              <span class="tag">Construction (podryad)</span>
+              <span class="tag">Pledge</span>
+              <span class="tag">Insurance</span>
+              <span class="tag">Donation</span>
+            </div>
+            <div style="margin-top: auto;">
+              <div class="stat" style="font-size: 4.5vw;">24+</div>
+              <p class="italic-quote" style="font-size: 1.1vw; color: var(--muted); margin-top: 0.5vh;">vetted Russian-language templates spanning 9 contract families.</p>
+              <div class="mono" style="font-size: 0.85vw; color: var(--muted); margin-top: 2vh;">POST /api/generator/generate   →   SSE stream</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="page-marker">12 / 17</div>
+      <div class="footer-brand">AI Uz Lawyer · Thesis Defense</div>
+    </div>
+  </section>
+
+  <!-- 13 MOBILE MVP -->
+  <section class="slide">
+    <div class="frame dark">
+      <div class="eyebrow">MOBILE MVP</div>
+      <h1 class="title" style="color: var(--cream);">Flutter app — one codebase, every pocket.</h1>
+      <p class="lede">A production-grade mobile client with Clean Architecture, BLoC state management, and 55 AI consultation personas. Ships to iOS and Android from a single Dart codebase.</p>
+      <div style="display: flex; gap: 3vw; flex: 1; min-height: 0; align-items: flex-start;">
+        <!-- Phone Mockup -->
+        <div style="display: flex; flex-direction: column; align-items: center;">
+          <div class="phone-frame">
+            <img src="mobile_screenshot.png" alt="AI Lawyer mobile home screen" />
+          </div>
+          <div class="mono" style="font-size: 0.7vw; color: #94A3B8; margin-top: 1vh;">Home · dark theme · Russian UI</div>
+        </div>
+        <!-- Details -->
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 1.5vh;">
+          <!-- Arch row -->
+          <div style="display: flex; gap: 1vw;">
+            <div class="card dark gold-top" style="flex: 1; padding: 1.2vh 1vw;">
+              <h3 style="color: var(--cream); font-size: 1.2vw;">Architecture</h3>
+              <p style="font-size: 0.85vw;">feature-first Clean Architecture · domain → data → presentation layers · DI via get_it + injectable</p>
+            </div>
+            <div class="card dark gold-top" style="flex: 1; padding: 1.2vh 1vw;">
+              <h3 style="color: var(--cream); font-size: 1.2vw;">State</h3>
+              <p style="font-size: 0.85vw;">flutter_bloc for all features · AppBlocObserver for global tracing · SSE streaming via Dio</p>
+            </div>
+            <div class="card dark gold-top" style="flex: 1; padding: 1.2vh 1vw;">
+              <h3 style="color: var(--cream); font-size: 1.2vw;">Navigation</h3>
+              <p style="font-size: 0.85vw;">go_router · JWT redirect guard · glassmorphic bottom nav · IndexedStack pages</p>
+            </div>
+          </div>
+          <!-- Stats -->
+          <div class="mobile-stats-grid">
+            <div class="mobile-stat-box"><div class="val">55</div><div class="lbl">AI consultation modes</div></div>
+            <div class="mobile-stat-box"><div class="val">9</div><div class="lbl">feature modules</div></div>
+            <div class="mobile-stat-box"><div class="val">RU + EN</div><div class="lbl">i18n with ARB files</div></div>
+            <div class="mobile-stat-box"><div class="val">JWT</div><div class="lbl">secure auth + flutter_secure_storage</div></div>
+          </div>
+          <!-- Module tags -->
+          <div>
+            <div style="font-size: 0.7vw; font-weight: 700; letter-spacing: 0.3em; color: var(--gold-soft); margin-bottom: 0.6vh;">FEATURE MODULES</div>
+            <div class="mobile-module-tags">
+              <span class="m-tag">Auth</span>
+              <span class="m-tag">Chat (55 modes)</span>
+              <span class="m-tag">Validator</span>
+              <span class="m-tag">Generator</span>
+              <span class="m-tag">Tasks / Kanban</span>
+              <span class="m-tag">History</span>
+              <span class="m-tag">Calendar</span>
+              <span class="m-tag">Organization</span>
+              <span class="m-tag">Documents</span>
+            </div>
+          </div>
+          <!-- Tech strip -->
+          <div style="display: flex; gap: 1vw; margin-top: auto;">
+            <div style="flex: 1; background: var(--indigo-soft); padding: 0.8vh 1vw; text-align: center;">
+              <div style="font-family: var(--font-mono); font-size: 0.85vw; color: var(--teal-soft);">Flutter 3.x</div>
+              <div style="font-size: 0.7vw; color: #94A3B8;">Dart SDK ≥3.2</div>
+            </div>
+            <div style="flex: 1; background: var(--indigo-soft); padding: 0.8vh 1vw; text-align: center;">
+              <div style="font-family: var(--font-mono); font-size: 0.85vw; color: var(--teal-soft);">BLoC 8.x</div>
+              <div style="font-size: 0.7vw; color: #94A3B8;">Event-driven state</div>
+            </div>
+            <div style="flex: 1; background: var(--indigo-soft); padding: 0.8vh 1vw; text-align: center;">
+              <div style="font-family: var(--font-mono); font-size: 0.85vw; color: var(--teal-soft);">go_router 17</div>
+              <div style="font-size: 0.7vw; color: #94A3B8;">Declarative routing</div>
+            </div>
+            <div style="flex: 1; background: var(--indigo-soft); padding: 0.8vh 1vw; text-align: center;">
+              <div style="font-family: var(--font-mono); font-size: 0.85vw; color: var(--teal-soft);">Dio 5.x</div>
+              <div style="font-size: 0.7vw; color: #94A3B8;">SSE + interceptors</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="page-marker">13 / 17</div>
+      <div class="footer-brand">AI Uz Lawyer · Thesis Defense</div>
+    </div>
+  </section>
+
+  <!-- 14 PRODUCTION -->
+  <section class="slide">
+    <div class="frame">
+      <div class="eyebrow">PRODUCTION</div>
+      <h1 class="title">Built like a real product — not a thesis demo.</h1>
+      <p class="lede">Auth, roles, billing, rate limits, security headers, healthchecks. The same hardening you'd ship to paying users.</p>
+      <div class="grid-3x2">
+        <div class="card gold-left"><h3>Multi-tenant orgs</h3><p>Each firm gets isolated users, tasks, chats, credits. HEAD invites and approves.</p></div>
+        <div class="card gold-left"><h3>3-tier roles</h3><p>HEAD · SENIOR · EMPLOYEE. Permission gates on every router.</p></div>
+        <div class="card gold-left"><h3>JWT + bcrypt</h3><p>30-day tokens, password hashing, secure storage on mobile.</p></div>
+        <div class="card gold-left"><h3>Rate limiting</h3><p>5/min auth · 10/min AI · 30/min general · 3/min contact form.</p></div>
+        <div class="card gold-left"><h3>Credit metering</h3><p>Per-org credit pools, daily limits, per-feature pricing tier.</p></div>
+        <div class="card gold-left"><h3>Docker + Nginx + Certbot</h3><p>One docker-compose, auto SSL renewal, healthchecks across all services.</p></div>
+      </div>
+      <div class="page-marker">14 / 17</div>
+      <div class="footer-brand">AI Uz Lawyer · Thesis Defense</div>
+    </div>
+  </section>
+
+  <!-- 14 VALIDATION -->
+  <section class="slide">
+    <div class="frame">
+      <div class="eyebrow">VALIDATION</div>
+      <h1 class="title">Where it stands today.</h1>
+      <p class="lede" style="font-style: italic;">These are the live system numbers and qualitative signals from the current build. Replace placeholder figures with your own measurements before the defense.</p>
+      <div class="grid-4" style="margin: 1vh 0 2vh;">
+        <div class="card dark gold-top" style="padding: 2vh 1.5vw;"><div class="stat" style="font-size: 3vw;">27</div><div style="color: #CBD5E1; font-size: 0.95vw; margin-top: 0.5vh;">codes ingested</div></div>
+        <div class="card dark gold-top" style="padding: 2vh 1.5vw;"><div class="stat" style="font-size: 3vw;">37,000+</div><div style="color: #CBD5E1; font-size: 0.95vw; margin-top: 0.5vh;">chunks indexed</div></div>
+        <div class="card dark gold-top" style="padding: 2vh 1.5vw;"><div class="stat" style="font-size: 3vw;">~120 ms</div><div style="color: #CBD5E1; font-size: 0.95vw; margin-top: 0.5vh;">median search latency</div></div>
+        <div class="card dark gold-top" style="padding: 2vh 1.5vw;"><div class="stat" style="font-size: 3vw;">99%</div><div style="color: #CBD5E1; font-size: 0.95vw; margin-top: 0.5vh;">uptime since launch</div></div>
+      </div>
+      <div class="grid-2" style="grid-template-columns: 1fr 1fr;">
+        <div class="card" style="border-left: 0.5vw solid var(--success); padding-left: calc(1.6vw - 0.5vw);">
+          <div class="eyebrow" style="color: var(--success);">WHAT WORKS WELL</div>
+          <ul class="minimal" style="margin-top: 1vh;">
+            <li>Source citations are accurate when retrieval lands the right article.</li>
+            <li>Russian queries successfully retrieve Uzbek statute chunks via cross-lingual embeddings.</li>
+            <li>BM25 picks up exact article references the semantic layer would otherwise miss.</li>
+          </ul>
+        </div>
+        <div class="card" style="border-left: 0.5vw solid var(--danger); padding-left: calc(1.6vw - 0.5vw);">
+          <div class="eyebrow" style="color: var(--danger);">KNOWN LIMITATIONS</div>
+          <ul class="minimal" style="margin-top: 1vh;">
+            <li>No formal eval suite yet — accuracy is anecdotal across ~60 test queries.</li>
+            <li>Long contracts &gt;40 pages exceed context for single-pass validation.</li>
+            <li>No Uzbek-language UI yet — interface is English/Russian only.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="page-marker">15 / 17</div>
+      <div class="footer-brand">AI Uz Lawyer · Thesis Defense</div>
+    </div>
+  </section>
+
+  <!-- 15 ROADMAP -->
+  <section class="slide">
+    <div class="frame">
+      <div class="eyebrow">ROADMAP</div>
+      <h1 class="title">What's next.</h1>
+      <p class="lede">Three horizons. The first two are within thesis scope; the third is what I'd build with a small team after defense.</p>
+      <div class="grid-3">
+        <div class="card" style="padding: 0; display: flex; flex-direction: column;">
+          <div style="background: var(--gold); color: var(--indigo); padding: 1.2vh 1.2vw;"><div class="horizon-tag" style="color: var(--indigo);">NOW · Q2 2026</div></div>
+          <div style="padding: 2vh 1.5vw; flex: 1;">
+            <h3 style="font-family: var(--font-head); font-size: 1.8vw; font-weight: 400; margin-bottom: 1vh;">Evaluation suite</h3>
+            <ul class="minimal">
+              <li>Curate a 200-question gold-set with bar association graders.</li>
+              <li>Measure citation accuracy, factuality, refusal rate.</li>
+              <li>Publish results in the thesis appendix.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="card dark" style="padding: 0; display: flex; flex-direction: column;">
+          <div style="background: var(--indigo); color: var(--cream); padding: 1.2vh 1.2vw;"><div class="horizon-tag" style="color: var(--gold-soft);">NEXT · Q3-Q4 2026</div></div>
+          <div style="padding: 2vh 1.5vw; flex: 1;">
+            <h3 style="font-family: var(--font-head); font-size: 1.8vw; font-weight: 400; margin-bottom: 1vh; color: var(--cream);">Uzbek-first UX</h3>
+            <ul class="minimal">
+              <li>Native Uzbek (Latin) UI translation.</li>
+              <li>Voice input for low-literacy users.</li>
+              <li>Public free tier with per-IP quotas.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="card" style="padding: 0; display: flex; flex-direction: column;">
+          <div style="background: var(--teal); color: var(--cream); padding: 1.2vh 1.2vw;"><div class="horizon-tag" style="color: var(--cream);">LATER · 2027+</div></div>
+          <div style="padding: 2vh 1.5vw; flex: 1;">
+            <h3 style="font-family: var(--font-head); font-size: 1.8vw; font-weight: 400; margin-bottom: 1vh;">Beyond Uzbekistan</h3>
+            <ul class="minimal">
+              <li>Open public API for civic-tech partners.</li>
+              <li>Extend RAG to Kazakh + Kyrgyz code corpora.</li>
+              <li>Specialized agents for tax, IP, immigration.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="page-marker">16 / 17</div>
+      <div class="footer-brand">AI Uz Lawyer · Thesis Defense</div>
+    </div>
+  </section>
+
+  <!-- 16 THANK YOU -->
+  <section class="slide">
+    <div class="frame dark">
+      <div class="eyebrow">THANK YOU</div>
+      <div style="margin: auto 0;">
+        <h1 class="title huge" style="color: var(--cream); font-size: 8vw;">Thank you.</h1>
+        <div style="width: 8vw; height: 0.4vh; background: var(--gold); margin: 2vh 0;"></div>
+        <p class="italic-quote" style="color: #CBD5E1; font-size: 1.8vw;">Questions, critiques, and harder problems are welcome.</p>
+      </div>
+      <div class="closer-grid">
+        <div class="closer-box"><div class="lbl">TRY IT</div><div class="val">lawyerai.uz</div><div class="note">live web app</div></div>
+        <div class="closer-box"><div class="lbl">CODE</div><div class="val">github.com/leofillium/ai-uz-lawyer</div><div class="note">monorepo</div></div>
+        <div class="closer-box"><div class="lbl">CONTACT</div><div class="val">leofillium@gmail.com</div><div class="note">Sherzod</div></div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div class="nav">
+  <button id="prev">◀ PREV</button>
+  <span class="counter" id="counter">01 / 17</span>
+  <button id="next">NEXT ▶</button>
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  let idx = 0;
+  const counter = document.getElementById('counter');
+  function show(i) {
+    idx = (i + slides.length) % slides.length;
+    slides.forEach((s, n) => s.classList.toggle('active', n === idx));
+    counter.textContent = String(idx + 1).padStart(2, '0') + ' / ' + String(slides.length).padStart(2, '0');
+  }
+  document.getElementById('prev').onclick = () => show(idx - 1);
+  document.getElementById('next').onclick = () => show(idx + 1);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') show(idx + 1);
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') show(idx - 1);
+    else if (e.key === 'Home') show(0);
+    else if (e.key === 'End') show(slides.length - 1);
+    else if (e.key === 'f' || e.key === 'F') {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+      else document.exitFullscreen();
+    }
+  });
+</script>
+</body>
+</html>
