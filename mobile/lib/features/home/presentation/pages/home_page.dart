@@ -145,6 +145,7 @@ class HomePage extends StatelessWidget {
         GridView.count(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
+          padding: EdgeInsets.zero,
           crossAxisCount: 2,
           mainAxisSpacing: DesignSystem.spacingMd,
           crossAxisSpacing: DesignSystem.spacingMd,

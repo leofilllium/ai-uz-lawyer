@@ -1,5 +1,5 @@
 class ApiConstants {
-  static const String baseUrl = 'https://lawyerai.uz';
+  static const String baseUrl = 'https://api.lawyerai.uz';
 
   // Auth
   static const String login = '/api/auth/login';

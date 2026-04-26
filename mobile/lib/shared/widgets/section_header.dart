@@ -43,13 +43,18 @@ class SectionHeader extends StatelessWidget {
             ),
             const SizedBox(width: DesignSystem.spacingSm),
           ],
-          Text(
-            title,
-            style: AppTextStyles.heading2.copyWith(
-              color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+          Flexible(
+            child: Text(
+              title,
+              style: AppTextStyles.heading2.copyWith(
+                color:
+                    isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
           ),
-          const Spacer(),
+          const SizedBox(width: DesignSystem.spacingSm),
           if (actionText != null)
             TextButton(
               onPressed: onAction,

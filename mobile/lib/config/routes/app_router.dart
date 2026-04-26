@@ -10,6 +10,7 @@ import '../../features/validator/validator.dart';
 import '../../features/generator/generator.dart';
 import '../../features/history/history.dart';
 import '../../features/tasks/tasks.dart';
+import '../../features/organization/organization.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
@@ -55,6 +56,9 @@ class AppRouter {
               ),
               BlocProvider<TasksBloc>(
                 create: (context) => sl<TasksBloc>()..add(LoadTasksEvent()),
+              ),
+              BlocProvider<OrganizationBloc>(
+                create: (context) => sl<OrganizationBloc>(),
               ),
             ],
             child: child,
